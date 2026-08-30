@@ -10,6 +10,7 @@
 | `plan.md` | Реализация этапа 1 (MVP) на C++/JUCE: архитектура, PR, риски |
 | `detector-design-recommendations.md` | Детекция ударов: лестница без сетей, Event, когда звать модель |
 | `git-workflow.md` | Ветки, PR, squash, когда появится `develop` |
+| `versioning.md` | Semver: `VERSION`, changelog, когда бампать |
 | `reaper-testing.md` | Как повесить плагин на многоканальный track |
 | `sessions/` | Заметки сессий: что сделали и **почему** |
 | `decisions/` | Решения, которые ограничивают будущую работу |

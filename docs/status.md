@@ -2,29 +2,29 @@
 
 Updated: 2026-08-30
 Stage: 1 (static alignment)
-Plan step: docs — detector design canon
+Plan step: docs — detector canon + semver 0.1.1
 Branch: `docs/detector-design`
-PR: opening
+PR: https://github.com/maxeliseyev/beat-equalizer/pull/6
 Blockers: none
 
 ## Done
 
-- Канон детекции: `docs/detector-design-recommendations.md` (лестница 1–6,
-  Event, GCC-PHAT навсегда для фазы, сеть не первая).
-- Вшито в AGENTS (инварианты 11–13), индекс docs, правка §3 плана продукта.
+- Канон детекции вшит в AGENTS / план продукта.
+- Версионирование: `VERSION` = 0.1.1, changelog, UI показывает номер.
 
 ## Now
 
-Открыть PR с этим каноном. Код детектора не писать.
+Донести PR #6 в `main`. Код детектора не писать.
 
 ## Next
 
-Продуктовый код: осциллограф (#5) если ещё не влит; затем Analyze по этому канону.
+Осциллограф (#5) если ещё открыт; затем Analyze по detector-design.
 
 ## Resume
 
 1. `git fetch && git checkout docs/detector-design && git pull`
-2. Читать `docs/detector-design-recommendations.md` перед любым onset-кодом.
+2. `make version` → 0.1.1
+3. После merge — Analyze с свежего `main`.
 
 ## Open
 

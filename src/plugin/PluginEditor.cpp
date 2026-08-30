@@ -6,7 +6,8 @@ BeatEqualizerAudioProcessorEditor::BeatEqualizerAudioProcessorEditor(BeatEqualiz
     : AudioProcessorEditor(&p),
       audioProcessor(p)
 {
-    title.setText("Beat Equalizer", juce::dontSendNotification);
+    title.setText("Beat Equalizer  " + juce::String(JucePlugin_VersionString),
+                 juce::dontSendNotification);
     title.setFont(juce::FontOptions(22.0f, juce::Font::bold));
     title.setJustificationType(juce::Justification::centredLeft);
     addAndMakeVisible(title);

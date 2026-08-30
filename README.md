@@ -7,6 +7,7 @@ Multi-mic drum alignment plugin (C++ / JUCE). MVP is **static** alignment: one d
 - Hit detection (no neural net until the ladder is exhausted): `docs/detector-design-recommendations.md`
 - Where we left off: `docs/status.md`
 - Repo / agent contract: `AGENTS.md`
+- Version: `VERSION` (semver) — see `docs/versioning.md`
 
 ## Build
 
