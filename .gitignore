@@ -1,0 +1,12 @@
+/build/
+/.cache/
+/out/
+CMakeUserPresets.json
+compile_commands.json
+CLAUDE.local.md
+.DS_Store
+*.user
+*.xcuserstate
+.idea/
+.vscode/
+cmake-build-*/
