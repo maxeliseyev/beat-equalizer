@@ -2,39 +2,30 @@
 
 Updated: 2026-08-30
 Stage: 1 (static alignment)
-Plan step: PR 3 — дробная задержка + PDC
-Branch: `feat/fractional-delay`
-PR: https://github.com/maxeliseyev/beat-equalizer/pull/3
+Plan step: chore — Makefile (хвост после merge #3)
+Branch: `chore/makefile`
+PR: opening
 Blockers: none
 
 ## Done
 
-- PR 1–2 в `main`: скелет, GCC-PHAT.
-- На этой ветке: `LatencyModel` (applied = max(d)−d, latency = ceil(max)+interpolator),
-  `FractionalDelay` Lagrange 5, invert, сглаживание 5 мс.
-- `processBlock` читает delayMs / polarity / enabled / A-B, `setLatencySamples`.
-- Тесты: 21 cases зелёные. Analyze ещё нет — задержка ручная.
-- Минимальный GUI: таблица всех живых каналов, пик входа, PDC, hint для Reaper
-  (`DOCUMENTATION/reaper-testing.md`).
-- `Makefile`: `make` / `make debug` / `make test` / `make vst3|au|standalone` / `make run`.
-  Release уже собран и установлен в `~/Library/Audio/Plug-Ins/`.
+- PR 1–3 в `main`: скелет, GCC-PHAT, Lagrange delay + PDC + таблица каналов.
+- #3 влит 2026-08-30; коммит Makefile ушёл уже после merge и в `main` не попал.
 
 ## Now
 
-Ждём squash-merge [#3](https://github.com/maxeliseyev/beat-equalizer/pull/3)
-и ручную проверку в Reaper по `reaper-testing.md`.
-Не подключать GCC-PHAT к processBlock.
+Донести `Makefile` (+ README/AGENTS) в `main`. Не начинать Analyze на этой ветке.
 
 ## Next
 
-После merge #3 — **PR 4: AlignmentEngine + worker + Analyze** (ring buffer, snapshot).
-Проверка в Reaper: `make` (уже Release в Plug-Ins) и `DOCUMENTATION/reaper-testing.md`.
+После этого PR — **plan PR 4: AlignmentEngine + worker + Analyze**.
+Reaper: `DOCUMENTATION/reaper-testing.md`. Сборка: `make`.
 
 ## Resume
 
-1. `git fetch && git checkout feat/fractional-delay && git pull`
-2. `make test` или `make` (Release).
-3. Reaper: `DOCUMENTATION/reaper-testing.md`. После merge — `feat/analyze-engine` от `main`.
+1. `git fetch && git checkout chore/makefile && git pull`
+2. `make test`
+3. После merge — от свежего `main`: `feat/analyze-engine`.
 
 ## Open
 
