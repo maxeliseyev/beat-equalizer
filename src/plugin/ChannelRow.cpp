@@ -27,7 +27,6 @@ void ChannelRow::layoutHeader(juce::Rectangle<int> row,
 }
 
 ChannelRow::ChannelRow(juce::AudioProcessorValueTreeState& state, int index)
-    : channelIndex(index)
 {
     enabledButton.setClickingTogglesState(true);
     addAndMakeVisible(enabledButton);

@@ -16,6 +16,8 @@ Blockers: none
 - Тесты: 21 cases зелёные. Analyze ещё нет — задержка ручная.
 - Минимальный GUI: таблица всех живых каналов, пик входа, PDC, hint для Reaper
   (`DOCUMENTATION/reaper-testing.md`).
+- `Makefile`: `make` / `make debug` / `make test` / `make vst3|au|standalone` / `make run`.
+  Release уже собран и установлен в `~/Library/Audio/Plug-Ins/`.
 
 ## Now
 
@@ -25,12 +27,13 @@ Blockers: none
 
 ## Next
 
-После merge — **PR 4: AlignmentEngine + worker + Analyze** (ring buffer, snapshot).
+После merge #3 — **PR 4: AlignmentEngine + worker + Analyze** (ring buffer, snapshot).
+Проверка в Reaper: `make` (уже Release в Plug-Ins) и `DOCUMENTATION/reaper-testing.md`.
 
 ## Resume
 
 1. `git fetch && git checkout feat/fractional-delay && git pull`
-2. `cmake --preset debug && cmake --build --preset debug --target beat_tests && ./build/debug/tests/beat_tests`
+2. `make test` или `make` (Release).
 3. Reaper: `DOCUMENTATION/reaper-testing.md`. После merge — `feat/analyze-engine` от `main`.
 
 ## Open

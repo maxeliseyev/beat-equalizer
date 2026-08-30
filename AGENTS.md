@@ -38,22 +38,22 @@ Windows — после стабильного macOS VST3, не в том же PR
 
 ## Сборка
 
-Toolchain: CMake ≥ 3.22, Ninja, Apple Clang. JUCE 8.0.15 и Catch2 — FetchContent,
-в git их нет.
+Канон — `make` (обёртка над CMake presets). Toolchain: CMake ≥ 3.22, Ninja,
+C++20. JUCE 8.0.15 и Catch2 — FetchContent, в git их нет.
 
 ```bash
-cmake --preset debug
-cmake --build --preset debug
-ctest --test-dir build/debug --output-on-failure
+make              # Release: тесты + форматы этой ОС
+make debug
+make test
+make vst3|au|standalone
+make run
 ```
 
-Release: `--preset release`. После сборки VST3/AU копируются в
-`~/Library/Audio/Plug-Ins/`. Standalone:
+macOS: VST3+AU+Standalone, копия в `~/Library/Audio/Plug-Ins/`.
+Linux/Windows (когда появится): VST3+Standalone, без AU.
 
-`build/<preset>/src/plugin/BeatEqualizer_artefacts/<Debug|Release>/Standalone/Beat Equalizer.app`
-
-Перед тем как считать задачу сделанной: проект собирается, затронутые тесты
-зелёные. GUI-изменения — прогон Standalone, не только компиляция.
+Перед тем как считать задачу сделанной: `make test` зелёный. GUI — Standalone
+или Reaper (`DOCUMENTATION/reaper-testing.md`), не только компиляция.
 
 ---
 
