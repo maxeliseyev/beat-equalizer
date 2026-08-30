@@ -19,11 +19,11 @@ BeatEqualizerAudioProcessorEditor::BeatEqualizerAudioProcessorEditor(BeatEqualiz
     latencyLabel.setJustificationType(juce::Justification::centredRight);
     addAndMakeVisible(latencyLabel);
 
-    hint.setText("Reaper: Track channels = N, insert this plugin, route each mic to 1..N. "
-                 "Waveforms share time (trigger on Reference). Delay earlier mics until attacks line up; Invert flips the trace.",
+    hint.setText("Route every mic into this insert (track channels = N). "
+                 "Waveforms share time (trigger on Reference). Delay earlier mics until attacks line up.",
                  juce::dontSendNotification);
     hint.setFont(juce::FontOptions(13.0f));
-    hint.setJustificationType(juce::Justification::topLeft);
+    hint.setJustificationType(juce::Justification::centredLeft);
     addAndMakeVisible(hint);
 
     addAndMakeVisible(abButton);
@@ -49,30 +49,47 @@ BeatEqualizerAudioProcessorEditor::BeatEqualizerAudioProcessorEditor(BeatEqualiz
     };
     setupHeader(headerOn, "On");
     setupHeader(headerName, "Ch");
-    setupHeader(headerWave, "Output");
     setupHeader(headerDelay, "Delay (ms)");
     setupHeader(headerPolarity, "Polarity");
     addAndMakeVisible(headerOn);
     addAndMakeVisible(headerName);
-    addAndMakeVisible(headerWave);
     addAndMakeVisible(headerDelay);
     addAndMakeVisible(headerPolarity);
 
+    scopeHeader.setText("Output  -  stacked traces, shared time", juce::dontSendNotification);
+    scopeHeader.setFont(juce::FontOptions(12.0f, juce::Font::bold));
+    addAndMakeVisible(scopeHeader);
+
+    scopeTimeLeft.setText("0 ms", juce::dontSendNotification);
+    scopeTimeLeft.setJustificationType(juce::Justification::centredLeft);
+    addAndMakeVisible(scopeTimeLeft);
+    scopeTimeRight.setJustificationType(juce::Justification::centredRight);
+    addAndMakeVisible(scopeTimeRight);
+
     scopeScratch.resize(static_cast<size_t>(beat::ScopeRing::kLength));
-    scopeWindow.resize(1024);
+    scopeWindow.resize(2048);
 
     auto& state = audioProcessor.getParameters();
     rows.reserve(static_cast<size_t>(beat::kMaxChannels));
+    strips.reserve(static_cast<size_t>(beat::kMaxChannels));
     for (int i = 0; i < beat::kMaxChannels; ++i)
     {
         auto row = std::make_unique<ChannelRow>(state, i);
-        rowList.addAndMakeVisible(*row);
+        tableList.addAndMakeVisible(*row);
         rows.push_back(std::move(row));
+
+        auto strip = std::make_unique<ScopeStrip>(i);
+        scopeList.addAndMakeVisible(*strip);
+        strips.push_back(std::move(strip));
     }
 
-    viewport.setViewedComponent(&rowList, false);
-    viewport.setScrollBarsShown(true, false);
-    addAndMakeVisible(viewport);
+    tableViewport.setViewedComponent(&tableList, false);
+    tableViewport.setScrollBarsShown(true, false);
+    addAndMakeVisible(tableViewport);
+
+    scopeViewport.setViewedComponent(&scopeList, false);
+    scopeViewport.setScrollBarsShown(true, false);
+    addAndMakeVisible(scopeViewport);
 
     abAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
         state, "global.abBypass", abButton);
@@ -86,8 +103,8 @@ BeatEqualizerAudioProcessorEditor::BeatEqualizerAudioProcessorEditor(BeatEqualiz
     updateRowVisibility();
 
     setResizable(true, true);
-    setResizeLimits(780, 460, 1200, 1000);
-    setSize(920, 640);
+    setResizeLimits(800, 560, 1400, 1200);
+    setSize(960, 720);
     startTimerHz(25);
 }
 
@@ -106,6 +123,9 @@ void BeatEqualizerAudioProcessorEditor::paint(juce::Graphics& g)
     hint.setColour(juce::Label::textColourId, juce::Colour(0xff8b919c));
     referenceLabel.setColour(juce::Label::textColourId, juce::Colours::white);
     distanceLabel.setColour(juce::Label::textColourId, juce::Colours::white);
+    scopeHeader.setColour(juce::Label::textColourId, juce::Colour(0xffc5cad3));
+    scopeTimeLeft.setColour(juce::Label::textColourId, juce::Colour(0xff8b919c));
+    scopeTimeRight.setColour(juce::Label::textColourId, juce::Colour(0xff8b919c));
 }
 
 void BeatEqualizerAudioProcessorEditor::resized()
@@ -118,7 +138,7 @@ void BeatEqualizerAudioProcessorEditor::resized()
     layoutLabel.setBounds(titleRow);
 
     area.removeFromTop(8);
-    hint.setBounds(area.removeFromTop(36));
+    hint.setBounds(area.removeFromTop(22));
     area.removeFromTop(10);
 
     auto controls = area.removeFromTop(28);
@@ -131,23 +151,43 @@ void BeatEqualizerAudioProcessorEditor::resized()
     distanceSlider.setBounds(controls);
 
     area.removeFromTop(12);
-    ChannelRow::layoutHeader(area.removeFromTop(20),
+
+    const int active = juce::jmax(1, activeChannelCount());
+    constexpr int kTableMaxVisible = 6;
+    const int tableBody = juce::jmin(active, kTableMaxVisible) * ChannelRow::kHeight;
+    auto tableArea = area.removeFromTop(20 + tableBody);
+    ChannelRow::layoutHeader(tableArea.removeFromTop(20),
                              headerOn,
                              headerName,
-                             headerWave,
                              headerDelay,
                              headerPolarity);
-
-    viewport.setBounds(area);
-
-    const int active = juce::jmax(1, audioProcessor.getTotalNumInputChannels());
-    rowList.setSize(viewport.getMaximumVisibleWidth(), active * ChannelRow::kHeight);
+    tableViewport.setBounds(tableArea);
+    tableList.setSize(tableViewport.getMaximumVisibleWidth(), active * ChannelRow::kHeight);
 
     int y = 0;
     for (int i = 0; i < active && i < (int) rows.size(); ++i)
     {
-        rows[static_cast<size_t>(i)]->setBounds(0, y, rowList.getWidth(), ChannelRow::kHeight);
+        rows[static_cast<size_t>(i)]->setBounds(0, y, tableList.getWidth(), ChannelRow::kHeight);
         y += ChannelRow::kHeight;
+    }
+
+    area.removeFromTop(14);
+    auto timeRow = area.removeFromBottom(16);
+    scopeTimeLeft.setBounds(timeRow.removeFromLeft(90));
+    scopeTimeRight.setBounds(timeRow.removeFromRight(90));
+
+    scopeHeader.setBounds(area.removeFromTop(18));
+    scopeViewport.setBounds(area);
+
+    const int available = juce::jmax(ScopeStrip::kMinHeight, scopeViewport.getHeight());
+    const int stripH = juce::jmax(ScopeStrip::kMinHeight, available / active);
+    scopeList.setSize(scopeViewport.getMaximumVisibleWidth(), active * stripH);
+
+    y = 0;
+    for (int i = 0; i < active && i < (int) strips.size(); ++i)
+    {
+        strips[static_cast<size_t>(i)]->setBounds(0, y, scopeList.getWidth(), stripH);
+        y += stripH;
     }
 }
 
@@ -169,9 +209,14 @@ void BeatEqualizerAudioProcessorEditor::refreshWaveforms()
     updateWaveforms();
 }
 
+int BeatEqualizerAudioProcessorEditor::activeChannelCount() const
+{
+    return juce::jmin(audioProcessor.getTotalNumInputChannels(), beat::kMaxChannels);
+}
+
 void BeatEqualizerAudioProcessorEditor::updateWaveforms()
 {
-    const int active = juce::jmin(audioProcessor.getTotalNumInputChannels(), beat::kMaxChannels);
+    const int active = activeChannelCount();
     const int captured = (int) scopeScratch.size();
     const int window = (int) scopeWindow.size();
     if (active <= 0 || captured <= 0 || window <= 0)
@@ -193,8 +238,13 @@ void BeatEqualizerAudioProcessorEditor::updateWaveforms()
         std::copy(scopeScratch.begin() + origin,
                   scopeScratch.begin() + origin + window,
                   scopeWindow.begin());
-        rows[static_cast<size_t>(ch)]->setWaveform(scopeWindow.data(), window);
+        strips[static_cast<size_t>(ch)]->setWaveform(scopeWindow.data(), window);
+        strips[static_cast<size_t>(ch)]->setReference(ch == ref);
     }
+
+    const double sr = audioProcessor.getCurrentSampleRate();
+    const double windowMs = (sr > 0.0) ? 1000.0 * (double) window / sr : 0.0;
+    scopeTimeRight.setText(juce::String(windowMs, 1) + " ms", juce::dontSendNotification);
 }
 
 void BeatEqualizerAudioProcessorEditor::updateLayoutInfo()
@@ -214,7 +264,11 @@ void BeatEqualizerAudioProcessorEditor::updateLayoutInfo()
 
 void BeatEqualizerAudioProcessorEditor::updateRowVisibility()
 {
-    const int active = juce::jmin(audioProcessor.getTotalNumInputChannels(), beat::kMaxChannels);
+    const int active = activeChannelCount();
     for (int i = 0; i < beat::kMaxChannels; ++i)
-        rows[static_cast<size_t>(i)]->setActive(i < active);
+    {
+        const bool on = i < active;
+        rows[static_cast<size_t>(i)]->setActive(on);
+        strips[static_cast<size_t>(i)]->setActive(on);
+    }
 }

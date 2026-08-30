@@ -1,8 +1,8 @@
 #include <catch2/catch_test_macros.hpp>
 
-#include "plugin/ChannelRow.h"
 #include "plugin/PluginEditor.h"
 #include "plugin/PluginProcessor.h"
+#include "plugin/ScopeStrip.h"
 
 #include <algorithm>
 #include <cmath>
@@ -80,30 +80,29 @@ TEST_CASE("processBlock writes output into the scope ring")
     REQUIRE(peak > 0.1f);
 }
 
-TEST_CASE("channel row paints a cyan oscilloscope strip")
+TEST_CASE("scope strip paints a cyan oscilloscope")
 {
     juce::ScopedJuceInitialiser_GUI gui;
 
-    BeatEqualizerAudioProcessor proc;
-    ChannelRow row(proc.getParameters(), 0);
-    row.setBounds(0, 0, 700, ChannelRow::kHeight);
-    row.setActive(true);
+    ScopeStrip strip(0);
+    strip.setBounds(0, 0, 800, 160);
+    strip.setActive(true);
 
     float sine[512];
     for (int i = 0; i < 512; ++i)
         sine[i] = 0.8f * std::sin((float) i * 0.12f);
-    row.setWaveform(sine, 512);
+    strip.setWaveform(sine, 512);
 
-    juce::Image image(juce::Image::ARGB, 700, ChannelRow::kHeight, true);
+    juce::Image image(juce::Image::ARGB, 800, 160, true);
     {
         juce::Graphics g(image);
-        row.paintEntireComponent(g, true);
+        strip.paintEntireComponent(g, true);
     }
 
     writePng(image, juce::File(BEAT_GUI_TEST_PNG).getSiblingFile("scope-row-test.png"));
 
     const int cyan = countNearColour(image, juce::Colour(0xff5ec8ff), 40);
-    REQUIRE(cyan > 80);
+    REQUIRE(cyan > 400);
 }
 
 TEST_CASE("editor copies the scope ring into cyan traces")
@@ -124,7 +123,7 @@ TEST_CASE("editor copies the scope ring into cyan traces")
 
     std::unique_ptr<juce::AudioProcessorEditor> editor(proc.createEditor());
     REQUIRE(editor != nullptr);
-    editor->setSize(920, 640);
+    editor->setSize(960, 720);
 
     auto* scoped = dynamic_cast<BeatEqualizerAudioProcessorEditor*>(editor.get());
     REQUIRE(scoped != nullptr);
@@ -140,5 +139,5 @@ TEST_CASE("editor copies the scope ring into cyan traces")
     writePng(image, dest);
 
     const int cyan = countNearColour(image, juce::Colour(0xff5ec8ff), 40);
-    REQUIRE(cyan > 200);
+    REQUIRE(cyan > 800);
 }

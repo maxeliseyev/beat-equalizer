@@ -15,9 +15,8 @@ Blockers: none
 
 ## Now
 
-Scope is wired: `processBlock` → `ScopeRing` → editor timer → cyan strips.
-Proved by `make test-gui` (PNG `build/release/scope-gui-test.png`).
-Reaper still showing peak meters = old module in memory, not missing GUI code.
+Layout: compact channel table on top, stacked scopes at the bottom
+(shared time, not overlay). `make test-gui` writes the PNG.
 
 ## Next
 
