@@ -10,6 +10,10 @@ inline constexpr int kMaxChannels = 24;
 inline constexpr float kDefaultMaxDistanceM = 4.0f;
 inline constexpr float kSpeedOfSoundMps = 343.0f;
 inline constexpr float kMaxDelayMs = 20.0f;
+inline constexpr float kAnalysisLowHz = 100.0f;
+inline constexpr float kAnalysisHighHz = 8000.0f;
+inline constexpr int kDefaultFftOrder = 13;
+inline constexpr float kPhatEps = 1.0e-12f;
 
 enum class ChannelRole
 {

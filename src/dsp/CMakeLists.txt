@@ -1,5 +1,7 @@
 add_library(beat_dsp STATIC
-    AlignmentSnapshot.cpp)
+    AlignmentSnapshot.cpp
+    Fft.cpp
+    GccPhat.cpp)
 
 target_include_directories(beat_dsp
     PUBLIC

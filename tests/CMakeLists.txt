@@ -1,6 +1,7 @@
 add_executable(beat_tests
     test_constants.cpp
-    test_snapshot.cpp)
+    test_snapshot.cpp
+    test_gcc_phat.cpp)
 
 target_link_libraries(beat_tests
     PRIVATE
