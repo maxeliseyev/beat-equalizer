@@ -2,12 +2,24 @@
 #include "PluginEditor.h"
 
 #include "dsp/Constants.h"
+#include "dsp/LatencyModel.h"
 
 BeatEqualizerAudioProcessor::BeatEqualizerAudioProcessor()
     : AudioProcessor(createBusesProperties()),
       parameters(*this, nullptr, "BeatEqualizer", beat::createParameterLayout()),
       snapshot(beat::AlignmentSnapshot::identity(2))
 {
+    for (int i = 0; i < beat::kMaxChannels; ++i)
+    {
+        channelParams[static_cast<size_t>(i)].delayMs =
+            parameters.getRawParameterValue(beat::channelParamId(i, "delayMs"));
+        channelParams[static_cast<size_t>(i)].polarity =
+            parameters.getRawParameterValue(beat::channelParamId(i, "polarity"));
+        channelParams[static_cast<size_t>(i)].enabled =
+            parameters.getRawParameterValue(beat::channelParamId(i, "enabled"));
+    }
+
+    abBypassParam = parameters.getRawParameterValue("global.abBypass");
 }
 
 juce::AudioProcessor::BusesProperties BeatEqualizerAudioProcessor::createBusesProperties()
@@ -17,12 +29,18 @@ juce::AudioProcessor::BusesProperties BeatEqualizerAudioProcessor::createBusesPr
         .withOutput("Output", juce::AudioChannelSet::stereo(), true);
 }
 
-void BeatEqualizerAudioProcessor::prepareToPlay(double, int)
+void BeatEqualizerAudioProcessor::prepareToPlay(double sampleRate, int)
 {
+    currentSampleRate = sampleRate;
     snapshot = beat::AlignmentSnapshot::identity(getTotalNumInputChannels());
+    delay.prepare(sampleRate, beat::kMaxChannels);
+    setLatencySamples(beat::LatencyModel::reportedLatency(0.0f));
 }
 
-void BeatEqualizerAudioProcessor::releaseResources() {}
+void BeatEqualizerAudioProcessor::releaseResources()
+{
+    delay.reset();
+}
 
 bool BeatEqualizerAudioProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const
 {
@@ -49,21 +67,52 @@ void BeatEqualizerAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
 
     const int numInput = getTotalNumInputChannels();
     const int numOutput = getTotalNumOutputChannels();
+    const int numSamples = buffer.getNumSamples();
+    const int numCh = juce::jmin(numInput, beat::kMaxChannels);
 
     for (int channel = numInput; channel < numOutput; ++channel)
-        buffer.clear(channel, 0, buffer.getNumSamples());
-}
+        buffer.clear(channel, 0, numSamples);
 
-void BeatEqualizerAudioProcessor::processBlock(juce::AudioBuffer<double>& buffer, juce::MidiBuffer& midi)
-{
-    juce::ignoreUnused(midi);
-    juce::ScopedNoDenormals noDenormals;
+    const bool bypass = abBypassParam != nullptr && abBypassParam->load() >= 0.5f;
+    const float sr = static_cast<float>(currentSampleRate);
 
-    const int numInput = getTotalNumInputChannels();
-    const int numOutput = getTotalNumOutputChannels();
+    float applied[beat::kMaxChannels] {};
+    bool enabled[beat::kMaxChannels] {};
+    bool invert[beat::kMaxChannels] {};
+    float maxApplied = 0.0f;
 
-    for (int channel = numInput; channel < numOutput; ++channel)
-        buffer.clear(channel, 0, buffer.getNumSamples());
+    for (int ch = 0; ch < numCh; ++ch)
+    {
+        const auto& params = channelParams[static_cast<size_t>(ch)];
+        enabled[ch] = params.enabled == nullptr || params.enabled->load() >= 0.5f;
+
+        const float delayMs = (params.delayMs != nullptr) ? params.delayMs->load() : 0.0f;
+        applied[ch] = enabled[ch] ? delayMs * 0.001f * sr : 0.0f;
+        if (applied[ch] < 0.0f)
+            applied[ch] = 0.0f;
+
+        const int polarity = (params.polarity != nullptr)
+                                 ? juce::roundToInt(params.polarity->load())
+                                 : 0;
+        invert[ch] = enabled[ch] && polarity == static_cast<int>(beat::PolarityMode::invert);
+
+        maxApplied = juce::jmax(maxApplied, applied[ch]);
+    }
+
+    const int latency = beat::LatencyModel::reportedLatency(maxApplied);
+    if (latency != getLatencySamples())
+        setLatencySamples(latency);
+
+    for (int ch = 0; ch < numCh; ++ch)
+    {
+        const float appliedDelay = (bypass || !enabled[ch]) ? maxApplied : applied[ch];
+        delay.setAppliedDelaySamples(ch, appliedDelay);
+        delay.setInvert(ch, !bypass && invert[ch]);
+    }
+
+    for (int n = 0; n < numSamples; ++n)
+        for (int ch = 0; ch < numCh; ++ch)
+            buffer.setSample(ch, n, delay.processSample(ch, buffer.getSample(ch, n)));
 }
 
 void BeatEqualizerAudioProcessor::numChannelsChanged()

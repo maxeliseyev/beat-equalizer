@@ -32,10 +32,20 @@ private:
     juce::ToggleButton abButton { "A/B Bypass" };
     juce::ToggleButton monoSumButton { "Mono Sum" };
 
+    juce::Label ch1DelayLabel;
+    juce::Slider ch1DelaySlider;
+    juce::Label ch2DelayLabel;
+    juce::Slider ch2DelaySlider;
+    juce::Label ch2PolarityLabel;
+    juce::ComboBox ch2PolarityBox;
+
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> referenceAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> distanceAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> abAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> monoSumAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> ch1DelayAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> ch2DelayAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> ch2PolarityAttachment;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(BeatEqualizerAudioProcessorEditor)
 };

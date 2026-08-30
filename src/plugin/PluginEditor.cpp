@@ -14,7 +14,7 @@ BeatEqualizerAudioProcessorEditor::BeatEqualizerAudioProcessorEditor(BeatEqualiz
     channelLabel.setJustificationType(juce::Justification::centredLeft);
     addAndMakeVisible(channelLabel);
 
-    note.setText("PR 1 skeleton: N-in / N-out passthrough. Analysis lands in later PRs.",
+    note.setText("PR 3: manual delay + invert + A/B with host PDC. Analyze is PR 4.",
                  juce::dontSendNotification);
     note.setJustificationType(juce::Justification::centredLeft);
     addAndMakeVisible(note);
@@ -37,6 +37,25 @@ BeatEqualizerAudioProcessorEditor::BeatEqualizerAudioProcessorEditor(BeatEqualiz
     addAndMakeVisible(abButton);
     addAndMakeVisible(monoSumButton);
 
+    ch1DelayLabel.setText("Ch 1 delay (ms)", juce::dontSendNotification);
+    addAndMakeVisible(ch1DelayLabel);
+    ch1DelaySlider.setSliderStyle(juce::Slider::LinearHorizontal);
+    ch1DelaySlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 72, 22);
+    addAndMakeVisible(ch1DelaySlider);
+
+    ch2DelayLabel.setText("Ch 2 delay (ms)", juce::dontSendNotification);
+    addAndMakeVisible(ch2DelayLabel);
+    ch2DelaySlider.setSliderStyle(juce::Slider::LinearHorizontal);
+    ch2DelaySlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 72, 22);
+    addAndMakeVisible(ch2DelaySlider);
+
+    ch2PolarityLabel.setText("Ch 2 polarity", juce::dontSendNotification);
+    addAndMakeVisible(ch2PolarityLabel);
+    ch2PolarityBox.addItem("Auto", 1);
+    ch2PolarityBox.addItem("Positive", 2);
+    ch2PolarityBox.addItem("Invert", 3);
+    addAndMakeVisible(ch2PolarityBox);
+
     auto& state = audioProcessor.getParameters();
     referenceAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
         state, "global.reference", referenceBox);
@@ -46,11 +65,17 @@ BeatEqualizerAudioProcessorEditor::BeatEqualizerAudioProcessorEditor(BeatEqualiz
         state, "global.abBypass", abButton);
     monoSumAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
         state, "global.monoSum", monoSumButton);
+    ch1DelayAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
+        state, beat::channelParamId(0, "delayMs"), ch1DelaySlider);
+    ch2DelayAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
+        state, beat::channelParamId(1, "delayMs"), ch2DelaySlider);
+    ch2PolarityAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
+        state, beat::channelParamId(1, "polarity"), ch2PolarityBox);
 
     audioProcessor.addChangeListener(this);
     updateChannelLabel();
 
-    setSize(720, 280);
+    setSize(720, 420);
 }
 
 BeatEqualizerAudioProcessorEditor::~BeatEqualizerAudioProcessorEditor()
@@ -66,6 +91,9 @@ void BeatEqualizerAudioProcessorEditor::paint(juce::Graphics& g)
     note.setColour(juce::Label::textColourId, juce::Colour(0xff8b919c));
     referenceLabel.setColour(juce::Label::textColourId, juce::Colours::white);
     distanceLabel.setColour(juce::Label::textColourId, juce::Colours::white);
+    ch1DelayLabel.setColour(juce::Label::textColourId, juce::Colours::white);
+    ch2DelayLabel.setColour(juce::Label::textColourId, juce::Colours::white);
+    ch2PolarityLabel.setColour(juce::Label::textColourId, juce::Colours::white);
 }
 
 void BeatEqualizerAudioProcessorEditor::resized()
@@ -92,6 +120,21 @@ void BeatEqualizerAudioProcessorEditor::resized()
     row = area.removeFromTop(28);
     abButton.setBounds(row.removeFromLeft(140));
     monoSumButton.setBounds(row.removeFromLeft(140));
+
+    area.removeFromTop(16);
+    row = area.removeFromTop(28);
+    ch1DelayLabel.setBounds(row.removeFromLeft(140));
+    ch1DelaySlider.setBounds(row);
+
+    area.removeFromTop(12);
+    row = area.removeFromTop(28);
+    ch2DelayLabel.setBounds(row.removeFromLeft(140));
+    ch2DelaySlider.setBounds(row);
+
+    area.removeFromTop(12);
+    row = area.removeFromTop(28);
+    ch2PolarityLabel.setBounds(row.removeFromLeft(140));
+    ch2PolarityBox.setBounds(row.removeFromLeft(140));
 }
 
 void BeatEqualizerAudioProcessorEditor::changeListenerCallback(juce::ChangeBroadcaster*)
