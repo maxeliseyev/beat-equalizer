@@ -41,9 +41,12 @@ private:
 
     juce::Label headerOn;
     juce::Label headerName;
-    juce::Label headerPeak;
+    juce::Label headerWave;
     juce::Label headerDelay;
     juce::Label headerPolarity;
+
+    std::vector<float> scopeScratch;
+    std::vector<float> scopeWindow;
 
     juce::Viewport viewport;
     juce::Component rowList;

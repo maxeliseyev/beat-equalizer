@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Parameters.h"
+#include "ScopeRing.h"
 #include "dsp/AlignmentSnapshot.h"
 #include "dsp/FractionalDelay.h"
 
@@ -44,6 +45,8 @@ public:
     const beat::AlignmentSnapshot& getSnapshot() const { return snapshot; }
     double getCurrentSampleRate() const { return currentSampleRate; }
     float getInputPeak(int channel) const;
+    const beat::ScopeRing& getScope() const { return scope; }
+    int getReferenceChannelIndex() const;
 
 private:
     struct ChannelParams
@@ -61,6 +64,8 @@ private:
     std::array<ChannelParams, beat::kMaxChannels> channelParams {};
     std::atomic<float>* abBypassParam = nullptr;
     std::array<std::atomic<float>, beat::kMaxChannels> inputPeak {};
+    beat::ScopeRing scope;
+    std::atomic<float>* referenceParam = nullptr;
     double currentSampleRate = 48000.0;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(BeatEqualizerAudioProcessor)

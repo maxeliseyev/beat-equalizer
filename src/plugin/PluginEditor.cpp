@@ -2,6 +2,8 @@
 
 #include "dsp/Constants.h"
 
+#include <algorithm>
+
 BeatEqualizerAudioProcessorEditor::BeatEqualizerAudioProcessorEditor(BeatEqualizerAudioProcessor& p)
     : AudioProcessorEditor(&p),
       audioProcessor(p)
@@ -18,7 +20,7 @@ BeatEqualizerAudioProcessorEditor::BeatEqualizerAudioProcessorEditor(BeatEqualiz
     addAndMakeVisible(latencyLabel);
 
     hint.setText("Reaper: Track channels = N, insert this plugin, route each mic to 1..N. "
-                 "Delay earlier mics (close) so they match later ones (OH). Green peak = signal is arriving.",
+                 "Waveforms share time (trigger on Reference). Delay earlier mics until attacks line up; Invert flips the trace.",
                  juce::dontSendNotification);
     hint.setFont(juce::FontOptions(13.0f));
     hint.setJustificationType(juce::Justification::topLeft);
@@ -47,14 +49,17 @@ BeatEqualizerAudioProcessorEditor::BeatEqualizerAudioProcessorEditor(BeatEqualiz
     };
     setupHeader(headerOn, "On");
     setupHeader(headerName, "Ch");
-    setupHeader(headerPeak, "In");
+    setupHeader(headerWave, "Output");
     setupHeader(headerDelay, "Delay (ms)");
     setupHeader(headerPolarity, "Polarity");
     addAndMakeVisible(headerOn);
     addAndMakeVisible(headerName);
-    addAndMakeVisible(headerPeak);
+    addAndMakeVisible(headerWave);
     addAndMakeVisible(headerDelay);
     addAndMakeVisible(headerPolarity);
+
+    scopeScratch.resize(static_cast<size_t>(beat::ScopeRing::kLength));
+    scopeWindow.resize(1024);
 
     auto& state = audioProcessor.getParameters();
     rows.reserve(static_cast<size_t>(beat::kMaxChannels));
@@ -81,9 +86,9 @@ BeatEqualizerAudioProcessorEditor::BeatEqualizerAudioProcessorEditor(BeatEqualiz
     updateRowVisibility();
 
     setResizable(true, true);
-    setResizeLimits(700, 420, 1100, 900);
-    setSize(820, 560);
-    startTimerHz(20);
+    setResizeLimits(780, 460, 1200, 1000);
+    setSize(920, 640);
+    startTimerHz(25);
 }
 
 BeatEqualizerAudioProcessorEditor::~BeatEqualizerAudioProcessorEditor()
@@ -129,7 +134,7 @@ void BeatEqualizerAudioProcessorEditor::resized()
     ChannelRow::layoutHeader(area.removeFromTop(20),
                              headerOn,
                              headerName,
-                             headerPeak,
+                             headerWave,
                              headerDelay,
                              headerPolarity);
 
@@ -158,8 +163,29 @@ void BeatEqualizerAudioProcessorEditor::timerCallback()
     updateLayoutInfo();
 
     const int active = juce::jmin(audioProcessor.getTotalNumInputChannels(), beat::kMaxChannels);
-    for (int i = 0; i < active; ++i)
-        rows[static_cast<size_t>(i)]->setPeak(audioProcessor.getInputPeak(i));
+    const int captured = (int) scopeScratch.size();
+    const int window = (int) scopeWindow.size();
+    if (active <= 0 || captured <= 0 || window <= 0)
+        return;
+
+    const auto& ring = audioProcessor.getScope();
+    const int ref = juce::jlimit(0, active - 1, audioProcessor.getReferenceChannelIndex());
+    ring.copyLast(ref, scopeScratch.data(), captured);
+
+    constexpr float triggerLevel = 0.12f;
+    int trigger = beat::ScopeRing::findRisingTrigger(scopeScratch.data(), captured, triggerLevel);
+    int origin = captured - window;
+    if (trigger >= 0)
+        origin = juce::jlimit(0, captured - window, trigger - window / 5);
+
+    for (int ch = 0; ch < active; ++ch)
+    {
+        ring.copyLast(ch, scopeScratch.data(), captured);
+        std::copy(scopeScratch.begin() + origin,
+                  scopeScratch.begin() + origin + window,
+                  scopeWindow.begin());
+        rows[static_cast<size_t>(ch)]->setWaveform(scopeWindow.data(), window);
+    }
 }
 
 void BeatEqualizerAudioProcessorEditor::updateLayoutInfo()
