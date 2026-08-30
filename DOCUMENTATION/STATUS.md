@@ -4,7 +4,7 @@ Updated: 2026-08-30
 Stage: 1 (static alignment)
 Plan step: PR 2 — GCC-PHAT + синтетические тесты
 Branch: `feat/gcc-phat`
-PR: opening
+PR: https://github.com/maxeliseyev/beat-equalizer/pull/2
 Blockers: none
 
 ## Done
@@ -17,7 +17,8 @@ Blockers: none
 
 ## Now
 
-Открыть PR 2 в `main`. UI / processBlock / worker не трогать.
+Ждём squash-merge [#2](https://github.com/maxeliseyev/beat-equalizer/pull/2).
+UI / processBlock / worker не трогать.
 
 ## Next
 
