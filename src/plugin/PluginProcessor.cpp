@@ -4,6 +4,8 @@
 #include "dsp/Constants.h"
 #include "dsp/LatencyModel.h"
 
+#include <cmath>
+
 BeatEqualizerAudioProcessor::BeatEqualizerAudioProcessor()
     : AudioProcessor(createBusesProperties()),
       parameters(*this, nullptr, "BeatEqualizer", beat::createParameterLayout()),
@@ -110,9 +112,32 @@ void BeatEqualizerAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
         delay.setInvert(ch, !bypass && invert[ch]);
     }
 
+    float blockPeak[beat::kMaxChannels] {};
+
     for (int n = 0; n < numSamples; ++n)
+    {
         for (int ch = 0; ch < numCh; ++ch)
-            buffer.setSample(ch, n, delay.processSample(ch, buffer.getSample(ch, n)));
+        {
+            const float x = buffer.getSample(ch, n);
+            blockPeak[ch] = juce::jmax(blockPeak[ch], std::abs(x));
+            buffer.setSample(ch, n, delay.processSample(ch, x));
+        }
+    }
+
+    for (int ch = 0; ch < numCh; ++ch)
+    {
+        const float decayed = inputPeak[static_cast<size_t>(ch)].load(std::memory_order_relaxed) * 0.88f;
+        inputPeak[static_cast<size_t>(ch)].store(juce::jmax(blockPeak[ch], decayed),
+                                                 std::memory_order_relaxed);
+    }
+}
+
+float BeatEqualizerAudioProcessor::getInputPeak(int channel) const
+{
+    if (channel < 0 || channel >= beat::kMaxChannels)
+        return 0.0f;
+
+    return inputPeak[static_cast<size_t>(channel)].load(std::memory_order_relaxed);
 }
 
 void BeatEqualizerAudioProcessor::numChannelsChanged()

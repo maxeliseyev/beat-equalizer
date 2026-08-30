@@ -14,10 +14,13 @@ Blockers: none
   `FractionalDelay` Lagrange 5, invert, сглаживание 5 мс.
 - `processBlock` читает delayMs / polarity / enabled / A-B, `setLatencySamples`.
 - Тесты: 21 cases зелёные. Analyze ещё нет — задержка ручная.
+- Минимальный GUI: таблица всех живых каналов, пик входа, PDC, hint для Reaper
+  (`DOCUMENTATION/reaper-testing.md`).
 
 ## Now
 
-Ждём squash-merge [#3](https://github.com/maxeliseyev/beat-equalizer/pull/3).
+Ждём squash-merge [#3](https://github.com/maxeliseyev/beat-equalizer/pull/3)
+и ручную проверку в Reaper по `reaper-testing.md`.
 Не подключать GCC-PHAT к processBlock.
 
 ## Next
@@ -28,7 +31,7 @@ Blockers: none
 
 1. `git fetch && git checkout feat/fractional-delay && git pull`
 2. `cmake --preset debug && cmake --build --preset debug --target beat_tests && ./build/debug/tests/beat_tests`
-3. Standalone: Ch 2 delay, Invert, A/B. После merge — `feat/analyze-engine` от `main`.
+3. Reaper: `DOCUMENTATION/reaper-testing.md`. После merge — `feat/analyze-engine` от `main`.
 
 ## Open
 

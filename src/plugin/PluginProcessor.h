@@ -42,6 +42,8 @@ public:
 
     juce::AudioProcessorValueTreeState& getParameters() { return parameters; }
     const beat::AlignmentSnapshot& getSnapshot() const { return snapshot; }
+    double getCurrentSampleRate() const { return currentSampleRate; }
+    float getInputPeak(int channel) const;
 
 private:
     struct ChannelParams
@@ -58,6 +60,7 @@ private:
     beat::FractionalDelay delay;
     std::array<ChannelParams, beat::kMaxChannels> channelParams {};
     std::atomic<float>* abBypassParam = nullptr;
+    std::array<std::atomic<float>, beat::kMaxChannels> inputPeak {};
     double currentSampleRate = 48000.0;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(BeatEqualizerAudioProcessor)
