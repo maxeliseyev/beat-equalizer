@@ -4,7 +4,7 @@ Updated: 2026-08-30
 Stage: 1 (static alignment)
 Plan step: PR 1 — скелет плагина + контракт репо
 Branch: `feat/plugin-skeleton`
-PR: opening (url появится после `gh pr create`)
+PR: https://github.com/maxeliseyev/beat-equalizer/pull/1
 Blockers: none
 
 ## Done
@@ -17,24 +17,23 @@ Blockers: none
   handoff/`STATUS.md`.
 - ADR: `mvp-static-nin-nout-no-ara`, `git-trunk-until-v1`.
 
-На `origin/main` пока стартовый коммит. Эта ветка — первый PR.
+На `origin/main` пока стартовый коммит. Первый PR открыт.
 
 ## Now
 
-Собрать PR из `feat/plugin-skeleton` в `main` (squash). GCC-PHAT в этот PR
-не входит.
+Ждём squash-merge [#1](https://github.com/maxeliseyev/beat-equalizer/pull/1).
+GCC-PHAT в этот PR не входит.
 
 ## Next
 
 После merge в `main` — **PR 2: GCC-PHAT + синтетика** (`src/dsp`, тесты, без UI).
-Не начинать PR 2 на этой ветке.
+Не начинать PR 2 на `feat/plugin-skeleton`.
 
 ## Resume
 
 1. `git fetch && git checkout feat/plugin-skeleton && git pull`
 2. `cmake --preset debug && cmake --build --preset debug && ctest --test-dir build/debug --output-on-failure`
-3. Если PR ещё открыт — ревью/доработка этой ветки. Если влит — ветка от
-   свежего `main`: `feat/gcc-phat`.
+3. PR открыт: ревью или merge. После merge — ветка от свежего `main`: `feat/gcc-phat`.
 
 ## Open
 
