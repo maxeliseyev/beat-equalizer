@@ -2,37 +2,40 @@
 
 Updated: 2026-08-30
 Stage: 1 (static alignment)
-Plan step: PR 2 — GCC-PHAT + синтетические тесты
-Branch: `feat/gcc-phat`
-PR: https://github.com/maxeliseyev/beat-equalizer/pull/2
+Plan step: PR 3 — дробная задержка + PDC
+Branch: `feat/fractional-delay`
+PR: https://github.com/maxeliseyev/beat-equalizer/pull/3
 Blockers: none
 
 ## Done
 
-- PR 1 влит в `main` (#1): скелет JUCE, контракт репо, handoff.
-- На этой ветке: `beat::Fft` (radix-2), `beat::GccPhat` (полоса 100 Hz–8 kHz,
-  окно τmax, парабола, полярность по невзвешенной корреляции).
-- Тесты: целая/дробная задержка, знак лага, инверсия, ложный период 20 мс,
-  48/96 kHz. `beat_tests` зелёные (12 cases). Плагин не вызывает GCC-PHAT.
+- PR 1–2 в `main`: скелет, GCC-PHAT.
+- На этой ветке: `LatencyModel` (applied = max(d)−d, latency = ceil(max)+interpolator),
+  `FractionalDelay` Lagrange 5, invert, сглаживание 5 мс.
+- `processBlock` читает delayMs / polarity / enabled / A-B, `setLatencySamples`.
+- Тесты: 21 cases зелёные. Analyze ещё нет — задержка ручная.
+- Минимальный GUI: таблица всех живых каналов, пик входа, PDC, hint для Reaper
+  (`DOCUMENTATION/reaper-testing.md`).
 
 ## Now
 
-Ждём squash-merge [#2](https://github.com/maxeliseyev/beat-equalizer/pull/2).
-UI / processBlock / worker не трогать.
+Ждём squash-merge [#3](https://github.com/maxeliseyev/beat-equalizer/pull/3)
+и ручную проверку в Reaper по `reaper-testing.md`.
+Не подключать GCC-PHAT к processBlock.
 
 ## Next
 
-После merge — **PR 3: дробная задержка + PDC** в realtime. Не начинать на этой ветке.
+После merge — **PR 4: AlignmentEngine + worker + Analyze** (ring buffer, snapshot).
 
 ## Resume
 
-1. `git fetch && git checkout feat/gcc-phat && git pull`
+1. `git fetch && git checkout feat/fractional-delay && git pull`
 2. `cmake --preset debug && cmake --build --preset debug --target beat_tests && ./build/debug/tests/beat_tests`
-3. Если PR открыт — ревью. Если влит — ветка от `main`: `feat/fractional-delay`.
+3. Reaper: `DOCUMENTATION/reaper-testing.md`. После merge — `feat/analyze-engine` от `main`.
 
 ## Open
 
-- Коммерческая лицензия JUCE vs GPL (на код не влияет).
+- Коммерческая лицензия JUCE vs GPL.
 - `Bteq` / `Algn` — заглушки.
 - Windows — после macOS VST3.
-- GitHub Require PR on `main` — всё ещё руками.
+- GitHub Require PR on `main`.

@@ -1,6 +1,7 @@
 add_library(beat_dsp STATIC
     AlignmentSnapshot.cpp
     Fft.cpp
+    FractionalDelay.cpp
     GccPhat.cpp)
 
 target_include_directories(beat_dsp
