@@ -4,7 +4,7 @@ Updated: 2026-08-30
 Stage: 1 (static alignment)
 Plan step: PR 3 — дробная задержка + PDC
 Branch: `feat/fractional-delay`
-PR: opening
+PR: https://github.com/maxeliseyev/beat-equalizer/pull/3
 Blockers: none
 
 ## Done
@@ -17,7 +17,8 @@ Blockers: none
 
 ## Now
 
-Открыть PR 3 в `main`. Не подключать GCC-PHAT к processBlock.
+Ждём squash-merge [#3](https://github.com/maxeliseyev/beat-equalizer/pull/3).
+Не подключать GCC-PHAT к processBlock.
 
 ## Next
 
