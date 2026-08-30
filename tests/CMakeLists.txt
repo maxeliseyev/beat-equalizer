@@ -14,3 +14,25 @@ target_link_libraries(beat_tests
 target_compile_features(beat_tests PRIVATE cxx_std_20)
 
 add_test(NAME beat_tests COMMAND beat_tests)
+
+add_executable(beat_gui_tests
+    test_scope_paint.cpp)
+
+target_link_libraries(beat_gui_tests
+    PRIVATE
+        BeatEqualizer
+        juce::juce_audio_utils
+        Catch2::Catch2WithMain)
+
+target_include_directories(beat_gui_tests
+    PRIVATE
+        ${CMAKE_SOURCE_DIR}/src
+        ${CMAKE_SOURCE_DIR}/src/plugin)
+
+target_compile_definitions(beat_gui_tests
+    PRIVATE
+        JUCE_WEB_BROWSER=0
+        JUCE_USE_CURL=0
+        BEAT_GUI_TEST_PNG="${CMAKE_BINARY_DIR}/scope-gui-test.png")
+
+target_compile_features(beat_gui_tests PRIVATE cxx_std_20)

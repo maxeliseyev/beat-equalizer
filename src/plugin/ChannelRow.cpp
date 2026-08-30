@@ -70,15 +70,27 @@ void ChannelRow::paint(juce::Graphics& g)
     g.fillRect(getLocalBounds());
 
     auto bounds = waveBounds();
-    g.setColour(juce::Colour(0xff0b0d11));
+    g.setColour(juce::Colour(0xff07090c));
     g.fillRect(bounds);
+    g.setColour(juce::Colour(0xff4a5a6a));
+    g.drawRect(bounds);
 
     const float midY = (float) bounds.getCentreY();
-    g.setColour(juce::Colour(0xff2a3038));
-    g.drawHorizontalLine((int) midY, (float) bounds.getX(), (float) bounds.getRight());
+    g.setColour(juce::Colour(0xff3a4450));
+    g.drawHorizontalLine((int) midY, (float) bounds.getX() + 1.0f, (float) bounds.getRight() - 1.0f);
+
+    const auto drawPlaceholder = [&g, bounds]()
+    {
+        g.setColour(juce::Colour(0xff9aa3ad));
+        g.setFont(juce::FontOptions(11.0f));
+        g.drawText("play to see waveform", bounds, juce::Justification::centred, false);
+    };
 
     if (waveform.size() < 2 || bounds.getWidth() < 2)
+    {
+        drawPlaceholder();
         return;
+    }
 
     const int count = (int) waveform.size();
     const int width = bounds.getWidth();
@@ -87,7 +99,16 @@ void ChannelRow::paint(juce::Graphics& g)
     float peak = 0.0f;
     for (float sample : waveform)
         peak = std::max(peak, std::abs(sample));
+
+    if (peak < 0.002f)
+    {
+        drawPlaceholder();
+        return;
+    }
+
     const float scale = height / std::max(peak, 0.08f);
+    const int innerTop = bounds.getY() + 1;
+    const int innerBottom = bounds.getBottom() - 1;
 
     for (int x = 0; x < width; ++x)
     {
@@ -104,13 +125,11 @@ void ChannelRow::paint(juce::Graphics& g)
         const bool clipped = hi > 1.0f || lo < -1.0f;
         g.setColour(clipped ? juce::Colour(0xffe05d5d) : juce::Colour(0xff5ec8ff));
 
-        const float y0 = juce::jlimit((float) bounds.getY() + 1.0f,
-                                      (float) bounds.getBottom() - 1.0f,
-                                      midY - hi * scale);
-        const float y1 = juce::jlimit((float) bounds.getY() + 1.0f,
-                                      (float) bounds.getBottom() - 1.0f,
-                                      midY - lo * scale);
-        g.drawVerticalLine(bounds.getX() + x, std::min(y0, y1), std::max(y0, y1) + 1.0f);
+        const float y0 = juce::jlimit((float) innerTop, (float) innerBottom, midY - hi * scale);
+        const float y1 = juce::jlimit((float) innerTop, (float) innerBottom, midY - lo * scale);
+        const int top = (int) std::floor(std::min(y0, y1));
+        const int bottom = (int) std::ceil(std::max(y0, y1));
+        g.fillRect(bounds.getX() + x, top, 1, std::max(2, bottom - top + 1));
     }
 }
 

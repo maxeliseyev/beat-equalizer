@@ -19,12 +19,14 @@ public:
 
     void paint(juce::Graphics&) override;
     void resized() override;
+    void refreshWaveforms();
 
 private:
     void changeListenerCallback(juce::ChangeBroadcaster*) override;
     void timerCallback() override;
     void updateLayoutInfo();
     void updateRowVisibility();
+    void updateWaveforms();
 
     BeatEqualizerAudioProcessor& audioProcessor;
 

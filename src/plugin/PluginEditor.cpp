@@ -8,7 +8,7 @@ BeatEqualizerAudioProcessorEditor::BeatEqualizerAudioProcessorEditor(BeatEqualiz
     : AudioProcessorEditor(&p),
       audioProcessor(p)
 {
-    title.setText("Beat Equalizer", juce::dontSendNotification);
+    title.setText("Beat Equalizer  |  scope", juce::dontSendNotification);
     title.setFont(juce::FontOptions(22.0f, juce::Font::bold));
     title.setJustificationType(juce::Justification::centredLeft);
     addAndMakeVisible(title);
@@ -113,7 +113,7 @@ void BeatEqualizerAudioProcessorEditor::resized()
     auto area = getLocalBounds().reduced(16);
 
     auto titleRow = area.removeFromTop(28);
-    title.setBounds(titleRow.removeFromLeft(220));
+    title.setBounds(titleRow.removeFromLeft(320));
     latencyLabel.setBounds(titleRow.removeFromRight(220));
     layoutLabel.setBounds(titleRow);
 
@@ -161,7 +161,16 @@ void BeatEqualizerAudioProcessorEditor::changeListenerCallback(juce::ChangeBroad
 void BeatEqualizerAudioProcessorEditor::timerCallback()
 {
     updateLayoutInfo();
+    updateWaveforms();
+}
 
+void BeatEqualizerAudioProcessorEditor::refreshWaveforms()
+{
+    updateWaveforms();
+}
+
+void BeatEqualizerAudioProcessorEditor::updateWaveforms()
+{
     const int active = juce::jmin(audioProcessor.getTotalNumInputChannels(), beat::kMaxChannels);
     const int captured = (int) scopeScratch.size();
     const int window = (int) scopeWindow.size();
