@@ -19,7 +19,7 @@ Date: 2026-08-30
 - `develop` не создавать.
 
 После v1.0.0 — `develop` как интеграция следующей линии, `main` как изданное,
-хотфиксы в `main`. Подробности: `DOCUMENTATION/git-workflow.md`.
+хотфиксы в `main`. Подробности: `docs/git-workflow.md`.
 
 ## Alternatives
 

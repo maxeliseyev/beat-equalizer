@@ -2,7 +2,7 @@
 
 ## Context
 
-Репозиторий `beat-equalizer` почти пустой: `README.md` и `DOCUMENTATION/drum-editor-plan.md`. Исходный план описывает полный продукт (ARA 2, по-ударная нарезка, квантизация, спектральный bleed). Этот документ — только **Этап 1**.
+Репозиторий `beat-equalizer` почти пустой: `README.md` и `docs/drum-editor-plan.md`. Исходный план описывает полный продукт (ARA 2, по-ударная нарезка, квантизация, спектральный bleed). Этот документ — только **Этап 1**.
 
 Цель MVP: обычный VST3/AU/Standalone с N входами и N выходами, без ARA и без нарезки. Плагин оценивает **одну задержку и полярность на канал**, применяет дробную задержку и олпасс-ротатор, показывает коррелометр и когерентность суммы. Это уже слышимый инструмент и полигон для ядра анализа на реальных записях.
 
@@ -187,7 +187,7 @@ src/plugin/         PluginProcessor, PluginEditor, ChannelTable,
 src/standalone/     FilePlaylist, Exporter (если не влезает в editor)
 tests/              test_gcc_phat, test_frac_delay, test_polarity,
                     test_latency_model, synthetic_kit
-DOCUMENTATION/      уже есть
+docs/      уже есть
 ```
 
 ## Порядок реализации
@@ -224,7 +224,7 @@ Ring buffer, кнопка Analyze, публикация snapshot, Freeze, руч
 
 ### PR 8 — прогон на реальном ките + калибровка порогов
 
-Несколько сессий 8–16 микрофонов. Зафиксировать в `DOCUMENTATION/` протокол: ожидаемые задержки OH vs kick ~1–5 мс, snare bottom обычно inverted, комната 5–15 мс. Если GCC-PHAT систематически врёт на kick/OH — тогда envelope pre-align, не раньше.
+Несколько сессий 8–16 микрофонов. Зафиксировать в `docs/` протокол: ожидаемые задержки OH vs kick ~1–5 мс, snare bottom обычно inverted, комната 5–15 мс. Если GCC-PHAT систематически врёт на kick/OH — тогда envelope pre-align, не раньше.
 
 ## Риски
 
@@ -279,4 +279,4 @@ Ring buffer, кнопка Analyze, публикация snapshot, Freeze, руч
 - `src/plugin/Parameters.{h,cpp}` — 24 слота APVTS, blob состояния
 - `tests/test_gcc_phat.cpp` — синтетика задержек и ложного периода
 - `tests/test_latency_model.cpp` — PDC-инвариант applied >= 0
-- `DOCUMENTATION/drum-editor-plan.md` — исходный полный план, не переписывать; MVP его Этап 1
+- `docs/drum-editor-plan.md` — исходный полный план, не переписывать; MVP его Этап 1

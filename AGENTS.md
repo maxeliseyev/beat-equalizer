@@ -1,19 +1,19 @@
 # AGENTS.md — beat-equalizer
 
-Контракт для людей и агентов в этом репозитории. Детали — в `DOCUMENTATION/`;
+Контракт для людей и агентов в этом репозитории. Детали — в `docs/`;
 сюда попадают только инварианты, которые нельзя «улучшить» по ходу задачи.
 
-**Первый файл любой сессии — `DOCUMENTATION/STATUS.md`.** Чат предыдущего
-агента может отсутствовать. Если STATUS расходится с git — чини STATUS до кода.
+**Первый файл любой сессии — `docs/status.md`.** Чат предыдущего
+агента может отсутствовать. Если `status.md` расходится с git — чини его до кода.
 
 | Зона | Читать сначала |
 |---|---|
-| Где остановились, ветка, следующий шаг | `DOCUMENTATION/STATUS.md` |
-| Протокол смены, что куда писать | `DOCUMENTATION/handoff.md` |
-| Продукт, этапы 1–4, алгоритмы | `DOCUMENTATION/drum-editor-plan.md` |
-| MVP (этап 1), порядок PR, DSP/UI | `DOCUMENTATION/plan.md` |
+| Где остановились, ветка, следующий шаг | `docs/status.md` |
+| Протокол смены, что куда писать | `docs/handoff.md` |
+| Продукт, этапы 1–4, алгоритмы | `docs/drum-editor-plan.md` |
+| MVP (этап 1), порядок PR, DSP/UI | `docs/plan.md` |
 | Сборка, форматы, лицензия JUCE | `README.md` |
-| Ветки и PR | `DOCUMENTATION/git-workflow.md` |
+| Ветки и PR | `docs/git-workflow.md` |
 
 Не копируй эти документы в чат и не дублируй их в код-комментариях.
 
@@ -32,7 +32,7 @@ N-in / N-out (2…24), одна задержка и полярность на к
 Windows — после стабильного macOS VST3, не в том же PR.
 
 Не начинай этап 2 (ARA, онсеты, по-ударные задержки, нарезка), пока этап 1
-не слышен на реальном ките и не закрыт по `DOCUMENTATION/plan.md` PR 8.
+не слышен на реальном ките и не закрыт по `docs/plan.md` PR 8.
 
 ---
 
@@ -53,7 +53,7 @@ macOS: VST3+AU+Standalone, копия в `~/Library/Audio/Plug-Ins/`.
 Linux/Windows (когда появится): VST3+Standalone, без AU.
 
 Перед тем как считать задачу сделанной: `make test` зелёный. GUI — Standalone
-или Reaper (`DOCUMENTATION/reaper-testing.md`), не только компиляция.
+или Reaper (`docs/reaper-testing.md`), не только компиляция.
 
 ---
 
@@ -63,7 +63,7 @@ Linux/Windows (когда появится): VST3+Standalone, без AU.
 src/dsp/        ядро: TDOA, delay, rotator, coherence. Без UI, без AudioProcessor.
 src/plugin/     JUCE: шины, APVTS, processBlock, editor, worker, ring buffer.
 tests/          Catch2, линк на beat_dsp. DSP-тесты не поднимают GUI.
-DOCUMENTATION/  планы, решения, заметки сессий.
+docs/           планы, решения, заметки сессий.
 ```
 
 Новый алгоритм живёт в `src/dsp` и покрывается тестом **до** того, как его
@@ -135,19 +135,19 @@ DSP (обязательны для PR с алгоритмом):
 
 Не тащить в `tests/` реальные сессии на гигабайты. Фикстуры — синтетика;
 реальный кит гоняется руками в Standalone (PR 8) и протоколируется в
-`DOCUMENTATION/`.
+`docs/`.
 
 ---
 
 ## Как работаем
 
-Полный флоу: `DOCUMENTATION/git-workflow.md`. ADR: `decisions/git-trunk-until-v1.md`.
+Полный флоу: `docs/git-workflow.md`. ADR: `decisions/git-trunk-until-v1.md`.
 
 До первой версии в проде **нет ветки `develop`**. Интеграция — только `main`.
 Вся работа, включая автора репо, идёт ветка → PR → squash в `main`.
 Прямой пуш в `main` запрещён.
 
-Порядок MVP — `DOCUMENTATION/plan.md`, секция «Порядок реализации». Один PR —
+Порядок MVP — `docs/plan.md`, секция «Порядок реализации». Один PR —
 один шаг. Не смешивать GCC-PHAT с таблицей UI «чтобы сразу было видно».
 
 Ветки от актуального `main`: `feat/…`, `fix/…`, `chore/…`, `docs/…`, `test/…`.
@@ -158,7 +158,7 @@ DSP (обязательны для PR с алгоритмом):
 До этого не создавать её «на будущее» и не целить PR в неё.
 
 Незаконченная работа живёт на запушенной feature-ветке, имя которой стоит
-в `STATUS.md`. Не на `main`, не только в чате, не только в local working tree.
+в `status.md`. Не на `main`, не только в чате, не только в local working tree.
 
 Definition of done:
 
@@ -166,7 +166,7 @@ Definition of done:
 2. Сборка debug (+ тесты) зелёная.
 3. Если менялся DSP — есть/обновлён синтетический тест.
 4. Если менялся GUI — проверен Standalone.
-5. `STATUS.md` соответствует git (ветка, Now, Next, Resume).
+5. `status.md` соответствует git (ветка, Now, Next, Resume).
 6. Если решение нетривиальное — session note с **Why**; если ограничит будущее — ADR.
 
 Не коммить `build/`, `_deps/`, `.DS_Store`. Не bump-ай JUCE «заодно».
@@ -175,24 +175,24 @@ Definition of done:
 
 ## Смена сессии
 
-Шаблоны: `DOCUMENTATION/handoff.md`. Нарушить пункт ниже = следующий агент
+Шаблоны: `docs/handoff.md`. Нарушить пункт ниже = следующий агент
 не может продолжить без этого чата.
 
 **Старт** (пока не сделано — не писать фичу):
 
 1. `git status -sb`, ветка, последние коммиты, открытые PR.
-2. `DOCUMENTATION/STATUS.md` целиком.
-3. Session note, на которую ссылается STATUS, если ссылается.
+2. `docs/status.md` целиком.
+3. Session note, на которую ссылается `status.md`, если ссылается.
 
 **Конец** (и когда «ещё не готово»):
 
 1. Код на feature-ветке; собирающееся закоммитить; ветку **push**.
-2. Переписать `STATUS.md`: Branch, Now, Next, Resume обязательны.
+2. Переписать `status.md`: Branch, Now, Next, Resume обязательны.
 3. Session note, если было Why / тупик / нетривиальный баг.
 4. Канон (`plan.md`, `drum-editor-plan.md`, этот файл, ADR) — в том же
    изменении, что и поведение, не отдельным «потом в доках».
 
-`STATUS.md` перезаписывать, не дописывать летопись. Летопись = git + `sessions/`.
+`status.md` перезаписывать, не дописывать летопись. Летопись = git + `sessions/`.
 
 ---
 
@@ -200,7 +200,7 @@ Definition of done:
 
 Один дом на факт — таблица в `handoff.md`. Кратко:
 
-- курсор смены → `STATUS.md`;
+- курсор смены → `status.md`;
 - почему в этой сессии → `sessions/`;
 - повторно всплывёт → `decisions/`;
 - как делать этап 1 → `plan.md`;

@@ -2,7 +2,7 @@
 
 Updated: 2026-08-30
 Stage: 1 (static alignment)
-Plan step: chore — Makefile (хвост после merge #3)
+Plan step: chore — Makefile + `docs/` (хвост после merge #3)
 Branch: `chore/makefile`
 PR: https://github.com/maxeliseyev/beat-equalizer/pull/4
 Blockers: none
@@ -10,16 +10,17 @@ Blockers: none
 ## Done
 
 - PR 1–3 в `main`: скелет, GCC-PHAT, Lagrange delay + PDC + таблица каналов.
-- #3 влит 2026-08-30; коммит Makefile ушёл уже после merge и в `main` не попал.
+- `DOCUMENTATION/` переименован в `docs/`, курсор — `docs/status.md`.
+- В этом PR также `Makefile`.
 
 ## Now
 
-Донести `Makefile` (+ README/AGENTS) в `main`. Не начинать Analyze на этой ветке.
+Донести #4 в `main`. Не начинать Analyze на этой ветке.
 
 ## Next
 
-После этого PR — **plan PR 4: AlignmentEngine + worker + Analyze**.
-Reaper: `DOCUMENTATION/reaper-testing.md`. Сборка: `make`.
+После merge — **plan PR 4: AlignmentEngine + worker + Analyze** (это не GitHub #4).
+Reaper: `docs/reaper-testing.md`. Сборка: `make`.
 
 ## Resume
 

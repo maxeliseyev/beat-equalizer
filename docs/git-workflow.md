@@ -29,7 +29,7 @@ feat/gcc-phat   fix/pdc-click   chore/clang-format   docs/agents-md
 коммиты на `main`.
 
 Незаконченная сессия: push feature-ветки (хотя бы draft PR) и имя ветки в
-`STATUS.md`. Local working tree на `main` второй человек не подхватит.
+`status.md`. Local working tree на `main` второй человек не подхватит.
 
 ### Имена веток
 
@@ -45,7 +45,7 @@ feat/gcc-phat   fix/pdc-click   chore/clang-format   docs/agents-md
 
 ### PR
 
-- Один PR = один шаг `DOCUMENTATION/plan.md` или один связный фикс.
+- Один PR = один шаг `docs/plan.md` или один связный фикс.
 - В описании: зачем, как проверить, какие инварианты из `AGENTS.md` задеты.
 - Не смешивать DSP-ядро и UI «чтобы сразу было видно».
 - Не тащить bump JUCE, реформат всего дерева и фичу в одном PR.
