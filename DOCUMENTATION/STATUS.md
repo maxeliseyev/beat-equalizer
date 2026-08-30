@@ -4,7 +4,7 @@ Updated: 2026-08-30
 Stage: 1 (static alignment)
 Plan step: chore — Makefile (хвост после merge #3)
 Branch: `chore/makefile`
-PR: opening
+PR: https://github.com/maxeliseyev/beat-equalizer/pull/4
 Blockers: none
 
 ## Done
