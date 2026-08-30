@@ -4,7 +4,7 @@ Updated: 2026-08-30
 Stage: 1 (static alignment)
 Plan step: feat — oscilloscope strips (sMexoscope-style)
 Branch: `feat/scope`
-PR: opening
+PR: https://github.com/maxeliseyev/beat-equalizer/pull/5
 Blockers: none
 
 ## Done
