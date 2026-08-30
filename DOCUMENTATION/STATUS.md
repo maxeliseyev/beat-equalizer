@@ -2,43 +2,37 @@
 
 Updated: 2026-08-30
 Stage: 1 (static alignment)
-Plan step: PR 1 — скелет плагина + контракт репо
-Branch: `feat/plugin-skeleton`
-PR: opening (url появится после `gh pr create`)
+Plan step: PR 2 — GCC-PHAT + синтетические тесты
+Branch: `feat/gcc-phat`
+PR: https://github.com/maxeliseyev/beat-equalizer/pull/2
 Blockers: none
 
 ## Done
 
-- Продуктовый план: `DOCUMENTATION/drum-editor-plan.md`.
-- План MVP: `DOCUMENTATION/plan.md` (PR 1–8).
-- Скелет C++/JUCE: CMake, JUCE 8.0.15 FetchContent, `beat_dsp`, N-in/N-out
-  passthrough, APVTS 24 слота, Catch2; debug-сборка и `beat_tests` зелёные.
-- Контракт репо: `AGENTS.md`, `.clang-format`, git-флоу без `develop` до v1,
-  handoff/`STATUS.md`.
-- ADR: `mvp-static-nin-nout-no-ara`, `git-trunk-until-v1`.
-
-На `origin/main` пока стартовый коммит. Эта ветка — первый PR.
+- PR 1 влит в `main` (#1): скелет JUCE, контракт репо, handoff.
+- На этой ветке: `beat::Fft` (radix-2), `beat::GccPhat` (полоса 100 Hz–8 kHz,
+  окно τmax, парабола, полярность по невзвешенной корреляции).
+- Тесты: целая/дробная задержка, знак лага, инверсия, ложный период 20 мс,
+  48/96 kHz. `beat_tests` зелёные (12 cases). Плагин не вызывает GCC-PHAT.
 
 ## Now
 
-Собрать PR из `feat/plugin-skeleton` в `main` (squash). GCC-PHAT в этот PR
-не входит.
+Ждём squash-merge [#2](https://github.com/maxeliseyev/beat-equalizer/pull/2).
+UI / processBlock / worker не трогать.
 
 ## Next
 
-После merge в `main` — **PR 2: GCC-PHAT + синтетика** (`src/dsp`, тесты, без UI).
-Не начинать PR 2 на этой ветке.
+После merge — **PR 3: дробная задержка + PDC** в realtime. Не начинать на этой ветке.
 
 ## Resume
 
-1. `git fetch && git checkout feat/plugin-skeleton && git pull`
-2. `cmake --preset debug && cmake --build --preset debug && ctest --test-dir build/debug --output-on-failure`
-3. Если PR ещё открыт — ревью/доработка этой ветки. Если влит — ветка от
-   свежего `main`: `feat/gcc-phat`.
+1. `git fetch && git checkout feat/gcc-phat && git pull`
+2. `cmake --preset debug && cmake --build --preset debug --target beat_tests && ./build/debug/tests/beat_tests`
+3. Если PR открыт — ревью. Если влит — ветка от `main`: `feat/fractional-delay`.
 
 ## Open
 
-- Коммерческая лицензия JUCE vs GPL на время разработки (на код не влияет).
-- Имя плагина / коды `Bteq` `Algn` — заглушки, живут.
+- Коммерческая лицензия JUCE vs GPL (на код не влияет).
+- `Bteq` / `Algn` — заглушки.
 - Windows — после macOS VST3.
-- GitHub: включить Require PR on `main`.
+- GitHub Require PR on `main` — всё ещё руками.
