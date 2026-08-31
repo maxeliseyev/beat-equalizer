@@ -1,4 +1,5 @@
 juce_add_plugin(BeatEqualizer
+    VERSION ${PROJECT_VERSION}
     COMPANY_NAME "Beat Equalizer"
     BUNDLE_ID com.beatequalizer.align
     IS_SYNTH FALSE

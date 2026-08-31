@@ -13,6 +13,7 @@
 CONFIG ?= release
 PRESET := $(CONFIG)
 BUILD_DIR := build/$(CONFIG)
+VERSION := $(shell tr -d ' \n' < VERSION)
 
 ifeq ($(CONFIG),debug)
 ARTEFACT_CONFIG := Debug
@@ -40,7 +41,7 @@ STANDALONE_BIN := $(ARTEFACT_DIR)/Standalone/$(PLUGIN_NAME)
 endif
 endif
 
-.PHONY: all debug plugin test test-gui vst3 au standalone run where configure clean help
+.PHONY: all debug plugin test vst3 au standalone run where version configure clean help
 
 all: test plugin where
 
@@ -83,7 +84,11 @@ else
 	"$(STANDALONE_BIN)"
 endif
 
+version:
+	@echo $(VERSION)
+
 where:
+	@echo "version:   $(VERSION)"
 	@echo "host:      $(HOST)"
 	@echo "config:    $(CONFIG)"
 	@echo "build:     $(BUILD_DIR)"
@@ -107,5 +112,6 @@ help:
 	@echo "make vst3|au|standalone"
 	@echo "make run          Open Standalone"
 	@echo "make where        Print output paths"
+	@echo "make version      Print VERSION"
 	@echo "make clean        Remove build/debug and build/release"
 	@echo "CONFIG=debug|release (default release)"
