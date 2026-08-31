@@ -75,7 +75,7 @@ BeatEqualizerAudioProcessorEditor::BeatEqualizerAudioProcessorEditor(BeatEqualiz
     scopeTimeRight.setJustificationType(juce::Justification::centredRight);
     addAndMakeVisible(scopeTimeRight);
 
-    scopeScratch.resize(4096);
+    scopeScratch.resize(static_cast<size_t>(audioProcessor.getScope().length()));
 
     auto& state = audioProcessor.getParameters();
     rows.reserve(static_cast<size_t>(beat::kMaxChannels));
