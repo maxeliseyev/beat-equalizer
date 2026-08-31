@@ -1,4 +1,5 @@
 add_library(beat_dsp STATIC
+    AlignmentEngine.cpp
     AlignmentSnapshot.cpp
     Fft.cpp
     FractionalDelay.cpp

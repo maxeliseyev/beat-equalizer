@@ -22,3 +22,9 @@ TEST_CASE("non-positive inputs yield zero lag")
     REQUIRE(beat::maxLagSamples(4.0f, 0.0) == 0);
     REQUIRE(beat::maxLagSeconds(-1.0f) == 0.0f);
 }
+
+TEST_CASE("delay line reaches the furthest distance the search window allows")
+{
+    const float furthestMs = 1000.0f * beat::maxLagSeconds(beat::kMaxDistanceM);
+    REQUIRE(beat::kMaxDelayMs >= furthestMs);
+}

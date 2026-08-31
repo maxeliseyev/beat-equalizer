@@ -26,6 +26,7 @@ GccPhat::GccPhat(int fftOrder)
       spectrumRef(static_cast<size_t>(fft.size())),
       spectrumSig(static_cast<size_t>(fft.size()))
 {
+    searchWindow.reserve(static_cast<size_t>(fft.size()));
 }
 
 int GccPhat::lagIndex(int lag) const
@@ -92,17 +93,23 @@ GccPhat::Result GccPhat::estimate(const float* reference,
 
     int bestLag = 0;
     float bestAbs = -1.0f;
+    searchWindow.clear();
 
     for (int lag = -maxLag; lag <= maxLag; ++lag)
     {
         const float value = spectrumRef[static_cast<size_t>(lagIndex(lag))].real();
         const float absValue = std::abs(value);
+        searchWindow.push_back(absValue);
         if (absValue > bestAbs)
         {
             bestAbs = absValue;
             bestLag = lag;
         }
     }
+
+    const auto middle = searchWindow.begin() + static_cast<long>(searchWindow.size() / 2);
+    std::nth_element(searchWindow.begin(), middle, searchWindow.end());
+    const float median = *middle;
 
     const float ym1 = std::abs(spectrumRef[static_cast<size_t>(lagIndex(bestLag - 1))].real());
     const float y0 = std::abs(spectrumRef[static_cast<size_t>(lagIndex(bestLag))].real());
@@ -115,6 +122,7 @@ GccPhat::Result GccPhat::estimate(const float* reference,
 
     result.lagSamples = static_cast<float>(bestLag) + delta;
     result.phatPeak = y0;
+    result.peakRatio = bestAbs / (median + kPhatEps);
     result.valid = std::isfinite(result.lagSamples) && y0 > 0.0f;
 
     const int integerLag = static_cast<int>(std::lround(result.lagSamples));

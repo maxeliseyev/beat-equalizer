@@ -2,6 +2,8 @@ add_executable(beat_tests
     test_constants.cpp
     test_snapshot.cpp
     test_gcc_phat.cpp
+    test_alignment_engine.cpp
+    test_analysis_ring.cpp
     test_latency_model.cpp
     test_fractional_delay.cpp
     test_scope_ring.cpp)
@@ -16,7 +18,8 @@ target_compile_features(beat_tests PRIVATE cxx_std_20)
 add_test(NAME beat_tests COMMAND beat_tests)
 
 add_executable(beat_gui_tests
-    test_scope_paint.cpp)
+    test_scope_paint.cpp
+    test_analyze_flow.cpp)
 
 target_link_libraries(beat_gui_tests
     PRIVATE

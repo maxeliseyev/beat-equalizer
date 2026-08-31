@@ -1,8 +1,10 @@
 #pragma once
 
+#include "AnalysisWorker.h"
 #include "Parameters.h"
 #include "ScopeRing.h"
 #include "dsp/AlignmentSnapshot.h"
+#include "dsp/AnalysisRing.h"
 #include "dsp/FractionalDelay.h"
 
 #include <array>
@@ -48,6 +50,15 @@ public:
     const beat::ScopeRing& getScope() const { return scope; }
     int getReferenceChannelIndex() const;
 
+    void requestAnalyze();
+    // Публично, потому что путь «результат -> параметры» проверяется тестом
+    // без message loop; worker зовёт то же самое из handleAsyncUpdate.
+    void applyAnalysisResult(const beat::AlignmentEngine::Result& result);
+    const beat::AnalysisRing& getAnalysisRing() const { return analysisRing; }
+    bool isAnalysisBusy() const { return analysisWorker.isBusy(); }
+    bool isFrozen() const;
+    juce::String getAnalysisStatus() const { return analysisStatus; }
+
 private:
     struct ChannelParams
     {
@@ -58,6 +69,8 @@ private:
 
     static BusesProperties createBusesProperties();
 
+    void setParameterValue(const juce::String& parameterId, float value);
+
     juce::AudioProcessorValueTreeState parameters;
     beat::AlignmentSnapshot snapshot;
     beat::FractionalDelay delay;
@@ -66,6 +79,11 @@ private:
     std::array<std::atomic<float>, beat::kMaxChannels> inputPeak {};
     beat::ScopeRing scope;
     std::atomic<float>* referenceParam = nullptr;
+    std::atomic<float>* maxDistanceParam = nullptr;
+    std::atomic<float>* freezeParam = nullptr;
+    beat::AnalysisRing analysisRing;
+    AnalysisWorker analysisWorker { analysisRing };
+    juce::String analysisStatus { "Press Analyze after playing a few bars" };
     double currentSampleRate = 48000.0;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(BeatEqualizerAudioProcessor)

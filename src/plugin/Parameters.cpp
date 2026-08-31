@@ -24,12 +24,17 @@ juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout()
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
         juce::ParameterID { "global.maxDistanceM", 1 },
         "Max Distance",
-        juce::NormalisableRange<float>(0.5f, 10.0f, 0.01f, 0.5f),
+        juce::NormalisableRange<float>(kMinDistanceM, kMaxDistanceM, 0.01f, 0.5f),
         kDefaultMaxDistanceM));
 
     params.push_back(std::make_unique<juce::AudioParameterBool>(
         juce::ParameterID { "global.abBypass", 1 },
         "A/B Bypass",
+        false));
+
+    params.push_back(std::make_unique<juce::AudioParameterBool>(
+        juce::ParameterID { "global.freeze", 1 },
+        "Freeze",
         false));
 
     params.push_back(std::make_unique<juce::AudioParameterBool>(
