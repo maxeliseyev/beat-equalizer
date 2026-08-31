@@ -4,7 +4,7 @@ Updated: 2026-08-31
 Stage: 1 (static alignment)
 Plan step: PR 7 — Standalone loader, export, персистентность
 Branch: `feat/standalone-bench`
-PR: открыть из этой ветки
+PR: https://github.com/maxeliseyev/beat-equalizer/pull/12
 Blockers: none
 
 ## Done
@@ -15,7 +15,7 @@ Blockers: none
 
 ## Now
 
-Ветка готова к PR. Стенд собран, но на живом ките ещё не гонялся — это и есть
+PR 12 открыт, ждёт приёмки. Стенд собран, но на живом ките ещё не гонялся — это и есть
 следующий шаг плана.
 
 ## Next
