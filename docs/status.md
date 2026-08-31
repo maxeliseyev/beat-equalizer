@@ -2,28 +2,32 @@
 
 Updated: 2026-08-31
 Stage: 1 (static alignment)
-Plan step: feat — scope Time window
-Branch: `feat/scope-time`
-PR: https://github.com/maxeliseyev/beat-equalizer/pull/7
+Plan step: PR 4 — AlignmentEngine + worker + Analyze
+Branch: `feat/analyze-engine`
+PR: none (в работе)
 Blockers: none
 
 ## Done
 
-- PR 1–6 in `main` (strips, Makefile, detector canon, 0.1.1).
+- PR 1–8 в `main`: скелет, GCC-PHAT, Lagrange+PDC, Makefile/docs, осциллограф,
+  канон детектора, Time-окно скопа (0.1.1).
 
 ## Now
 
-Scope Time slider (ms, 5-1000, default 40). Shared window for all strips.
-sMexoscope pixels/sample not copied — window is wall-clock.
+Ветка только заведена, STATUS синхронизирован с git (PR 7 и 8 слиты).
+Дальше — ядро анализа: кольцевой буфер сырого входа, AlignmentEngine
+(кадры → GCC-PHAT → медиана → полярность → snapshot), worker-поток, кнопки
+Analyze / Freeze.
 
 ## Next
 
-After this PR: **Analyze engine** from fresh `main`.
+Собрать `make test` зелёным и открыть PR 4.
 
 ## Resume
 
-1. `git fetch && git checkout feat/scope-time && git pull`
-2. `make test && make test-gui && make vst3`
+1. `git fetch && git checkout feat/analyze-engine && git pull`
+2. `make test && make test-gui`
+3. Standalone: два канала, сдвиг 2.3 мс + инверсия → Analyze находит.
 
 ## Open
 
