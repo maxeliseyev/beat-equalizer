@@ -4,7 +4,7 @@ Updated: 2026-08-31
 Stage: 1 (static alignment)
 Plan step: PR 4 — AlignmentEngine + worker + Analyze
 Branch: `feat/analyze-engine`
-PR: открыть из этой ветки
+PR: https://github.com/maxeliseyev/beat-equalizer/pull/9
 Blockers: none
 
 ## Done
@@ -17,7 +17,7 @@ Blockers: none
 
 ## Now
 
-Ветка готова к PR. Не проверено ушами: реальный кит и Standalone с двумя WAV —
+PR 9 открыт, ждёт приёмки. Не проверено ушами: реальный кит и Standalone с двумя WAV —
 автотесты гоняют синтетику через `processBlock`, но не звук в живом хосте.
 
 ## Next
