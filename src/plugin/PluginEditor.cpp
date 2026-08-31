@@ -1,6 +1,7 @@
 #include "PluginEditor.h"
 
 #include "dsp/Constants.h"
+#include "dsp/Correlation.h"
 
 #include <algorithm>
 
@@ -40,6 +41,7 @@ BeatEqualizerAudioProcessorEditor::BeatEqualizerAudioProcessorEditor(BeatEqualiz
     addAndMakeVisible(coherenceLabel);
 
     addAndMakeVisible(abButton);
+    addAndMakeVisible(monoSumButton);
 
     referenceLabel.setText("Reference", juce::dontSendNotification);
     addAndMakeVisible(referenceLabel);
@@ -62,12 +64,17 @@ BeatEqualizerAudioProcessorEditor::BeatEqualizerAudioProcessorEditor(BeatEqualiz
     };
     setupHeader(headerOn, "On");
     setupHeader(headerName, "Ch");
+    setupHeader(headerRole, "Role");
     setupHeader(headerDelay, "Delay (ms)");
+    setupHeader(headerRotator, "Rotator");
     setupHeader(headerPolarity, "Polarity");
-    addAndMakeVisible(headerOn);
-    addAndMakeVisible(headerName);
-    addAndMakeVisible(headerDelay);
-    addAndMakeVisible(headerPolarity);
+    setupHeader(headerCorr, "Corr");
+    headerCorr.setJustificationType(juce::Justification::centredRight);
+    for (auto* header : { &headerOn, &headerName, &headerRole, &headerDelay, &headerRotator,
+                          &headerPolarity, &headerCorr })
+        addAndMakeVisible(*header);
+
+    addAndMakeVisible(correlometer);
 
     scopeHeader.setText("Output  -  stacked traces, shared time", juce::dontSendNotification);
     scopeHeader.setFont(juce::FontOptions(12.0f, juce::Font::bold));
@@ -90,6 +97,10 @@ BeatEqualizerAudioProcessorEditor::BeatEqualizerAudioProcessorEditor(BeatEqualiz
     scopeScratch.resize(static_cast<size_t>(audioProcessor.getScope().length()));
 
     auto& state = audioProcessor.getParameters();
+    for (int i = 0; i < beat::kMaxChannels; ++i)
+        enabledParams[static_cast<size_t>(i)] =
+            state.getRawParameterValue(beat::channelParamId(i, "enabled"));
+
     rows.reserve(static_cast<size_t>(beat::kMaxChannels));
     strips.reserve(static_cast<size_t>(beat::kMaxChannels));
     for (int i = 0; i < beat::kMaxChannels; ++i)
@@ -115,6 +126,8 @@ BeatEqualizerAudioProcessorEditor::BeatEqualizerAudioProcessorEditor(BeatEqualiz
         state, "global.abBypass", abButton);
     freezeAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
         state, "global.freeze", freezeButton);
+    monoSumAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
+        state, "global.monoSum", monoSumButton);
     referenceAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
         state, "global.reference", referenceBox);
     distanceAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
@@ -129,8 +142,8 @@ BeatEqualizerAudioProcessorEditor::BeatEqualizerAudioProcessorEditor(BeatEqualiz
     updateAnalysisStatus();
 
     setResizable(true, true);
-    setResizeLimits(800, 560, 1400, 1200);
-    setSize(960, 720);
+    setResizeLimits(880, 640, 1600, 1400);
+    setSize(1040, 760);
     startTimerHz(25);
 }
 
@@ -147,6 +160,7 @@ void BeatEqualizerAudioProcessorEditor::paint(juce::Graphics& g)
     layoutLabel.setColour(juce::Label::textColourId, juce::Colour(0xffc5cad3));
     latencyLabel.setColour(juce::Label::textColourId, juce::Colour(0xffe8c547));
     hint.setColour(juce::Label::textColourId, juce::Colour(0xff8b919c));
+    monoSumButton.setColour(juce::ToggleButton::textColourId, juce::Colours::white);
     analysisStatus.setColour(juce::Label::textColourId, juce::Colour(0xffc5cad3));
     coherenceLabel.setColour(juce::Label::textColourId, juce::Colour(0xff7ddc9a));
     referenceLabel.setColour(juce::Label::textColourId, juce::Colours::white);
@@ -171,9 +185,10 @@ void BeatEqualizerAudioProcessorEditor::resized()
     area.removeFromTop(10);
 
     auto controls = area.removeFromTop(28);
-    abButton.setBounds(controls.removeFromLeft(220));
+    abButton.setBounds(controls.removeFromLeft(100));
+    monoSumButton.setBounds(controls.removeFromLeft(110));
     controls.removeFromLeft(12);
-    referenceLabel.setBounds(controls.removeFromLeft(80));
+    referenceLabel.setBounds(controls.removeFromLeft(76));
     referenceBox.setBounds(controls.removeFromLeft(90));
     controls.removeFromLeft(12);
     distanceLabel.setBounds(controls.removeFromLeft(120));
@@ -194,11 +209,14 @@ void BeatEqualizerAudioProcessorEditor::resized()
     constexpr int kTableMaxVisible = 6;
     const int tableBody = juce::jmin(active, kTableMaxVisible) * ChannelRow::kHeight;
     auto tableArea = area.removeFromTop(20 + tableBody);
-    ChannelRow::layoutHeader(tableArea.removeFromTop(20),
-                             headerOn,
-                             headerName,
-                             headerDelay,
-                             headerPolarity);
+    const auto headerColumns = ChannelColumns::from(tableArea.removeFromTop(20));
+    headerOn.setBounds(headerColumns.enable);
+    headerName.setBounds(headerColumns.name);
+    headerRole.setBounds(headerColumns.role);
+    headerDelay.setBounds(headerColumns.delay);
+    headerRotator.setBounds(headerColumns.rotator);
+    headerPolarity.setBounds(headerColumns.polarity);
+    headerCorr.setBounds(headerColumns.corr);
     tableViewport.setBounds(tableArea);
     tableList.setSize(tableViewport.getMaximumVisibleWidth(), active * ChannelRow::kHeight);
 
@@ -209,7 +227,10 @@ void BeatEqualizerAudioProcessorEditor::resized()
         y += ChannelRow::kHeight;
     }
 
-    area.removeFromTop(14);
+    area.removeFromTop(12);
+    correlometer.setBounds(area.removeFromTop(Correlometer::kHeight));
+    area.removeFromTop(12);
+
     auto axisRow = area.removeFromBottom(16);
     scopeTimeLeft.setBounds(axisRow.removeFromLeft(90));
     scopeTimeRight.setBounds(axisRow.removeFromRight(90));
@@ -298,7 +319,11 @@ void BeatEqualizerAudioProcessorEditor::updateWaveforms()
     if ((int) scopeScratch.size() != captured)
         scopeScratch.resize(static_cast<size_t>(captured));
     if ((int) scopeWindow.size() != window)
+    {
         scopeWindow.resize(static_cast<size_t>(window));
+        referenceWindow.resize(static_cast<size_t>(window));
+        sumWindow.resize(static_cast<size_t>(window));
+    }
 
     const int ref = juce::jlimit(0, active - 1, audioProcessor.getReferenceChannelIndex());
     ring.copyLast(ref, scopeScratch.data(), captured);
@@ -309,6 +334,16 @@ void BeatEqualizerAudioProcessorEditor::updateWaveforms()
     if (trigger >= 0)
         origin = juce::jlimit(0, captured - window, trigger - window / 5);
 
+    std::copy(scopeScratch.begin() + origin,
+              scopeScratch.begin() + origin + window,
+              referenceWindow.begin());
+    std::fill(sumWindow.begin(), sumWindow.end(), 0.0f);
+
+    // Корреляция считается 25 раз в секунду по всем каналам, поэтому окно
+    // прореживается: на глаз разницы нет, а работы в message thread втрое меньше.
+    const int stride = juce::jmax(1, window / 2048);
+    int summed = 0;
+
     for (int ch = 0; ch < active; ++ch)
     {
         ring.copyLast(ch, scopeScratch.data(), captured);
@@ -317,7 +352,40 @@ void BeatEqualizerAudioProcessorEditor::updateWaveforms()
                   scopeWindow.begin());
         strips[static_cast<size_t>(ch)]->setWaveform(scopeWindow.data(), window);
         strips[static_cast<size_t>(ch)]->setReference(ch == ref);
+
+        auto& row = *rows[static_cast<size_t>(ch)];
+        if (ch == ref)
+        {
+            row.setIsReference(true);
+            continue;
+        }
+
+        row.setCorrelation(
+            beat::correlation(referenceWindow.data(), scopeWindow.data(), window, stride));
+
+        auto* enabled = enabledParams[static_cast<size_t>(ch)];
+        if (enabled != nullptr && enabled->load() < 0.5f)
+            continue;
+
+        for (int i = 0; i < window; ++i)
+            sumWindow[static_cast<size_t>(i)] += scopeWindow[static_cast<size_t>(i)];
+        ++summed;
     }
+
+    if (summed > 0)
+    {
+        const float gain = 1.0f / static_cast<float>(summed);
+        for (auto& sample : sumWindow)
+            sample *= gain;
+
+        correlometer.setPair(referenceWindow.data(), sumWindow.data(), window);
+    }
+    else
+    {
+        correlometer.setPair(nullptr, nullptr, 0);
+    }
+
+    correlometer.repaint();
 
     const double sr = audioProcessor.getCurrentSampleRate();
     const double windowMs = (sr > 0.0) ? 1000.0 * (double) window / sr : 0.0;
