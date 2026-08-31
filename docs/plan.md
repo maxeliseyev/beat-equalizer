@@ -185,7 +185,7 @@ src/dsp/            GccPhat, FractionalDelay, AllpassRotator,
                     Coherence, AlignmentEngine
 src/plugin/         PluginProcessor, PluginEditor, ChannelTable,
                     Correlometer, AnalysisView, parameters
-src/standalone/     FilePlaylist, Exporter (если не влезает в editor)
+src/plugin/         FilePlayer, Exporter (стенд Standalone живёт там же)
 tests/              test_gcc_phat, test_frac_delay, test_polarity,
                     test_latency_model, synthetic_kit
 docs/      уже есть
