@@ -141,3 +141,27 @@ TEST_CASE("editor copies the scope ring into cyan traces")
     const int cyan = countNearColour(image, juce::Colour(0xff5ec8ff), 40);
     REQUIRE(cyan > 800);
 }
+
+TEST_CASE("scope time parameter sets the visible window")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+
+    BeatEqualizerAudioProcessor proc;
+    proc.enableAllBuses();
+    proc.prepareToPlay(48000.0, 128);
+
+    auto* param = proc.getParameters().getParameter("global.scopeTimeMs");
+    REQUIRE(param != nullptr);
+
+    std::unique_ptr<juce::AudioProcessorEditor> editor(proc.createEditor());
+    auto* scoped = dynamic_cast<BeatEqualizerAudioProcessorEditor*>(editor.get());
+    REQUIRE(scoped != nullptr);
+
+    param->setValueNotifyingHost(param->convertTo0to1(10.0f));
+    scoped->refreshWaveforms();
+    REQUIRE(scoped->getScopeWindowSamples() == 480);
+
+    param->setValueNotifyingHost(param->convertTo0to1(40.0f));
+    scoped->refreshWaveforms();
+    REQUIRE(scoped->getScopeWindowSamples() == 1920);
+}
