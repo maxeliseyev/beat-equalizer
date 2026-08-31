@@ -18,6 +18,7 @@ public:
     void reset();
 
     void setRotation(int channel, float frequencyHz, float amount);
+    void snapToTargets();
     float processSample(int channel, float input);
 
     // c для частоты, на которой фаза allpass равна -90 градусов.

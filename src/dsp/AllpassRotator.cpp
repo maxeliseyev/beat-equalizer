@@ -80,6 +80,12 @@ void AllpassRotator::setRotation(int channel, float frequencyHz, float amount)
     targetAmount[ch] = std::clamp(amount, 0.0f, 1.0f);
 }
 
+void AllpassRotator::snapToTargets()
+{
+    std::copy(targetCoeff.begin(), targetCoeff.end(), currentCoeff.begin());
+    std::copy(targetAmount.begin(), targetAmount.end(), currentAmount.begin());
+}
+
 float AllpassRotator::processSample(int channel, float input)
 {
     if (channel < 0 || channel >= numChannels)

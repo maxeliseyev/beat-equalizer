@@ -14,6 +14,8 @@ public:
     void reset();
 
     void setAppliedDelaySamples(int channel, float delaySamples);
+    // Офлайн-рендер не должен слышать сглаживание: задержка встаёт сразу.
+    void snapToTargets();
     void setInvert(int channel, bool shouldInvert);
 
     float processSample(int channel, float input);
