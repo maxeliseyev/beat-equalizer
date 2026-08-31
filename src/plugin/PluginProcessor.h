@@ -72,6 +72,8 @@ private:
         std::atomic<float>* delayMs = nullptr;
         std::atomic<float>* polarity = nullptr;
         std::atomic<float>* enabled = nullptr;
+        std::atomic<float>* mute = nullptr;
+        std::atomic<float>* solo = nullptr;
         std::atomic<float>* rotatorAmount = nullptr;
         std::atomic<float>* rotatorHz = nullptr;
     };

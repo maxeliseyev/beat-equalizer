@@ -39,6 +39,8 @@ private:
     void updateAnalysisStatus();
     void updateBench();
     void syncChannelCount();
+    void updateChannelNames();
+    bool isAudible(int channel) const;
 
     BeatEqualizerAudioProcessor& audioProcessor;
 
@@ -50,6 +52,7 @@ private:
     juce::TextButton loadButton { "Load files..." };
     juce::TextButton playButton { "Play" };
     juce::TextButton exportButton { "Export aligned..." };
+    juce::TextButton audioButton { "Audio..." };
     juce::Label benchLabel;
     std::unique_ptr<juce::FileChooser> chooser;
     bool standalone = false;
@@ -69,6 +72,8 @@ private:
     juce::Slider distanceSlider;
 
     juce::Label headerOn;
+    juce::Label headerSolo;
+    juce::Label headerMute;
     juce::Label headerName;
     juce::Label headerRole;
     juce::Label headerDelay;
@@ -91,6 +96,8 @@ private:
     std::array<std::atomic<float>*, beat::kMaxChannels> enabledParams {};
     std::array<std::atomic<float>*, beat::kMaxChannels> delayParams {};
     std::array<std::atomic<float>*, beat::kMaxChannels> polarityParams {};
+    std::array<std::atomic<float>*, beat::kMaxChannels> muteParams {};
+    std::array<std::atomic<float>*, beat::kMaxChannels> soloParams {};
     std::atomic<float>* bypassParam = nullptr;
 
     juce::Viewport tableViewport;

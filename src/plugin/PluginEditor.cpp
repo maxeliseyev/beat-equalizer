@@ -5,6 +5,12 @@
 
 #include <algorithm>
 
+// Настройки устройства (частота, размер буфера) живут в обёртке Standalone.
+// Заголовок header-only и требует juce_audio_utils; в других форматах
+// StandalonePluginHolder::getInstance() просто отдаёт nullptr.
+#include <juce_audio_utils/juce_audio_utils.h>
+#include <juce_audio_plugin_client/Standalone/juce_StandaloneFilterWindow.h>
+
 namespace
 {
 // Вертикальная раскладка задаётся один раз: resized() и chromeHeight() обязаны
@@ -105,7 +111,13 @@ BeatEqualizerAudioProcessorEditor::BeatEqualizerAudioProcessorEditor(BeatEqualiz
                              });
     };
 
-    for (auto* button : { &loadButton, &playButton, &exportButton })
+    audioButton.onClick = []
+    {
+        if (auto* holder = juce::StandalonePluginHolder::getInstance())
+            holder->showAudioSettingsDialog();
+    };
+
+    for (auto* button : { &loadButton, &playButton, &exportButton, &audioButton })
     {
         addChildComponent(*button);
         button->setVisible(standalone);
@@ -152,15 +164,17 @@ BeatEqualizerAudioProcessorEditor::BeatEqualizerAudioProcessorEditor(BeatEqualiz
         label.setFont(juce::FontOptions(12.0f, juce::Font::bold));
     };
     setupHeader(headerOn, "On");
-    setupHeader(headerName, "Ch");
+    setupHeader(headerSolo, "S");
+    setupHeader(headerMute, "M");
+    setupHeader(headerName, "Ch / file");
     setupHeader(headerRole, "Role");
     setupHeader(headerDelay, "Delay (ms)");
     setupHeader(headerRotator, "Rotator");
     setupHeader(headerPolarity, "Polarity");
     setupHeader(headerCorr, "Corr");
     headerCorr.setJustificationType(juce::Justification::centredRight);
-    for (auto* header : { &headerOn, &headerName, &headerRole, &headerDelay, &headerRotator,
-                          &headerPolarity, &headerCorr })
+    for (auto* header : { &headerOn, &headerSolo, &headerMute, &headerName, &headerRole,
+                          &headerDelay, &headerRotator, &headerPolarity, &headerCorr })
         addAndMakeVisible(*header);
 
     addAndMakeVisible(correlometer);
@@ -195,6 +209,10 @@ BeatEqualizerAudioProcessorEditor::BeatEqualizerAudioProcessorEditor(BeatEqualiz
             state.getRawParameterValue(beat::channelParamId(i, "delayMs"));
         polarityParams[static_cast<size_t>(i)] =
             state.getRawParameterValue(beat::channelParamId(i, "polarity"));
+        muteParams[static_cast<size_t>(i)] =
+            state.getRawParameterValue(beat::channelParamId(i, "mute"));
+        soloParams[static_cast<size_t>(i)] =
+            state.getRawParameterValue(beat::channelParamId(i, "solo"));
     }
     bypassParam = state.getRawParameterValue("global.abBypass");
 
@@ -318,6 +336,8 @@ void BeatEqualizerAudioProcessorEditor::resized()
         playButton.setBounds(bench.removeFromLeft(80));
         bench.removeFromLeft(8);
         exportButton.setBounds(bench.removeFromLeft(160));
+        bench.removeFromLeft(8);
+        audioButton.setBounds(bench.removeFromLeft(100));
         bench.removeFromLeft(12);
         benchLabel.setBounds(bench);
     }
@@ -335,6 +355,8 @@ void BeatEqualizerAudioProcessorEditor::resized()
     const int active = juce::jmax(1, activeChannelCount());
     const auto headerColumns = ChannelColumns::from(area.removeFromTop(kTableHeaderHeight));
     headerOn.setBounds(headerColumns.enable);
+    headerSolo.setBounds(headerColumns.solo);
+    headerMute.setBounds(headerColumns.mute);
     headerName.setBounds(headerColumns.name);
     headerRole.setBounds(headerColumns.role);
     headerDelay.setBounds(headerColumns.delay);
@@ -395,6 +417,7 @@ void BeatEqualizerAudioProcessorEditor::updateBench()
         benchLoaded = loaded;
         benchLabel.setText(loaded ? player.getDescription() : "No files loaded",
                            juce::dontSendNotification);
+        updateChannelNames();
     }
 
     syncChannelCount();
@@ -440,6 +463,29 @@ int BeatEqualizerAudioProcessorEditor::activeChannelCount() const
     return juce::jlimit(1, beat::kMaxChannels, channels);
 }
 
+bool BeatEqualizerAudioProcessorEditor::isAudible(int channel) const
+{
+    const auto on = [](std::atomic<float>* param)
+    { return param != nullptr && param->load() >= 0.5f; };
+
+    if (on(muteParams[static_cast<size_t>(channel)]))
+        return false;
+
+    const int active = activeChannelCount();
+    bool anySolo = false;
+    for (int ch = 0; ch < active; ++ch)
+        anySolo = anySolo || on(soloParams[static_cast<size_t>(ch)]);
+
+    return !anySolo || on(soloParams[static_cast<size_t>(channel)]);
+}
+
+void BeatEqualizerAudioProcessorEditor::updateChannelNames()
+{
+    auto& player = audioProcessor.getFilePlayer();
+    for (int ch = 0; ch < beat::kMaxChannels; ++ch)
+        rows[static_cast<size_t>(ch)]->setChannelName(player.getChannelName(ch));
+}
+
 void BeatEqualizerAudioProcessorEditor::syncChannelCount()
 {
     const int active = activeChannelCount();
@@ -448,6 +494,7 @@ void BeatEqualizerAudioProcessorEditor::syncChannelCount()
 
     lastActiveChannels = active;
     updateRowVisibility();
+    updateChannelNames();
     setSize(getWidth(), chromeHeight() + active * ChannelRow::kHeight);
     resized();
 }
@@ -565,6 +612,11 @@ void BeatEqualizerAudioProcessorEditor::updateWaveforms()
         if (on != nullptr && on->load() < 0.5f)
             continue;
 
+        // Коррелометр показывает то, что слышно: заглушенный канал в сумму
+        // монитора не идёт.
+        if (!isAudible(ch))
+            continue;
+
         for (int i = 0; i < window; ++i)
             sumWindow[static_cast<size_t>(i)] += scopeWindow[static_cast<size_t>(i)];
         ++summed;
@@ -593,9 +645,19 @@ void BeatEqualizerAudioProcessorEditor::updateWaveforms()
 void BeatEqualizerAudioProcessorEditor::updateLayoutInfo()
 {
     const int channels = audioProcessor.getTotalNumInputChannels();
-    layoutLabel.setText(juce::String(channels) + " in / "
-                            + juce::String(audioProcessor.getTotalNumOutputChannels()) + " out",
-                        juce::dontSendNotification);
+    const double rate = audioProcessor.getCurrentSampleRate();
+    const int block = audioProcessor.getBlockSize();
+
+    // Размер буфера видно прямо в шапке: на стенде это первое, что крутят,
+    // когда звук захлёбывается.
+    juce::String layout = juce::String(channels) + " in / "
+                          + juce::String(audioProcessor.getTotalNumOutputChannels()) + " out";
+    if (rate > 0.0)
+        layout += "   " + juce::String(rate / 1000.0, 1) + " kHz";
+    if (block > 0)
+        layout += " / " + juce::String(block) + " smp buffer";
+
+    layoutLabel.setText(layout, juce::dontSendNotification);
 
     const int latency = audioProcessor.getLatencySamples();
     const double sr = audioProcessor.getCurrentSampleRate();
