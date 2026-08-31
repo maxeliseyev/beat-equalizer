@@ -16,6 +16,10 @@ inline constexpr float kSpeedOfSoundMps = 343.0f;
 inline constexpr float kMaxDelayMs = 1000.0f * kMaxDistanceM / kSpeedOfSoundMps + 1.0f;
 inline constexpr float kAnalysisLowHz = 100.0f;
 inline constexpr float kAnalysisHighHz = 8000.0f;
+// Когерентность суммы считается уже, чем ищется задержка: ниже 200 Hz пара
+// микрофонов складывается почти всегда и метрика перестаёт что-либо различать.
+inline constexpr float kCoherenceLowHz = 200.0f;
+inline constexpr float kCoherenceHighHz = 8000.0f;
 inline constexpr int kDefaultFftOrder = 13;
 inline constexpr float kPhatEps = 1.0e-12f;
 inline constexpr int kLagrangeOrder = 5;
@@ -33,6 +37,14 @@ inline constexpr float kAnalysisMinRms = 0.0005f;
 // Порог калибруется на реальных китах (plan.md, PR 8).
 inline constexpr float kAnalysisMinPeakRatio = 8.0f;
 inline constexpr int kAnalysisMinFrames = 3;
+
+// Грубый перебор ротатора на Analyze: сетка частот и глубин.
+// Меньший выигрыш, чем kRotatorMinGain, не стоит вращения фазы — оставляем bypass.
+inline constexpr float kRotatorSearchLowHz = 60.0f;
+inline constexpr float kRotatorSearchHighHz = 8000.0f;
+inline constexpr int kRotatorSearchSteps = 12;
+inline constexpr float kRotatorMinGain = 0.005f;
+inline constexpr float kDefaultRotatorHz = 600.0f;
 
 enum class ChannelRole
 {

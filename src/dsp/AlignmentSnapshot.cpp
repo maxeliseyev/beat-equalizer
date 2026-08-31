@@ -17,6 +17,7 @@ AlignmentSnapshot AlignmentSnapshot::identity(int numChannels)
         snapshot.delaySamples[i] = 0.0f;
         snapshot.invert[i] = false;
         snapshot.rotatorCoeff[i] = 0.0f;
+        snapshot.rotatorAmount[i] = 0.0f;
         snapshot.enabled[i] = i < snapshot.numChannels;
     }
 

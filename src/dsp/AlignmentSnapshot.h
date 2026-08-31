@@ -12,6 +12,7 @@ struct AlignmentSnapshot
     float delaySamples[kMaxChannels] {};
     bool invert[kMaxChannels] {};
     float rotatorCoeff[kMaxChannels] {};
+    float rotatorAmount[kMaxChannels] {}; // 0 = ротатор выключен
     bool enabled[kMaxChannels] {};
     int latencySamples = 0;
 
