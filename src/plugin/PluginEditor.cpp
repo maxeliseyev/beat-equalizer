@@ -20,12 +20,20 @@ BeatEqualizerAudioProcessorEditor::BeatEqualizerAudioProcessorEditor(BeatEqualiz
     latencyLabel.setJustificationType(juce::Justification::centredRight);
     addAndMakeVisible(latencyLabel);
 
-    hint.setText("Route every mic into this insert (track channels = N). "
-                 "Waveforms share time (trigger on Reference). Delay earlier mics until attacks line up.",
+    hint.setText("Route every mic into this insert (track channels = N). Play a few bars, "
+                 "then Analyze: delays and polarity are estimated against the Reference channel.",
                  juce::dontSendNotification);
     hint.setFont(juce::FontOptions(13.0f));
     hint.setJustificationType(juce::Justification::centredLeft);
     addAndMakeVisible(hint);
+
+    analyzeButton.onClick = [this] { audioProcessor.requestAnalyze(); };
+    addAndMakeVisible(analyzeButton);
+    addAndMakeVisible(freezeButton);
+
+    analysisStatus.setJustificationType(juce::Justification::centredLeft);
+    analysisStatus.setFont(juce::FontOptions(13.0f));
+    addAndMakeVisible(analysisStatus);
 
     addAndMakeVisible(abButton);
 
@@ -101,6 +109,8 @@ BeatEqualizerAudioProcessorEditor::BeatEqualizerAudioProcessorEditor(BeatEqualiz
 
     abAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
         state, "global.abBypass", abButton);
+    freezeAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
+        state, "global.freeze", freezeButton);
     referenceAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
         state, "global.reference", referenceBox);
     distanceAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
@@ -112,6 +122,7 @@ BeatEqualizerAudioProcessorEditor::BeatEqualizerAudioProcessorEditor(BeatEqualiz
     audioProcessor.addChangeListener(this);
     updateLayoutInfo();
     updateRowVisibility();
+    updateAnalysisStatus();
 
     setResizable(true, true);
     setResizeLimits(800, 560, 1400, 1200);
@@ -132,6 +143,7 @@ void BeatEqualizerAudioProcessorEditor::paint(juce::Graphics& g)
     layoutLabel.setColour(juce::Label::textColourId, juce::Colour(0xffc5cad3));
     latencyLabel.setColour(juce::Label::textColourId, juce::Colour(0xffe8c547));
     hint.setColour(juce::Label::textColourId, juce::Colour(0xff8b919c));
+    analysisStatus.setColour(juce::Label::textColourId, juce::Colour(0xffc5cad3));
     referenceLabel.setColour(juce::Label::textColourId, juce::Colours::white);
     distanceLabel.setColour(juce::Label::textColourId, juce::Colours::white);
     scopeHeader.setColour(juce::Label::textColourId, juce::Colour(0xffc5cad3));
@@ -161,6 +173,14 @@ void BeatEqualizerAudioProcessorEditor::resized()
     controls.removeFromLeft(12);
     distanceLabel.setBounds(controls.removeFromLeft(120));
     distanceSlider.setBounds(controls);
+
+    area.removeFromTop(8);
+    auto analysisRow = area.removeFromTop(28);
+    analyzeButton.setBounds(analysisRow.removeFromLeft(120));
+    analysisRow.removeFromLeft(12);
+    freezeButton.setBounds(analysisRow.removeFromLeft(90));
+    analysisRow.removeFromLeft(12);
+    analysisStatus.setBounds(analysisRow);
 
     area.removeFromTop(12);
 
@@ -211,13 +231,21 @@ void BeatEqualizerAudioProcessorEditor::changeListenerCallback(juce::ChangeBroad
 {
     updateLayoutInfo();
     updateRowVisibility();
+    updateAnalysisStatus();
     resized();
 }
 
 void BeatEqualizerAudioProcessorEditor::timerCallback()
 {
     updateLayoutInfo();
+    updateAnalysisStatus();
     updateWaveforms();
+}
+
+void BeatEqualizerAudioProcessorEditor::updateAnalysisStatus()
+{
+    analyzeButton.setEnabled(!audioProcessor.isAnalysisBusy());
+    analysisStatus.setText(audioProcessor.getAnalysisStatus(), juce::dontSendNotification);
 }
 
 void BeatEqualizerAudioProcessorEditor::refreshWaveforms()

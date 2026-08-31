@@ -30,6 +30,7 @@ private:
     void updateLayoutInfo();
     void updateRowVisibility();
     void updateWaveforms();
+    void updateAnalysisStatus();
     int activeChannelCount() const;
 
     BeatEqualizerAudioProcessor& audioProcessor;
@@ -38,6 +39,10 @@ private:
     juce::Label layoutLabel;
     juce::Label latencyLabel;
     juce::Label hint;
+
+    juce::TextButton analyzeButton { "Analyze" };
+    juce::ToggleButton freezeButton { "Freeze" };
+    juce::Label analysisStatus;
 
     juce::ToggleButton abButton { "A/B (original, same PDC)" };
     juce::Label referenceLabel;
@@ -68,6 +73,7 @@ private:
     std::vector<std::unique_ptr<ScopeStrip>> strips;
 
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> abAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> freezeAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> referenceAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> distanceAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> timeAttachment;

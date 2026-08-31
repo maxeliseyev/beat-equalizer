@@ -7,9 +7,13 @@ namespace beat
 
 inline constexpr int kMinChannels = 2;
 inline constexpr int kMaxChannels = 24;
+inline constexpr float kMinDistanceM = 0.5f;
+inline constexpr float kMaxDistanceM = 10.0f;
 inline constexpr float kDefaultMaxDistanceM = 4.0f;
 inline constexpr float kSpeedOfSoundMps = 343.0f;
-inline constexpr float kMaxDelayMs = 20.0f;
+// Линия задержки обязана покрывать самую дальнюю дистанцию поиска, иначе
+// автовыравнивание упрётся в потолок параметра на комнатном микрофоне.
+inline constexpr float kMaxDelayMs = 1000.0f * kMaxDistanceM / kSpeedOfSoundMps + 1.0f;
 inline constexpr float kAnalysisLowHz = 100.0f;
 inline constexpr float kAnalysisHighHz = 8000.0f;
 inline constexpr int kDefaultFftOrder = 13;

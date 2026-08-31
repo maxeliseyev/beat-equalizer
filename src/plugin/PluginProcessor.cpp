@@ -23,6 +23,10 @@ BeatEqualizerAudioProcessor::BeatEqualizerAudioProcessor()
 
     abBypassParam = parameters.getRawParameterValue("global.abBypass");
     referenceParam = parameters.getRawParameterValue("global.reference");
+    maxDistanceParam = parameters.getRawParameterValue("global.maxDistanceM");
+    freezeParam = parameters.getRawParameterValue("global.freeze");
+
+    analysisWorker.onResult = [this] { applyAnalysisResult(analysisWorker.result()); };
 }
 
 juce::AudioProcessor::BusesProperties BeatEqualizerAudioProcessor::createBusesProperties()
@@ -38,6 +42,11 @@ void BeatEqualizerAudioProcessor::prepareToPlay(double sampleRate, int)
     snapshot = beat::AlignmentSnapshot::identity(getTotalNumInputChannels());
     delay.prepare(sampleRate, beat::kMaxChannels);
     scope.prepare(beat::ScopeRing::capacityForSampleRate(sampleRate));
+
+    const int analysisChannels = juce::jmin(getTotalNumInputChannels(), beat::kMaxChannels);
+    const int analysisLength = beat::AnalysisRing::capacityForSampleRate(sampleRate);
+    analysisRing.prepare(analysisChannels, analysisLength);
+    analysisWorker.prepare(analysisChannels, analysisLength);
     setLatencySamples(beat::LatencyModel::reportedLatency(0.0f));
 }
 
@@ -76,6 +85,9 @@ void BeatEqualizerAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
 
     for (int channel = numInput; channel < numOutput; ++channel)
         buffer.clear(channel, 0, numSamples);
+
+    // Анализ смотрит на вход, до задержки и инверсии: буфер пишем до DSP.
+    analysisRing.write(buffer.getArrayOfReadPointers(), numCh, numSamples);
 
     const bool bypass = abBypassParam != nullptr && abBypassParam->load() >= 0.5f;
     const float sr = static_cast<float>(currentSampleRate);
@@ -155,6 +167,91 @@ int BeatEqualizerAudioProcessor::getReferenceChannelIndex() const
 void BeatEqualizerAudioProcessor::numChannelsChanged()
 {
     snapshot = beat::AlignmentSnapshot::identity(getTotalNumInputChannels());
+    analysisRing.reset();
+    sendChangeMessage();
+}
+
+bool BeatEqualizerAudioProcessor::isFrozen() const
+{
+    return freezeParam != nullptr && freezeParam->load() >= 0.5f;
+}
+
+void BeatEqualizerAudioProcessor::setParameterValue(const juce::String& parameterId, float value)
+{
+    if (auto* parameter = parameters.getParameter(parameterId))
+        parameter->setValueNotifyingHost(parameter->convertTo0to1(value));
+}
+
+void BeatEqualizerAudioProcessor::requestAnalyze()
+{
+    beat::AnalysisRequest request;
+    request.sampleRate = currentSampleRate;
+    request.maxDistanceM = (maxDistanceParam != nullptr) ? maxDistanceParam->load()
+                                                         : beat::kDefaultMaxDistanceM;
+    request.reference = getReferenceChannelIndex();
+
+    if (analysisWorker.request(request))
+    {
+        analysisStatus = "Analyzing...";
+        sendChangeMessage();
+    }
+}
+
+void BeatEqualizerAudioProcessor::applyAnalysisResult(const beat::AlignmentEngine::Result& result)
+{
+    switch (result.status)
+    {
+        case beat::AnalysisStatus::ok:
+            break;
+        case beat::AnalysisStatus::tooQuiet:
+            analysisStatus = "Too quiet - play the kit, then Analyze";
+            sendChangeMessage();
+            return;
+        case beat::AnalysisStatus::notEnoughData:
+            analysisStatus = "Not enough audio yet - play a few seconds";
+            sendChangeMessage();
+            return;
+        case beat::AnalysisStatus::idle:
+        case beat::AnalysisStatus::badRequest:
+            analysisStatus = "Analysis needs at least two channels";
+            sendChangeMessage();
+            return;
+    }
+
+    if (isFrozen())
+    {
+        analysisStatus = "Frozen - estimates found but not applied";
+        sendChangeMessage();
+        return;
+    }
+
+    snapshot = result.snapshot;
+
+    const float msPerSample = (currentSampleRate > 0.0)
+                                  ? static_cast<float>(1000.0 / currentSampleRate)
+                                  : 0.0f;
+
+    for (int ch = 0; ch < result.numChannels; ++ch)
+    {
+        const float delayMs = juce::jlimit(0.0f,
+                                           beat::kMaxDelayMs,
+                                           snapshot.delaySamples[ch] * msPerSample);
+        setParameterValue(beat::channelParamId(ch, "delayMs"), delayMs);
+
+        // Полярность трогаем только там, где оценка действительно была:
+        // на молчавшем канале выбор пользователя важнее догадки.
+        if (!result.channels[static_cast<size_t>(ch)].valid)
+            continue;
+
+        const auto polarity = snapshot.invert[ch] ? beat::PolarityMode::invert
+                                                  : beat::PolarityMode::positive;
+        setParameterValue(beat::channelParamId(ch, "polarity"),
+                          static_cast<float>(static_cast<int>(polarity)));
+    }
+
+    analysisStatus = juce::String(result.numChannels) + " ch aligned, ref Ch "
+                     + juce::String(result.reference + 1) + ", "
+                     + juce::String(result.framesLoud) + " frames";
     sendChangeMessage();
 }
 

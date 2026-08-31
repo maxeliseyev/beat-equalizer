@@ -17,6 +17,7 @@ juce_add_plugin(BeatEqualizer
 
 target_sources(BeatEqualizer
     PRIVATE
+        AnalysisWorker.cpp
         ChannelRow.cpp
         Parameters.cpp
         PluginProcessor.cpp

@@ -18,7 +18,8 @@ target_compile_features(beat_tests PRIVATE cxx_std_20)
 add_test(NAME beat_tests COMMAND beat_tests)
 
 add_executable(beat_gui_tests
-    test_scope_paint.cpp)
+    test_scope_paint.cpp
+    test_analyze_flow.cpp)
 
 target_link_libraries(beat_gui_tests
     PRIVATE
