@@ -21,6 +21,7 @@ constexpr int kHintHeight = 22;
 constexpr int kControlsHeight = 28;
 constexpr int kAnalysisHeight = 28;
 constexpr int kBenchHeight = 28;
+constexpr int kBenchTransportHeight = 24;
 constexpr int kScopeControlsHeight = 28;
 constexpr int kTableHeaderHeight = 20;
 constexpr int kGapS = 8;
@@ -82,10 +83,46 @@ BeatEqualizerAudioProcessorEditor::BeatEqualizerAudioProcessorEditor(BeatEqualiz
 
     playButton.onClick = [this]
     {
+        // Пауза, а не стоп: позиция остаётся, повторное нажатие продолжает
+        // с того же места. С начала — кнопкой отмотки.
         auto& player = audioProcessor.getFilePlayer();
         player.setPlaying(!player.isPlaying());
         updateBench();
     };
+
+    rewindButton.onClick = [this]
+    {
+        audioProcessor.getFilePlayer().rewind();
+        updateTransportRow();
+    };
+
+    positionSlider.setSliderStyle(juce::Slider::LinearHorizontal);
+    positionSlider.setTextBoxStyle(juce::Slider::NoTextBox, true, 0, 0);
+    positionSlider.setRange(0.0, 1.0, 0.0001);
+    positionSlider.onDragStart = [this] { draggingPosition = true; };
+    positionSlider.onDragEnd = [this] { draggingPosition = false; };
+    positionSlider.onValueChange = [this]
+    {
+        if (!draggingPosition)
+            return;
+
+        auto& player = audioProcessor.getFilePlayer();
+        player.setPosition(juce::roundToInt(positionSlider.getValue()
+                                            * (double) juce::jmax(1, player.numSamples() - 1)));
+        updateTransportRow();
+    };
+    addChildComponent(positionSlider);
+    positionSlider.setVisible(standalone);
+
+    positionLabel.setJustificationType(juce::Justification::centredRight);
+    positionLabel.setFont(juce::FontOptions(12.0f));
+    addChildComponent(positionLabel);
+    positionLabel.setVisible(standalone);
+
+    deviceLabel.setJustificationType(juce::Justification::centredRight);
+    deviceLabel.setFont(juce::FontOptions(12.0f));
+    addChildComponent(deviceLabel);
+    deviceLabel.setVisible(standalone);
 
     exportButton.onClick = [this]
     {
@@ -117,7 +154,7 @@ BeatEqualizerAudioProcessorEditor::BeatEqualizerAudioProcessorEditor(BeatEqualiz
             holder->showAudioSettingsDialog();
     };
 
-    for (auto* button : { &loadButton, &playButton, &exportButton, &audioButton })
+    for (auto* button : { &loadButton, &rewindButton, &playButton, &exportButton, &audioButton })
     {
         addChildComponent(*button);
         button->setVisible(standalone);
@@ -304,6 +341,8 @@ void BeatEqualizerAudioProcessorEditor::paint(juce::Graphics& g)
     monoSumButton.setColour(juce::ToggleButton::textColourId, juce::Colours::white);
     analysisStatus.setColour(juce::Label::textColourId, juce::Colour(0xffc5cad3));
     benchLabel.setColour(juce::Label::textColourId, juce::Colour(0xff8b919c));
+    positionLabel.setColour(juce::Label::textColourId, juce::Colour(0xffc5cad3));
+    deviceLabel.setColour(juce::Label::textColourId, juce::Colour(0xff8b919c));
     coherenceLabel.setColour(juce::Label::textColourId, juce::Colour(0xff7ddc9a));
     referenceLabel.setColour(juce::Label::textColourId, juce::Colours::white);
     distanceLabel.setColour(juce::Label::textColourId, juce::Colours::white);
@@ -318,7 +357,8 @@ void BeatEqualizerAudioProcessorEditor::paint(juce::Graphics& g)
 int BeatEqualizerAudioProcessorEditor::chromeHeight() const
 {
     return 2 * kMargin + kTitleHeight + kGapS + kHintHeight + kGapM + kControlsHeight + kGapS
-           + kAnalysisHeight + (standalone ? kGapS + kBenchHeight : 0) + kGapL
+           + kAnalysisHeight
+           + (standalone ? kGapS + kBenchHeight + kGapS + kBenchTransportHeight : 0) + kGapL
            + Correlometer::kHeight + kGapL + kScopeControlsHeight + kGapS + kTableHeaderHeight;
 }
 
@@ -360,13 +400,22 @@ void BeatEqualizerAudioProcessorEditor::resized()
         auto bench = area.removeFromTop(kBenchHeight);
         loadButton.setBounds(bench.removeFromLeft(130));
         bench.removeFromLeft(8);
+        rewindButton.setBounds(bench.removeFromLeft(44));
+        bench.removeFromLeft(4);
         playButton.setBounds(bench.removeFromLeft(80));
         bench.removeFromLeft(8);
         exportButton.setBounds(bench.removeFromLeft(160));
         bench.removeFromLeft(8);
         audioButton.setBounds(bench.removeFromLeft(100));
         bench.removeFromLeft(12);
+        deviceLabel.setBounds(bench.removeFromRight(190));
         benchLabel.setBounds(bench);
+
+        area.removeFromTop(kGapS);
+        auto transport = area.removeFromTop(kBenchTransportHeight);
+        positionLabel.setBounds(transport.removeFromRight(150));
+        transport.removeFromRight(12);
+        positionSlider.setBounds(transport);
     }
 
     area.removeFromTop(kGapL);
@@ -431,6 +480,7 @@ void BeatEqualizerAudioProcessorEditor::timerCallback()
     updateLayoutInfo();
     updateAnalysisStatus();
     updateBench();
+    updateTransportRow();
     updateTransportInfo();
     updateWaveforms();
 }
@@ -444,8 +494,10 @@ void BeatEqualizerAudioProcessorEditor::updateBench()
     const bool loaded = player.hasMaterial();
 
     playButton.setEnabled(loaded);
+    rewindButton.setEnabled(loaded);
     exportButton.setEnabled(loaded);
-    playButton.setButtonText(player.isPlaying() ? "Stop" : "Play");
+    positionSlider.setEnabled(loaded);
+    playButton.setButtonText(player.isPlaying() ? "Pause" : "Play");
 
     // Строку перерисовываем только на смене состояния: иначе таймер затрёт
     // сообщение об экспорте через сорок миллисекунд.
@@ -458,6 +510,58 @@ void BeatEqualizerAudioProcessorEditor::updateBench()
     }
 
     syncChannelCount();
+}
+
+void BeatEqualizerAudioProcessorEditor::updateTransportRow()
+{
+    if (!standalone)
+        return;
+
+    auto& player = audioProcessor.getFilePlayer();
+    const double rate = audioProcessor.getCurrentSampleRate();
+    const int total = player.numSamples();
+
+    const auto format = [](double seconds)
+    {
+        const int whole = static_cast<int>(seconds);
+        return juce::String(whole / 60) + ":"
+               + juce::String(whole % 60).paddedLeft('0', 2) + "."
+               + juce::String(juce::jlimit(0, 9, static_cast<int>((seconds - whole) * 10.0)));
+    };
+
+    if (total <= 0 || rate <= 0.0)
+    {
+        positionLabel.setText("-", juce::dontSendNotification);
+        positionSlider.setValue(0.0, juce::dontSendNotification);
+    }
+    else
+    {
+        const double position = player.getPosition() / rate;
+        positionLabel.setText(format(position) + " / " + format(total / rate),
+                              juce::dontSendNotification);
+
+        // Пока тянут ручку, таймер её не трогает: иначе она вырывается из рук.
+        if (!draggingPosition)
+            positionSlider.setValue(static_cast<double>(player.getPosition())
+                                        / static_cast<double>(juce::jmax(1, total - 1)),
+                                    juce::dontSendNotification);
+    }
+
+    // Загрузка устройства и счётчик срывов: по ним видно, кто виноват в
+    // рваном звуке — машина или плагин.
+    if (auto* holder = juce::StandalonePluginHolder::getInstance())
+    {
+        juce::String text = "CPU " + juce::String(juce::roundToInt(
+                                100.0 * holder->deviceManager.getCpuUsage()))
+                            + " %";
+
+        const int xruns = holder->deviceManager.getXRunCount();
+        if (xruns >= 0)
+            text += "   xruns " + juce::String(xruns);
+
+        if (text != deviceLabel.getText())
+            deviceLabel.setText(text, juce::dontSendNotification);
+    }
 }
 
 void BeatEqualizerAudioProcessorEditor::updateAnalysisStatus()
