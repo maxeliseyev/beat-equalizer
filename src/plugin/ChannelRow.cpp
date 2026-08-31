@@ -6,14 +6,17 @@ ChannelColumns ChannelColumns::from(juce::Rectangle<int> row)
     columns.enable = row.removeFromLeft(ChannelRow::kEnableWidth);
     columns.name = row.removeFromLeft(ChannelRow::kNameWidth);
     columns.role = row.removeFromLeft(ChannelRow::kRoleWidth);
-    columns.corr = row.removeFromRight(ChannelRow::kCorrWidth);
-    columns.polarity = row.removeFromRight(ChannelRow::kPolarityWidth);
-    columns.rotator = row.removeFromRight(ChannelRow::kRotatorWidth);
-    columns.delay = row;
+    columns.delay = row.removeFromLeft(ChannelRow::kDelayWidth);
+    columns.rotator = row.removeFromLeft(ChannelRow::kRotatorWidth);
+    columns.polarity = row.removeFromLeft(ChannelRow::kPolarityWidth);
+    columns.corr = row.removeFromLeft(ChannelRow::kCorrWidth);
+    // Осциллограмма забирает весь остаток: она одна тянется по ширине окна.
+    columns.scope = row;
     return columns;
 }
 
 ChannelRow::ChannelRow(juce::AudioProcessorValueTreeState& state, int index)
+    : scope(index)
 {
     enabledButton.setClickingTogglesState(true);
     enabledButton.setButtonText({});
@@ -50,6 +53,10 @@ ChannelRow::ChannelRow(juce::AudioProcessorValueTreeState& state, int index)
     corrLabel.setFont(juce::FontOptions(12.0f));
     addAndMakeVisible(corrLabel);
 
+    // Номер канала уже стоит в колонке Ch, второй раз внутри осциллограммы не нужен.
+    scope.setShowIndex(false);
+    addAndMakeVisible(scope);
+
     enabledAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
         state, beat::channelParamId(index, "enabled"), enabledButton);
     roleAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
@@ -68,13 +75,21 @@ ChannelRow::ChannelRow(juce::AudioProcessorValueTreeState& state, int index)
 void ChannelRow::resized()
 {
     const auto columns = ChannelColumns::from(getLocalBounds());
-    enabledButton.setBounds(columns.enable.reduced(6, 6));
-    nameLabel.setBounds(columns.name);
-    roleBox.setBounds(columns.role.reduced(2, 5));
-    delaySlider.setBounds(columns.delay.reduced(4, 6));
-    rotatorSlider.setBounds(columns.rotator.reduced(4, 6));
-    polarityBox.setBounds(columns.polarity.reduced(2, 5));
-    corrLabel.setBounds(columns.corr);
+
+    // Строка выше ручек: их держим по центру, а высоту отдаём осциллограмме.
+    const auto centred = [](juce::Rectangle<int> cell, int trimX)
+    {
+        return cell.withSizeKeepingCentre(cell.getWidth() - 2 * trimX, kControlHeight);
+    };
+
+    enabledButton.setBounds(centred(columns.enable, 6));
+    nameLabel.setBounds(centred(columns.name, 0));
+    roleBox.setBounds(centred(columns.role, 2));
+    delaySlider.setBounds(centred(columns.delay, 4));
+    rotatorSlider.setBounds(centred(columns.rotator, 4));
+    polarityBox.setBounds(centred(columns.polarity, 2));
+    corrLabel.setBounds(centred(columns.corr, 0));
+    scope.setBounds(columns.scope);
 }
 
 void ChannelRow::paint(juce::Graphics& g)
@@ -88,6 +103,7 @@ void ChannelRow::setActive(bool shouldBeActive)
     active = shouldBeActive;
     setVisible(shouldBeActive);
     setEnabled(shouldBeActive);
+    scope.setActive(shouldBeActive);
     nameLabel.setColour(juce::Label::textColourId,
                         shouldBeActive ? juce::Colours::white : juce::Colour(0xff6b7280));
 }
@@ -105,9 +121,16 @@ void ChannelRow::setCorrelation(float value)
 
 void ChannelRow::setIsReference(bool isReference)
 {
+    scope.setReference(isReference);
+
     if (!isReference)
         return;
 
     corrLabel.setText("ref", juce::dontSendNotification);
     corrLabel.setColour(juce::Label::textColourId, juce::Colour(0xff8b919c));
+}
+
+void ChannelRow::setWaveform(const float* samples, int count)
+{
+    scope.setWaveform(samples, count);
 }

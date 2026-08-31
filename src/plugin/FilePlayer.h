@@ -34,10 +34,18 @@ public:
     // иначе восьмисекундное окно уедет в отсчёт перед первым ударом.
     int readAnalysisWindow(float* dest, int channels, int count) const;
 
+    // Message thread: окно одного канала для осциллограммы. Заканчивается на
+    // позиции воспроизведения (на паузе — на первом ударе), сдвинуто назад на
+    // задержку канала, поэтому строки видно уже выровненными. Клип закольцован.
+    int readDisplayWindow(int channel, float* dest, int count, int shiftSamples) const;
+
     // Message thread, для экспорта.
     const juce::AudioBuffer<float>& getBuffer() const { return clip; }
 
 private:
+    // Вызывать под lock: индекс первого отсчёта громче порога по всем каналам.
+    int firstOnsetIndex(int channels) const;
+
     juce::AudioFormatManager formats;
     juce::AudioBuffer<float> clip;
     juce::String description;

@@ -158,6 +158,49 @@ bool FilePlayer::fill(juce::AudioBuffer<float>& buffer, int numChannels)
     return true;
 }
 
+int FilePlayer::firstOnsetIndex(int channels) const
+{
+    const int available = clip.getNumSamples();
+    constexpr float onsetThreshold = 0.01f;
+
+    for (int i = 0; i < available; ++i)
+        for (int ch = 0; ch < channels; ++ch)
+            if (std::abs(clip.getSample(ch, i)) > onsetThreshold)
+                return i;
+
+    return 0;
+}
+
+int FilePlayer::readDisplayWindow(int channel, float* dest, int count, int shiftSamples) const
+{
+    if (dest == nullptr || count <= 0 || !hasMaterial())
+        return 0;
+
+    const juce::SpinLock::ScopedLockType scoped(lock);
+
+    const int available = clip.getNumSamples();
+    if (channel < 0 || channel >= clip.getNumChannels() || available <= 0)
+        return 0;
+
+    // На паузе показываем первое окно после первого удара: сразу после Load
+    // строка должна что-то показывать, а не хвост тишины перед нулём.
+    const long long origin = playing.load() ? position.load()
+                                            : firstOnsetIndex(clip.getNumChannels()) + count;
+    const long long start = origin - count - shiftSamples;
+    const float* source = clip.getReadPointer(channel);
+
+    for (int i = 0; i < count; ++i)
+    {
+        long long index = (start + i) % available;
+        if (index < 0)
+            index += available;
+
+        dest[i] = source[index];
+    }
+
+    return count;
+}
+
 int FilePlayer::readAnalysisWindow(float* dest, int channels, int count) const
 {
     if (dest == nullptr || count <= 0 || channels <= 0 || !hasMaterial())
@@ -171,16 +214,7 @@ int FilePlayer::readAnalysisWindow(float* dest, int channels, int count) const
     if (wanted <= 0 || available <= 0)
         return 0;
 
-    int start = 0;
-    constexpr float onsetThreshold = 0.01f;
-    for (int i = 0; i < available && start == 0; ++i)
-        for (int ch = 0; ch < wanted; ++ch)
-            if (std::abs(clip.getSample(ch, i)) > onsetThreshold)
-            {
-                start = i;
-                break;
-            }
-
+    const int start = firstOnsetIndex(wanted);
     const int n = std::min(count, available - start);
     if (n <= 0)
         return 0;

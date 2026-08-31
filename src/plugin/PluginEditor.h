@@ -3,7 +3,6 @@
 #include "ChannelRow.h"
 #include "Correlometer.h"
 #include "PluginProcessor.h"
-#include "ScopeStrip.h"
 
 #include <array>
 #include <atomic>
@@ -26,6 +25,10 @@ public:
     void refreshWaveforms();
     int getScopeWindowSamples() const;
     float getCorrelometerValue() const { return correlometer.getCorrelation(); }
+    // Сколько строк канал+осциллограмма сейчас показано: в Standalone это
+    // может быть больше, чем каналов у устройства.
+    int activeChannelCount() const;
+    int chromeHeight() const;
 
 private:
     void changeListenerCallback(juce::ChangeBroadcaster*) override;
@@ -35,7 +38,7 @@ private:
     void updateWaveforms();
     void updateAnalysisStatus();
     void updateBench();
-    int activeChannelCount() const;
+    void syncChannelCount();
 
     BeatEqualizerAudioProcessor& audioProcessor;
 
@@ -51,6 +54,7 @@ private:
     std::unique_ptr<juce::FileChooser> chooser;
     bool standalone = false;
     bool benchLoaded = false;
+    int lastActiveChannels = 0;
 
     juce::TextButton analyzeButton { "Analyze" };
     juce::ToggleButton freezeButton { "Freeze" };
@@ -85,14 +89,13 @@ private:
     std::vector<float> referenceWindow;
     std::vector<float> sumWindow;
     std::array<std::atomic<float>*, beat::kMaxChannels> enabledParams {};
+    std::array<std::atomic<float>*, beat::kMaxChannels> delayParams {};
+    std::array<std::atomic<float>*, beat::kMaxChannels> polarityParams {};
+    std::atomic<float>* bypassParam = nullptr;
 
     juce::Viewport tableViewport;
     juce::Component tableList;
     std::vector<std::unique_ptr<ChannelRow>> rows;
-
-    juce::Viewport scopeViewport;
-    juce::Component scopeList;
-    std::vector<std::unique_ptr<ScopeStrip>> strips;
 
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> abAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> freezeAttachment;

@@ -3,10 +3,14 @@
 
 #include "SyntheticKit.h"
 #include "dsp/AlignmentEngine.h"
+#include "plugin/ChannelRow.h"
 #include "plugin/Exporter.h"
 #include "plugin/FilePlayer.h"
+#include "plugin/PluginEditor.h"
 #include "plugin/PluginProcessor.h"
 
+#include <algorithm>
+#include <cmath>
 #include <memory>
 #include <vector>
 
@@ -239,6 +243,104 @@ TEST_CASE("saved estimates come back without a new Analyze")
                      .getRawParameterValue(beat::channelParamId(0, "delayMs"))
                      ->load(),
                  WithinAbs(0.5f, 0.01f));
+}
+
+TEST_CASE("the display window lines a delayed mic up with the reference")
+{
+    juce::AudioBuffer<float> source(2, 4096);
+    source.clear();
+    source.setSample(0, 1000, 1.0f);
+    source.setSample(1, 1024, 1.0f); // второй микрофон на 24 отсчёта позже
+
+    const auto file = writeTempWav(source);
+
+    FilePlayer player;
+    REQUIRE(player.load({ file }, kSampleRate).isEmpty());
+
+    std::vector<float> first(512, 0.0f);
+    std::vector<float> second(512, 0.0f);
+
+    // Первому каналу дают ту же задержку, что и аудиопотоку: пики обязаны
+    // встать в один отсчёт, иначе картинка врёт про то, что уйдёт в экспорт.
+    REQUIRE(player.readDisplayWindow(0, first.data(), 512, 24) == 512);
+    REQUIRE(player.readDisplayWindow(1, second.data(), 512, 0) == 512);
+
+    const auto peakAt = [](const std::vector<float>& window)
+    {
+        return (int) std::distance(window.begin(),
+                                   std::max_element(window.begin(), window.end()));
+    };
+
+    REQUIRE(peakAt(first) == peakAt(second));
+
+    file.deleteFile();
+}
+
+TEST_CASE("bench rows follow the loaded files, not the audio device")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+
+    juce::AudioProcessor::setTypeOfNextNewPlugin(juce::AudioProcessor::wrapperType_Standalone);
+    BeatEqualizerAudioProcessor processor;
+    juce::AudioProcessor::setTypeOfNextNewPlugin(juce::AudioProcessor::wrapperType_Undefined);
+    processor.enableAllBuses();
+    processor.prepareToPlay(kSampleRate, 128);
+
+    // Карта отдаёт два входа, а на стенде лежит кит из шести дорожек.
+    REQUIRE(processor.getTotalNumInputChannels() == 2);
+
+    juce::AudioBuffer<float> kit(6, 4096);
+    kit.clear();
+    for (int ch = 0; ch < 6; ++ch)
+        for (int i = 0; i < 64; ++i)
+            kit.setSample(ch, 1000 + 8 * ch + i, (i % 2 == 0) ? 0.7f : -0.7f);
+
+    const auto file = writeTempWav(kit);
+    REQUIRE(processor.getFilePlayer().load({ file }, kSampleRate).isEmpty());
+
+    std::unique_ptr<juce::AudioProcessorEditor> editor(processor.createEditor());
+    auto* scoped = dynamic_cast<BeatEqualizerAudioProcessorEditor*>(editor.get());
+    REQUIRE(scoped != nullptr);
+
+    REQUIRE(scoped->activeChannelCount() == 6);
+    REQUIRE(editor->getHeight() == scoped->chromeHeight() + 6 * ChannelRow::kHeight);
+
+    // Каналы 3…6 мимо устройства не проходят, но осциллограммы у них есть:
+    // стенд рисует загруженный материал, а не кольцо выхода.
+    scoped->refreshWaveforms();
+
+    juce::Image image(juce::Image::ARGB, editor->getWidth(), editor->getHeight(), true);
+    {
+        juce::Graphics g(image);
+        editor->paintEntireComponent(g, true);
+    }
+
+    const juce::File png = juce::File(BEAT_GUI_TEST_PNG).getSiblingFile("per-channel-scopes-test.png");
+    png.deleteFile();
+    {
+        juce::FileOutputStream stream(png);
+        REQUIRE(stream.openedOk());
+        juce::PNGImageFormat format;
+        REQUIRE(format.writeImageToStream(image, stream));
+    }
+
+    const int bottomY = scoped->chromeHeight() + 3 * ChannelRow::kHeight;
+    const auto bottom = image.getClippedImage(
+        { 0, bottomY, image.getWidth(), image.getHeight() - bottomY });
+
+    int cyan = 0;
+    for (int y = 0; y < bottom.getHeight(); ++y)
+        for (int x = 0; x < bottom.getWidth(); ++x)
+        {
+            const auto p = bottom.getPixelAt(x, y);
+            if (std::abs((int) p.getRed() - 0x5e) <= 40 && std::abs((int) p.getGreen() - 0xc8) <= 40
+                && std::abs((int) p.getBlue() - 0xff) <= 40)
+                ++cyan;
+        }
+
+    REQUIRE(cyan > 200);
+
+    file.deleteFile();
 }
 
 TEST_CASE("the bench row only exists in Standalone")

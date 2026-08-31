@@ -12,7 +12,7 @@ ScopeStrip::ScopeStrip(int channelIndex)
 
 juce::Rectangle<int> ScopeStrip::waveBounds() const
 {
-    return getLocalBounds().withTrimmedLeft(kLabelWidth).reduced(2, 6);
+    return getLocalBounds().withTrimmedLeft(showIndex ? kLabelWidth : 0).reduced(2, 6);
 }
 
 void ScopeStrip::paint(juce::Graphics& g)
@@ -20,13 +20,16 @@ void ScopeStrip::paint(juce::Graphics& g)
     g.setColour(reference ? juce::Colour(0xff1c2430) : juce::Colour(0xff14181f));
     g.fillRect(getLocalBounds());
 
-    auto label = getLocalBounds().removeFromLeft(kLabelWidth);
-    g.setColour(reference ? juce::Colour(0xff5ec8ff) : juce::Colours::white);
-    g.setFont(juce::FontOptions(13.0f, juce::Font::bold));
-    g.drawText(juce::String::formatted("%02d", index + 1),
-               label,
-               juce::Justification::centred,
-               false);
+    if (showIndex)
+    {
+        auto label = getLocalBounds().removeFromLeft(kLabelWidth);
+        g.setColour(reference ? juce::Colour(0xff5ec8ff) : juce::Colours::white);
+        g.setFont(juce::FontOptions(13.0f, juce::Font::bold));
+        g.drawText(juce::String::formatted("%02d", index + 1),
+                   label,
+                   juce::Justification::centred,
+                   false);
+    }
 
     auto bounds = waveBounds();
     g.setColour(juce::Colour(0xff07090c));
@@ -95,6 +98,15 @@ void ScopeStrip::paint(juce::Graphics& g)
 void ScopeStrip::setActive(bool shouldBeActive)
 {
     setVisible(shouldBeActive);
+}
+
+void ScopeStrip::setShowIndex(bool shouldShow)
+{
+    if (showIndex == shouldShow)
+        return;
+
+    showIndex = shouldShow;
+    repaint();
 }
 
 void ScopeStrip::setReference(bool isReference)
