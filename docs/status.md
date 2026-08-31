@@ -1,6 +1,6 @@
 # Status
 
-Updated: 2026-08-30
+Updated: 2026-08-31
 Stage: 1 (static alignment)
 Plan step: feat — oscilloscope strips (sMexoscope-style)
 Branch: `feat/scope`
@@ -15,8 +15,8 @@ Blockers: none
 
 ## Now
 
-Layout: compact channel table on top, stacked scopes at the bottom
-(shared time, not overlay). `make test-gui` writes the PNG.
+Scope Time slider (ms, 5-200, default 40). Shared window for all strips.
+sMexoscope pixels/sample not copied — window is wall-clock.
 
 ## Next
 

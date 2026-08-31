@@ -60,6 +60,14 @@ BeatEqualizerAudioProcessorEditor::BeatEqualizerAudioProcessorEditor(BeatEqualiz
     scopeHeader.setFont(juce::FontOptions(12.0f, juce::Font::bold));
     addAndMakeVisible(scopeHeader);
 
+    timeLabel.setText("Time", juce::dontSendNotification);
+    addAndMakeVisible(timeLabel);
+    timeSlider.setSliderStyle(juce::Slider::LinearHorizontal);
+    timeSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 72, 22);
+    timeSlider.setTextValueSuffix(" ms");
+    timeSlider.setNumDecimalPlacesToDisplay(1);
+    addAndMakeVisible(timeSlider);
+
     scopeTimeLeft.setText("0 ms", juce::dontSendNotification);
     scopeTimeLeft.setJustificationType(juce::Justification::centredLeft);
     addAndMakeVisible(scopeTimeLeft);
@@ -67,7 +75,6 @@ BeatEqualizerAudioProcessorEditor::BeatEqualizerAudioProcessorEditor(BeatEqualiz
     addAndMakeVisible(scopeTimeRight);
 
     scopeScratch.resize(static_cast<size_t>(beat::ScopeRing::kLength));
-    scopeWindow.resize(2048);
 
     auto& state = audioProcessor.getParameters();
     rows.reserve(static_cast<size_t>(beat::kMaxChannels));
@@ -97,6 +104,9 @@ BeatEqualizerAudioProcessorEditor::BeatEqualizerAudioProcessorEditor(BeatEqualiz
         state, "global.reference", referenceBox);
     distanceAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
         state, "global.maxDistanceM", distanceSlider);
+    timeAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
+        state, "global.scopeTimeMs", timeSlider);
+    scopeTimeParam = state.getRawParameterValue("global.scopeTimeMs");
 
     audioProcessor.addChangeListener(this);
     updateLayoutInfo();
@@ -124,6 +134,7 @@ void BeatEqualizerAudioProcessorEditor::paint(juce::Graphics& g)
     referenceLabel.setColour(juce::Label::textColourId, juce::Colours::white);
     distanceLabel.setColour(juce::Label::textColourId, juce::Colours::white);
     scopeHeader.setColour(juce::Label::textColourId, juce::Colour(0xffc5cad3));
+    timeLabel.setColour(juce::Label::textColourId, juce::Colours::white);
     scopeTimeLeft.setColour(juce::Label::textColourId, juce::Colour(0xff8b919c));
     scopeTimeRight.setColour(juce::Label::textColourId, juce::Colour(0xff8b919c));
 }
@@ -172,11 +183,15 @@ void BeatEqualizerAudioProcessorEditor::resized()
     }
 
     area.removeFromTop(14);
-    auto timeRow = area.removeFromBottom(16);
-    scopeTimeLeft.setBounds(timeRow.removeFromLeft(90));
-    scopeTimeRight.setBounds(timeRow.removeFromRight(90));
+    auto axisRow = area.removeFromBottom(16);
+    scopeTimeLeft.setBounds(axisRow.removeFromLeft(90));
+    scopeTimeRight.setBounds(axisRow.removeFromRight(90));
 
-    scopeHeader.setBounds(area.removeFromTop(18));
+    auto scopeControls = area.removeFromTop(28);
+    scopeHeader.setBounds(scopeControls.removeFromLeft(280));
+    timeLabel.setBounds(scopeControls.removeFromLeft(40));
+    timeSlider.setBounds(scopeControls);
+    area.removeFromTop(8);
     scopeViewport.setBounds(area);
 
     const int available = juce::jmax(ScopeStrip::kMinHeight, scopeViewport.getHeight());
@@ -209,6 +224,11 @@ void BeatEqualizerAudioProcessorEditor::refreshWaveforms()
     updateWaveforms();
 }
 
+int BeatEqualizerAudioProcessorEditor::getScopeWindowSamples() const
+{
+    return (int) scopeWindow.size();
+}
+
 int BeatEqualizerAudioProcessorEditor::activeChannelCount() const
 {
     return juce::jmin(audioProcessor.getTotalNumInputChannels(), beat::kMaxChannels);
@@ -218,9 +238,15 @@ void BeatEqualizerAudioProcessorEditor::updateWaveforms()
 {
     const int active = activeChannelCount();
     const int captured = (int) scopeScratch.size();
-    const int window = (int) scopeWindow.size();
-    if (active <= 0 || captured <= 0 || window <= 0)
+    const float timeMs = (scopeTimeParam != nullptr)
+                             ? scopeTimeParam->load()
+                             : beat::kDefaultScopeTimeMs;
+    const int window = beat::ScopeRing::windowSamples(timeMs, audioProcessor.getCurrentSampleRate());
+    if (active <= 0 || captured <= 0 || window <= 0 || window > captured)
         return;
+
+    if ((int) scopeWindow.size() != window)
+        scopeWindow.resize(static_cast<size_t>(window));
 
     const auto& ring = audioProcessor.getScope();
     const int ref = juce::jlimit(0, active - 1, audioProcessor.getReferenceChannelIndex());

@@ -13,7 +13,7 @@ namespace beat
 class ScopeRing
 {
 public:
-    static constexpr int kLength = 4096;
+    static constexpr int kLength = 65536;
 
     void reset()
     {
@@ -55,6 +55,15 @@ public:
             if (start >= kLength)
                 start = 0;
         }
+    }
+
+    static int windowSamples(float timeMs, double sampleRate)
+    {
+        if (sampleRate <= 0.0)
+            return 64;
+
+        const int n = static_cast<int>(std::lround(static_cast<double>(timeMs) * 0.001 * sampleRate));
+        return std::clamp(n, 64, kLength);
     }
 
     static int findRisingTrigger(const float* samples, int count, float threshold)
