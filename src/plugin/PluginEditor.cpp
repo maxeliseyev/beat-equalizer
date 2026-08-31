@@ -74,7 +74,7 @@ BeatEqualizerAudioProcessorEditor::BeatEqualizerAudioProcessorEditor(BeatEqualiz
     scopeTimeRight.setJustificationType(juce::Justification::centredRight);
     addAndMakeVisible(scopeTimeRight);
 
-    scopeScratch.resize(static_cast<size_t>(beat::ScopeRing::kLength));
+    scopeScratch.resize(4096);
 
     auto& state = audioProcessor.getParameters();
     rows.reserve(static_cast<size_t>(beat::kMaxChannels));
@@ -237,7 +237,8 @@ int BeatEqualizerAudioProcessorEditor::activeChannelCount() const
 void BeatEqualizerAudioProcessorEditor::updateWaveforms()
 {
     const int active = activeChannelCount();
-    const int captured = (int) scopeScratch.size();
+    const auto& ring = audioProcessor.getScope();
+    const int captured = ring.length();
     const float timeMs = (scopeTimeParam != nullptr)
                              ? scopeTimeParam->load()
                              : beat::kDefaultScopeTimeMs;
@@ -245,10 +246,11 @@ void BeatEqualizerAudioProcessorEditor::updateWaveforms()
     if (active <= 0 || captured <= 0 || window <= 0 || window > captured)
         return;
 
+    if ((int) scopeScratch.size() != captured)
+        scopeScratch.resize(static_cast<size_t>(captured));
     if ((int) scopeWindow.size() != window)
         scopeWindow.resize(static_cast<size_t>(window));
 
-    const auto& ring = audioProcessor.getScope();
     const int ref = juce::jlimit(0, active - 1, audioProcessor.getReferenceChannelIndex());
     ring.copyLast(ref, scopeScratch.data(), captured);
 

@@ -18,7 +18,7 @@ inline constexpr int kLagrangeOrder = 5;
 inline constexpr int kInterpolatorLatencySamples = 2;
 inline constexpr float kDelaySmoothMs = 5.0f;
 inline constexpr float kMinScopeTimeMs = 5.0f;
-inline constexpr float kMaxScopeTimeMs = 200.0f;
+inline constexpr float kMaxScopeTimeMs = 1000.0f;
 inline constexpr float kDefaultScopeTimeMs = 40.0f;
 
 enum class ChannelRole
