@@ -24,7 +24,7 @@ A/B задерживает dry на max(applied), не на 0: иначе bypass
 
 ## Status
 
-STATUS.md обновлён: да. Ветка: `feat/fractional-delay`.
+status.md обновлён: да. Ветка: `feat/fractional-delay`.
 
 ## Next
 

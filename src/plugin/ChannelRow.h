@@ -30,7 +30,6 @@ public:
                              juce::Label& polarity);
 
 private:
-    int channelIndex = 0;
     bool active = false;
     float peak = 0.0f;
 

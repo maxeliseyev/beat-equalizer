@@ -8,8 +8,8 @@
 
 ## What
 
-- `DOCUMENTATION/STATUS.md` — живой курсор.
-- `DOCUMENTATION/handoff.md` — старт/конец, таблица «что куда», шаблоны.
+- `docs/status.md` — живой курсор.
+- `docs/handoff.md` — старт/конец, таблица «что куда», шаблоны.
 - `AGENTS.md`: STATUS первый файл сессии; секция «Смена сессии»; DoD включает
   актуальный STATUS; незаконченная работа только на запушенной ветке.
 - Индекс доков, session/ADR README, git-workflow (push ветки), шапки Status/Date
@@ -26,7 +26,7 @@ STATUS + session notes для Why — меньше дублирования, ч�
 
 ## Status
 
-STATUS.md обновлён: да. Ветка: всё ещё грязный `main` working tree (это
+status.md обновлён: да. Ветка: всё ещё грязный `main` working tree (это
 зафиксировано в STATUS как нарушение флоу, чинить следующим шагом).
 
 ## Next

@@ -2,29 +2,29 @@
 
 Multi-mic drum alignment plugin (C++ / JUCE). MVP is **static** alignment: one delay and polarity per channel, no ARA, no slicing.
 
-- Product plan: `DOCUMENTATION/drum-editor-plan.md`
-- MVP implementation plan: `DOCUMENTATION/plan.md`
-- Where we left off: `DOCUMENTATION/STATUS.md`
+- Product plan: `docs/drum-editor-plan.md`
+- MVP implementation plan: `docs/plan.md`
+- Where we left off: `docs/status.md`
 - Repo / agent contract: `AGENTS.md`
 
-## Build (macOS)
+## Build
 
-Needs CMake 3.22+, Ninja, and Apple Clang. JUCE 8.0.15 and Catch2 are fetched on first configure.
-
-```bash
-cmake --preset debug
-cmake --build --preset debug
-ctest --test-dir build/debug --output-on-failure
-```
-
-Release:
+Needs CMake 3.22+, Ninja, and a C++20 compiler (Apple Clang / MSVC / GCC).
+JUCE 8.0.15 and Catch2 are fetched on first configure.
 
 ```bash
-cmake --preset release
-cmake --build --preset release
+make              # Release: tests + VST3 (+ AU on macOS) + Standalone
+make debug        # same, Debug
+make test
+make vst3
+make au           # macOS only
+make standalone
+make run          # open Standalone
+make where        # artefact paths
 ```
 
-Targets: VST3, AU, Standalone. After a successful plugin build JUCE copies VST3/AU into `~/Library/Audio/Plug-Ins/`.
+On macOS a plugin build copies VST3/AU into `~/Library/Audio/Plug-Ins/`.
+Rescan in Reaper after `make`. Routing: `docs/reaper-testing.md`.
 
 ## License
 

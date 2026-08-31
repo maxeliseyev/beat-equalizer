@@ -9,7 +9,7 @@ PR 3 даёт delay/PDC, но GUI показывал только Ch 1–2. В R
 
 - Строка на каждый живой вход: On, пик входа, Delay ms, Polarity.
 - Шапка: N in/out, PDC в сэмплах и мс, A/B, hint по routing.
-- `DOCUMENTATION/reaper-testing.md`.
+- `docs/reaper-testing.md`.
 - Добавлено в открытый PR 3: без этого его нельзя проверить в хосте.
 
 ## Why
@@ -21,7 +21,7 @@ PR 3 даёт delay/PDC, но GUI показывал только Ch 1–2. В R
 
 ## Status
 
-STATUS.md обновлён: да. Ветка: `feat/fractional-delay`.
+status.md обновлён: да. Ветка: `feat/fractional-delay`.
 
 ## Next
 

@@ -4,7 +4,7 @@
 
 Зафиксирован trunk-based поток: `main` + обязательные PR, squash.
 `develop` откладывается до первой изданной версии. Описание в
-`DOCUMENTATION/git-workflow.md`, инвариант в `AGENTS.md`, ADR
+`docs/git-workflow.md`, инвариант в `AGENTS.md`, ADR
 `decisions/git-trunk-until-v1.md`.
 
 ## Why
