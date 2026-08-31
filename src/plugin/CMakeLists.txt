@@ -20,7 +20,8 @@ target_sources(BeatEqualizer
         ChannelRow.cpp
         Parameters.cpp
         PluginProcessor.cpp
-        PluginEditor.cpp)
+        PluginEditor.cpp
+        ScopeStrip.cpp)
 
 target_compile_definitions(BeatEqualizer
     PUBLIC

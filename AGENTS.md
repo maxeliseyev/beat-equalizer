@@ -46,6 +46,7 @@ C++20. JUCE 8.0.15 и Catch2 — FetchContent, в git их нет.
 make              # Release: тесты + форматы этой ОС
 make debug
 make test
+make test-gui     # рисует осциллограф в PNG (без Reaper)
 make vst3|au|standalone
 make run
 ```

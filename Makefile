@@ -58,6 +58,10 @@ test: configure
 	cmake --build --preset $(PRESET) --target beat_tests
 	ctest --test-dir $(BUILD_DIR) --output-on-failure
 
+test-gui: configure
+	cmake --build --preset $(PRESET) --target beat_gui_tests
+	"$(BUILD_DIR)/tests/beat_gui_tests"
+
 vst3: configure
 	cmake --build --preset $(PRESET) --target BeatEqualizer_VST3
 
@@ -104,6 +108,7 @@ help:
 	@echo "make              Release tests + plugins for $(HOST)"
 	@echo "make debug        Debug tests + plugins"
 	@echo "make test         beat_tests"
+	@echo "make test-gui     render oscilloscope to PNG"
 	@echo "make vst3|au|standalone"
 	@echo "make run          Open Standalone"
 	@echo "make where        Print output paths"
