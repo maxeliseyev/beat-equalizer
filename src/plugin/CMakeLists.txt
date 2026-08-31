@@ -20,6 +20,8 @@ target_sources(BeatEqualizer
         AnalysisWorker.cpp
         ChannelRow.cpp
         Correlometer.cpp
+        Exporter.cpp
+        FilePlayer.cpp
         Parameters.cpp
         PluginProcessor.cpp
         PluginEditor.cpp
@@ -35,6 +37,7 @@ target_compile_definitions(BeatEqualizer
 target_link_libraries(BeatEqualizer
     PRIVATE
         beat_dsp
+        juce::juce_audio_formats
         juce::juce_audio_utils
         juce::juce_dsp
     PUBLIC

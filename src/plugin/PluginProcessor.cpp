@@ -1,6 +1,7 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
+#include "dsp/AnalysisState.h"
 #include "dsp/Constants.h"
 #include "dsp/LatencyModel.h"
 
@@ -32,6 +33,15 @@ BeatEqualizerAudioProcessor::BeatEqualizerAudioProcessor()
     monoSumParam = parameters.getRawParameterValue("global.monoSum");
 
     analysisWorker.onResult = [this] { applyAnalysisResult(analysisWorker.result()); };
+    analysisWorker.readWindow = [this](float* dest, int channels, int count)
+    {
+        // Загруженные файлы важнее живого входа: в Standalone устройство может
+        // отдавать два канала, а на стенде лежит весь кит.
+        if (filePlayer.hasMaterial())
+            return filePlayer.readAnalysisWindow(dest, channels, count);
+
+        return analysisRing.readLast(dest, channels, count);
+    };
 }
 
 juce::AudioProcessor::BusesProperties BeatEqualizerAudioProcessor::createBusesProperties()
@@ -92,6 +102,8 @@ void BeatEqualizerAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
 
     for (int channel = numInput; channel < numOutput; ++channel)
         buffer.clear(channel, 0, numSamples);
+
+    filePlayer.fill(buffer, numCh);
 
     // Анализ смотрит на вход, до задержки и инверсии: буфер пишем до DSP.
     analysisRing.write(buffer.getArrayOfReadPointers(), numCh, numSamples);
@@ -231,6 +243,14 @@ void BeatEqualizerAudioProcessor::requestAnalyze()
                                                          : beat::kDefaultMaxDistanceM;
     request.reference = getReferenceChannelIndex();
 
+    const int ringLength = beat::AnalysisRing::capacityForSampleRate(currentSampleRate);
+    if (filePlayer.hasMaterial())
+        analysisWorker.prepare(juce::jmin(filePlayer.numChannels(), beat::kMaxChannels),
+                               juce::jmin(filePlayer.numSamples(), ringLength));
+    else
+        analysisWorker.prepare(juce::jmin(getTotalNumInputChannels(), beat::kMaxChannels),
+                               ringLength);
+
     if (analysisWorker.request(request))
     {
         analysisStatus = "Analyzing...";
@@ -296,6 +316,7 @@ void BeatEqualizerAudioProcessor::applyAnalysisResult(const beat::AlignmentEngin
 
     coherenceBefore = result.coherenceBefore;
     coherenceAfter = result.coherenceAfter;
+    lastResult = result;
 
     analysisStatus = juce::String(result.numChannels) + " ch aligned, ref Ch "
                      + juce::String(result.reference + 1) + ", "
@@ -308,17 +329,104 @@ juce::AudioProcessorEditor* BeatEqualizerAudioProcessor::createEditor()
     return new BeatEqualizerAudioProcessorEditor(*this);
 }
 
+juce::String BeatEqualizerAudioProcessor::exportAligned(const juce::File& file)
+{
+    if (!filePlayer.hasMaterial())
+        return "Load files before exporting";
+
+    const int channels = juce::jmin(filePlayer.numChannels(), beat::kMaxChannels);
+    const float samplesPerMs = static_cast<float>(currentSampleRate) * 0.001f;
+
+    std::vector<beat::exporter::ChannelSettings> settings;
+    settings.reserve(static_cast<size_t>(channels));
+
+    for (int ch = 0; ch < channels; ++ch)
+    {
+        const auto& params = channelParams[static_cast<size_t>(ch)];
+        const bool enabled = params.enabled == nullptr || params.enabled->load() >= 0.5f;
+
+        beat::exporter::ChannelSettings channelSettings;
+        if (enabled)
+        {
+            channelSettings.delaySamples =
+                (params.delayMs != nullptr) ? params.delayMs->load() * samplesPerMs : 0.0f;
+            channelSettings.invert =
+                params.polarity != nullptr
+                && juce::roundToInt(params.polarity->load())
+                       == static_cast<int>(beat::PolarityMode::invert);
+            channelSettings.rotatorHz = (params.rotatorHz != nullptr) ? params.rotatorHz->load()
+                                                                      : beat::kDefaultRotatorHz;
+            channelSettings.rotatorAmount =
+                (params.rotatorAmount != nullptr) ? params.rotatorAmount->load() : 0.0f;
+        }
+
+        settings.push_back(channelSettings);
+    }
+
+    juce::AudioBuffer<float> rendered;
+    beat::exporter::renderAligned(filePlayer.getBuffer(), currentSampleRate, settings, rendered);
+
+    if (!beat::exporter::writeWav(file, rendered, currentSampleRate))
+        return "Could not write " + file.getFileName();
+
+    return {};
+}
+
 void BeatEqualizerAudioProcessor::getStateInformation(juce::MemoryBlock& destData)
 {
-    if (auto xml = parameters.copyState().createXml())
+    auto state = parameters.copyState();
+    state.removeChild(state.getChildWithName(beat::kAnalysisStateTag), nullptr);
+
+    // Параметры и так восстановят задержки; блоб хранит сами оценки, чтобы
+    // после открытия проекта было видно уверенность и когерентность.
+    if (lastResult.status == beat::AnalysisStatus::ok)
+    {
+        const auto blob = beat::serializeAnalysis(lastResult, currentSampleRate);
+        juce::ValueTree node(beat::kAnalysisStateTag);
+        node.setProperty("data", juce::var(juce::MemoryBlock(blob.data(), blob.size())), nullptr);
+        state.appendChild(node, nullptr);
+    }
+
+    if (auto xml = state.createXml())
         copyXmlToBinary(*xml, destData);
 }
 
 void BeatEqualizerAudioProcessor::setStateInformation(const void* data, int sizeInBytes)
 {
-    if (auto xml = getXmlFromBinary(data, sizeInBytes))
-        if (xml->hasTagName(parameters.state.getType()))
-            parameters.replaceState(juce::ValueTree::fromXml(*xml));
+    auto xml = getXmlFromBinary(data, sizeInBytes);
+    if (xml == nullptr || !xml->hasTagName(parameters.state.getType()))
+        return;
+
+    auto state = juce::ValueTree::fromXml(*xml);
+    parameters.replaceState(state);
+
+    const auto node = state.getChildWithName(beat::kAnalysisStateTag);
+    if (!node.isValid())
+        return;
+
+    const auto* blob = node.getProperty("data").getBinaryData();
+    if (blob == nullptr)
+        return;
+
+    beat::AlignmentEngine::Result restored;
+    double storedRate = 0.0;
+    const int channels = juce::jmin(getTotalNumInputChannels(), beat::kMaxChannels);
+
+    if (!beat::deserializeAnalysis(static_cast<const std::uint8_t*>(blob->getData()),
+                                   blob->getSize(),
+                                   channels,
+                                   restored,
+                                   storedRate))
+    {
+        analysisStatus = "Saved estimates skipped: channel count changed";
+        return;
+    }
+
+    lastResult = restored;
+    coherenceBefore = restored.coherenceBefore;
+    coherenceAfter = restored.coherenceAfter;
+    analysisStatus = juce::String(restored.numChannels) + " ch restored, ref Ch "
+                     + juce::String(restored.reference + 1);
 }
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()

@@ -9,6 +9,7 @@ add_executable(beat_tests
     test_allpass_rotator.cpp
     test_coherence.cpp
     test_correlation.cpp
+    test_analysis_state.cpp
     test_scope_ring.cpp)
 
 target_link_libraries(beat_tests
@@ -23,7 +24,8 @@ add_test(NAME beat_tests COMMAND beat_tests)
 add_executable(beat_gui_tests
     test_scope_paint.cpp
     test_analyze_flow.cpp
-    test_table_ui.cpp)
+    test_table_ui.cpp
+    test_standalone.cpp)
 
 target_link_libraries(beat_gui_tests
     PRIVATE
