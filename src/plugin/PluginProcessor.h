@@ -17,7 +17,8 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 
 class BeatEqualizerAudioProcessor final : public juce::AudioProcessor,
-                                          public juce::ChangeBroadcaster
+                                          public juce::ChangeBroadcaster,
+                                          private juce::AsyncUpdater
 {
 public:
     BeatEqualizerAudioProcessor();
@@ -73,6 +74,9 @@ public:
 
     void requestAnalyze();
     FilePlayer& getFilePlayer() { return filePlayer; }
+    // Устройство сменило частоту: материал стенда пересчитывается под неё,
+    // иначе он играет с чужой скоростью. true — перезагрузили.
+    bool reloadBenchForSampleRate();
     juce::String exportAligned(const juce::File& file);
     // Публично, потому что путь «результат -> параметры» проверяется тестом
     // без message loop; worker зовёт то же самое из handleAsyncUpdate.
@@ -99,6 +103,7 @@ private:
     static BusesProperties createBusesProperties();
 
     void updateTransport(int numSamples);
+    void handleAsyncUpdate() override;
 
     void setParameterValue(const juce::String& parameterId, float value);
 

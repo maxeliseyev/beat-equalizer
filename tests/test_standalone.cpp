@@ -136,6 +136,80 @@ TEST_CASE("the bench plays only when asked and loops the material")
     file.deleteFile();
 }
 
+TEST_CASE("pause keeps the position and rewind sends it back to the start")
+{
+    // Пила: по значению отсчёта видно, откуда именно продолжили.
+    juce::AudioBuffer<float> ramp(1, 2048);
+    for (int i = 0; i < 2048; ++i)
+        ramp.setSample(0, i, static_cast<float>(i) / 2048.0f);
+
+    const auto file = writeTempWav(ramp);
+
+    FilePlayer player;
+    REQUIRE(player.load({ file }, kSampleRate).isEmpty());
+
+    juce::AudioBuffer<float> block(1, 512);
+    player.setPlaying(true);
+    REQUIRE(player.fill(block, 1));
+    REQUIRE(player.getPosition() == 512);
+
+    // Пауза не двигает позицию и не отдаёт материал.
+    player.setPlaying(false);
+    block.clear();
+    REQUIRE_FALSE(player.fill(block, 1));
+    REQUIRE(player.getPosition() == 512);
+
+    // Продолжили с того же места.
+    player.setPlaying(true);
+    REQUIRE(player.fill(block, 1));
+    REQUIRE(player.getPosition() == 1024);
+    REQUIRE_THAT(block.getSample(0, 0), WithinAbs(512.0f / 2048.0f, 1.0e-3f));
+
+    // Отмотка — снова с начала.
+    player.rewind();
+    REQUIRE(player.getPosition() == 0);
+    REQUIRE(player.fill(block, 1));
+    REQUIRE_THAT(block.getSample(0, 0), WithinAbs(0.0f, 1.0e-3f));
+
+    // Перемотка ручкой не вылезает за материал.
+    player.setPosition(999999);
+    REQUIRE(player.getPosition() == 2047);
+    player.setPosition(-5);
+    REQUIRE(player.getPosition() == 0);
+
+    file.deleteFile();
+}
+
+TEST_CASE("the bench survives a device sample rate change")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+
+    BeatEqualizerAudioProcessor processor;
+    processor.enableAllBuses();
+    processor.prepareToPlay(kSampleRate, 128);
+
+    juce::AudioBuffer<float> source(2, 4800); // 100 мс на 48 kHz
+    source.clear();
+    for (int ch = 0; ch < 2; ++ch)
+        source.setSample(ch, 100, 1.0f);
+
+    const auto file = writeTempWav(source);
+    auto& player = processor.getFilePlayer();
+    REQUIRE(player.load({ file }, kSampleRate).isEmpty());
+    REQUIRE(player.numSamples() == 4800);
+
+    // Пользователь переключил устройство на 96 kHz в диалоге Audio…
+    processor.prepareToPlay(96000.0, 128);
+    REQUIRE(processor.reloadBenchForSampleRate());
+    REQUIRE_THAT(player.getSampleRate(), WithinAbs(96000.0, 1.0e-6));
+    REQUIRE(player.numSamples() > 9000); // те же 100 мс, вдвое больше отсчётов
+
+    // Частота не менялась — перезагружать нечего.
+    REQUIRE_FALSE(processor.reloadBenchForSampleRate());
+
+    file.deleteFile();
+}
+
 TEST_CASE("the analysis window skips the silence before the first hit")
 {
     juce::AudioBuffer<float> source(2, 8192);
@@ -430,8 +504,8 @@ TEST_CASE("the bench row only exists in Standalone")
     const auto input = writeTempWav(source);
     REQUIRE(processor.getFilePlayer().load({ input }, kSampleRate).isEmpty());
 
+    // Размер редактор выбирает сам: он зависит от числа каналов и ряда стенда.
     std::unique_ptr<juce::AudioProcessorEditor> editor(processor.createEditor());
-    editor->setSize(1040, 796);
 
     juce::Image image(juce::Image::ARGB, editor->getWidth(), editor->getHeight(), true);
     {
@@ -453,8 +527,8 @@ TEST_CASE("the bench row only exists in Standalone")
             if (button->isVisible())
                 ++visibleButtons;
 
-    // Analyze плюс четыре кнопки стенда: Load, Play, Export, Audio.
-    REQUIRE(visibleButtons == 5);
+    // Analyze плюс пять кнопок стенда: Load, |<, Play, Export, Audio.
+    REQUIRE(visibleButtons == 6);
 
     input.deleteFile();
 }

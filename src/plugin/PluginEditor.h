@@ -38,6 +38,7 @@ private:
     void updateWaveforms();
     void updateAnalysisStatus();
     void updateBench();
+    void updateTransportRow();
     void syncChannelCount();
     void updateChannelNames();
     void updateTransportInfo();
@@ -53,10 +54,15 @@ private:
     juce::Label hint;
 
     juce::TextButton loadButton { "Load files..." };
+    juce::TextButton rewindButton { "|<" };
     juce::TextButton playButton { "Play" };
     juce::TextButton exportButton { "Export aligned..." };
     juce::TextButton audioButton { "Audio..." };
     juce::Label benchLabel;
+    juce::Slider positionSlider;
+    juce::Label positionLabel;
+    juce::Label deviceLabel;
+    bool draggingPosition = false;
     std::unique_ptr<juce::FileChooser> chooser;
     bool standalone = false;
     bool benchLoaded = false;

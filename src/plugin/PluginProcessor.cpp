@@ -71,6 +71,11 @@ void BeatEqualizerAudioProcessor::prepareToPlay(double sampleRate, int)
     analysisRing.prepare(analysisChannels, analysisLength);
     analysisWorker.prepare(analysisChannels, analysisLength);
     setLatencySamples(beat::LatencyModel::reportedLatency(0.0f));
+
+    // Частоту устройства могли поменять в диалоге Audio…: материал стенда
+    // пересчитывается в message thread, здесь только заявка.
+    if (filePlayer.hasMaterial() && std::abs(filePlayer.getSampleRate() - sampleRate) > 1.0)
+        triggerAsyncUpdate();
 }
 
 void BeatEqualizerAudioProcessor::releaseResources()
@@ -226,6 +231,34 @@ void BeatEqualizerAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
         inputPeak[static_cast<size_t>(ch)].store(juce::jmax(blockPeak[ch], decayed),
                                                  std::memory_order_relaxed);
     }
+}
+
+void BeatEqualizerAudioProcessor::handleAsyncUpdate()
+{
+    if (reloadBenchForSampleRate())
+        sendChangeMessage();
+}
+
+bool BeatEqualizerAudioProcessor::reloadBenchForSampleRate()
+{
+    if (!filePlayer.hasMaterial() || currentSampleRate <= 0.0)
+        return false;
+
+    if (std::abs(filePlayer.getSampleRate() - currentSampleRate) <= 1.0)
+        return false;
+
+    const auto files = filePlayer.getFiles();
+    const bool wasPlaying = filePlayer.isPlaying();
+    const auto error = filePlayer.load(files, currentSampleRate);
+
+    if (error.isNotEmpty())
+    {
+        analysisStatus = error;
+        return false;
+    }
+
+    filePlayer.setPlaying(wasPlaying);
+    return true;
 }
 
 void BeatEqualizerAudioProcessor::updateTransport(int numSamples)
