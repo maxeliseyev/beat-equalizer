@@ -7,6 +7,7 @@
 #include "plugin/PluginEditor.h"
 #include "plugin/PluginProcessor.h"
 
+#include <cmath>
 #include <memory>
 #include <vector>
 
@@ -45,27 +46,80 @@ juce::Image render(juce::Component& component, int width, int height)
     return image;
 }
 
-bool setFourChannels(BeatEqualizerAudioProcessor& processor)
+bool setChannels(BeatEqualizerAudioProcessor& processor, int channels)
 {
     juce::AudioProcessor::BusesLayout layout;
-    layout.inputBuses.add(juce::AudioChannelSet::discreteChannels(4));
-    layout.outputBuses.add(juce::AudioChannelSet::discreteChannels(4));
+    layout.inputBuses.add(juce::AudioChannelSet::discreteChannels(channels));
+    layout.outputBuses.add(juce::AudioChannelSet::discreteChannels(channels));
     return processor.setBusesLayout(layout);
+}
+
+bool setFourChannels(BeatEqualizerAudioProcessor& processor)
+{
+    return setChannels(processor, 4);
 }
 } // namespace
 
-TEST_CASE("table columns never overlap and the delay slider keeps the rest")
+TEST_CASE("table columns never overlap and the waveform takes the right edge")
 {
-    const auto columns = ChannelColumns::from({ 0, 0, 900, 36 });
+    const auto columns = ChannelColumns::from({ 0, 0, 1200, ChannelRow::kHeight });
 
-    REQUIRE(columns.delay.getWidth() > 200);
+    REQUIRE(columns.delay.getWidth() == ChannelRow::kDelayWidth);
     REQUIRE_FALSE(overlaps(columns.enable, columns.name));
     REQUIRE_FALSE(overlaps(columns.name, columns.role));
     REQUIRE_FALSE(overlaps(columns.role, columns.delay));
     REQUIRE_FALSE(overlaps(columns.delay, columns.rotator));
     REQUIRE_FALSE(overlaps(columns.rotator, columns.polarity));
     REQUIRE_FALSE(overlaps(columns.polarity, columns.corr));
-    REQUIRE(columns.corr.getRight() == 900);
+    REQUIRE_FALSE(overlaps(columns.corr, columns.scope));
+
+    // Ручки фиксированной ширины, вся лишняя ширина уходит осциллограмме.
+    REQUIRE(columns.corr.getRight() == ChannelRow::kControlsWidth);
+    REQUIRE(columns.scope.getRight() == 1200);
+    REQUIRE(columns.scope.getWidth() == 1200 - ChannelRow::kControlsWidth);
+}
+
+TEST_CASE("a channel row draws its own waveform right of the controls")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+
+    BeatEqualizerAudioProcessor processor;
+    ChannelRow row(processor.getParameters(), 0);
+    row.setActive(true);
+
+    std::vector<float> sine(1024);
+    for (size_t i = 0; i < sine.size(); ++i)
+        sine[i] = 0.8f * std::sin(0.12f * static_cast<float>(i));
+    row.setWaveform(sine.data(), (int) sine.size());
+
+    const auto image = render(row, 1200, ChannelRow::kHeight);
+    const auto columns = ChannelColumns::from({ 0, 0, 1200, ChannelRow::kHeight });
+    REQUIRE(row.getScopeBounds() == columns.scope);
+
+    const auto cyan = juce::Colour(0xff5ec8ff);
+    REQUIRE(countNearColour(image.getClippedImage(columns.scope), cyan, 40) > 200);
+    REQUIRE(countNearColour(image.getClippedImage({ 0, 0, ChannelRow::kControlsWidth,
+                                                   ChannelRow::kHeight }),
+                            cyan,
+                            40)
+            == 0);
+}
+
+TEST_CASE("the window grows down linearly with the channel count")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+
+    BeatEqualizerAudioProcessor four;
+    REQUIRE(setChannels(four, 4));
+    BeatEqualizerAudioProcessor eight;
+    REQUIRE(setChannels(eight, 8));
+
+    std::unique_ptr<juce::AudioProcessorEditor> smallEditor(four.createEditor());
+    std::unique_ptr<juce::AudioProcessorEditor> bigEditor(eight.createEditor());
+
+    // Каждый канал добавляет ровно одну строку и ни пикселя по ширине.
+    REQUIRE(bigEditor->getHeight() - smallEditor->getHeight() == 4 * ChannelRow::kHeight);
+    REQUIRE(bigEditor->getWidth() == smallEditor->getWidth());
 }
 
 TEST_CASE("correlometer reads +1 in phase and -1 out of phase")

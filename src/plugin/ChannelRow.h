@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Parameters.h"
+#include "ScopeStrip.h"
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_gui_basics/juce_gui_basics.h>
@@ -16,6 +17,7 @@ struct ChannelColumns
     juce::Rectangle<int> rotator;
     juce::Rectangle<int> polarity;
     juce::Rectangle<int> corr;
+    juce::Rectangle<int> scope;
 
     static ChannelColumns from(juce::Rectangle<int> row);
 };
@@ -23,13 +25,21 @@ struct ChannelColumns
 class ChannelRow final : public juce::Component
 {
 public:
-    static constexpr int kHeight = 36;
+    // Осциллограмма канала живёт в его же строке, справа от ручек. Поэтому
+    // ширина колонок фиксированная (иначе на широком окне разъезжается delay),
+    // а окно растёт вниз ровно на kHeight за канал.
+    static constexpr int kHeight = 64;
+    static constexpr int kControlHeight = 26;
     static constexpr int kEnableWidth = 44;
     static constexpr int kNameWidth = 36;
     static constexpr int kRoleWidth = 84;
+    static constexpr int kDelayWidth = 240;
     static constexpr int kRotatorWidth = 148;
     static constexpr int kPolarityWidth = 100;
     static constexpr int kCorrWidth = 56;
+    static constexpr int kControlsWidth = kEnableWidth + kNameWidth + kRoleWidth + kDelayWidth
+                                          + kRotatorWidth + kPolarityWidth + kCorrWidth;
+    static constexpr int kMinScopeWidth = 280;
 
     ChannelRow(juce::AudioProcessorValueTreeState& state, int channelIndex);
 
@@ -39,6 +49,9 @@ public:
     void setActive(bool shouldBeActive);
     void setCorrelation(float value);
     void setIsReference(bool isReference);
+    void setWaveform(const float* samples, int count);
+
+    juce::Rectangle<int> getScopeBounds() const { return scope.getBounds(); }
 
 private:
     bool active = false;
@@ -50,6 +63,7 @@ private:
     juce::Slider rotatorSlider;
     juce::ComboBox polarityBox;
     juce::Label corrLabel;
+    ScopeStrip scope;
 
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> enabledAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> roleAttachment;

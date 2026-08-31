@@ -16,6 +16,8 @@ public:
 
     void setActive(bool shouldBeActive);
     void setReference(bool isReference);
+    // Внутри строки канала номер уже нарисован колонкой Ch.
+    void setShowIndex(bool shouldShow);
     void setWaveform(const float* samples, int count);
 
 private:
@@ -23,6 +25,7 @@ private:
 
     int index = 0;
     bool reference = false;
+    bool showIndex = true;
     std::vector<float> waveform;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ScopeStrip)
