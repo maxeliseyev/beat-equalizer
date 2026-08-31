@@ -2,36 +2,35 @@
 
 Updated: 2026-08-31
 Stage: 1 (static alignment)
-Plan step: PR 5 — олпасс + когерентность + auto-rotate
-Branch: `feat/rotator-coherence`
-PR: https://github.com/maxeliseyev/beat-equalizer/pull/10
+Plan step: PR 6 — таблица, коррелометр, Mono Sum
+Branch: `feat/table-correlometer`
+PR: открыть из этой ветки
 Blockers: none
 
 ## Done
 
-- PR 1–4 плана слиты в `main` (репо-PR 1–9), последний — Analyze engine (0.2.0).
-- На ветке: `AllpassRotator`, `Coherence`, auto-rotate на Analyze, ротатор в
-  `processBlock` после задержки, строка «Sum coherence до → после» в UI, 0.3.0.
+- PR 1–5 плана в `main` (репо-PR 1–10), последний — ротатор и когерентность (0.3.0).
+- На ветке: колонки Role / Rotator / Corr, `ChannelColumns`, коррелометр,
+  Mono Sum, `beat::correlation`, 0.4.0.
 
 ## Now
 
-PR 10 открыт, ждёт приёмки. Ушами не проверено: ротатор и рост когерентности на реальном
-ките — автотесты гоняют синтетику.
+Ветка готова к PR. Ушами не проверено: Mono Sum и коррелометр на живом ките.
 
 ## Next
 
-PR 6 — таблица каналов целиком (колонки rotator и corr), коррелометр, Mono Sum,
-компактная отрисовка снимка анализа.
+PR 7 — Standalone loader (несколько WAV на каналы), export aligned WAV,
+персистентность последних оценок между открытиями проекта.
 
 ## Resume
 
-1. `git fetch && git checkout feat/rotator-coherence && git pull`
+1. `git fetch && git checkout feat/table-correlometer && git pull`
 2. `make test && make test-gui && make standalone`
-3. Standalone: Analyze на паре со сдвигом и инверсией — «Sum coherence» должна
-   вырасти; A/B обязан звучать без ротатора.
+3. Standalone: включить Mono Sum, проверить, что стемы выше 1-2 не сломались;
+   инвертировать канал руками — Corr и коррелометр должны уйти в минус.
 
 ## Open
 
-- Ротатор не виден в таблице каналов (колонка — в PR 6).
-- Сетка перебора ротатора 12 × 4 не калибрована на живых китах (PR 8).
+- Роль канала — метаданные, алгоритм её не читает (инвариант 8).
+- Corr зависит от окна Time скопа: на редком материале цифра шумит.
 - GitHub Require PR on `main`.
