@@ -4,6 +4,7 @@
 #include "Parameters.h"
 #include "ScopeRing.h"
 #include "dsp/AlignmentSnapshot.h"
+#include "dsp/AllpassRotator.h"
 #include "dsp/AnalysisRing.h"
 #include "dsp/FractionalDelay.h"
 
@@ -58,6 +59,8 @@ public:
     bool isAnalysisBusy() const { return analysisWorker.isBusy(); }
     bool isFrozen() const;
     juce::String getAnalysisStatus() const { return analysisStatus; }
+    float getCoherenceBefore() const { return coherenceBefore; }
+    float getCoherenceAfter() const { return coherenceAfter; }
 
 private:
     struct ChannelParams
@@ -65,6 +68,8 @@ private:
         std::atomic<float>* delayMs = nullptr;
         std::atomic<float>* polarity = nullptr;
         std::atomic<float>* enabled = nullptr;
+        std::atomic<float>* rotatorAmount = nullptr;
+        std::atomic<float>* rotatorHz = nullptr;
     };
 
     static BusesProperties createBusesProperties();
@@ -74,6 +79,7 @@ private:
     juce::AudioProcessorValueTreeState parameters;
     beat::AlignmentSnapshot snapshot;
     beat::FractionalDelay delay;
+    beat::AllpassRotator rotator;
     std::array<ChannelParams, beat::kMaxChannels> channelParams {};
     std::atomic<float>* abBypassParam = nullptr;
     std::array<std::atomic<float>, beat::kMaxChannels> inputPeak {};
@@ -84,6 +90,8 @@ private:
     beat::AnalysisRing analysisRing;
     AnalysisWorker analysisWorker { analysisRing };
     juce::String analysisStatus { "Press Analyze after playing a few bars" };
+    float coherenceBefore = 0.0f;
+    float coherenceAfter = 0.0f;
     double currentSampleRate = 48000.0;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(BeatEqualizerAudioProcessor)

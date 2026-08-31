@@ -3,6 +3,7 @@
 
 #include "SyntheticKit.h"
 #include "dsp/AlignmentEngine.h"
+#include "dsp/AllpassRotator.h"
 #include "dsp/Constants.h"
 #include "dsp/LatencyModel.h"
 
@@ -221,4 +222,79 @@ TEST_CASE("engine delay in milliseconds does not depend on the sample rate")
 
     REQUIRE_THAT(tdoaMsAt(48000.0), WithinAbs(0.125f, 0.005f));
     REQUIRE_THAT(tdoaMsAt(96000.0), WithinAbs(0.125f, 0.005f));
+}
+
+TEST_CASE("delay and polarity together raise the coherence of the sum")
+{
+    const auto reference = whiteNoise(kLength, 23);
+
+    Kit kit;
+    kit.add(reference);
+    kit.add(delaySignal(reference, 11.3f, true)); // нижний снейр: позже и в противофазе
+
+    beat::AlignmentEngine engine;
+    beat::AnalysisRequest request;
+    request.sampleRate = kSampleRate;
+
+    const auto result = engine.analyze(kit.data(), kit.numChannels(), kit.numSamples(), request);
+
+    REQUIRE(result.status == beat::AnalysisStatus::ok);
+    REQUIRE(result.channels[1].invert);
+    // Некоррелированная по фазе пара упирается в ~0.64 (среднее |1 - e^-jwd|),
+    // так что порог здесь про «сумма ничего не выиграла», а не про ноль.
+    REQUIRE(result.coherenceBefore < 0.75f);
+    REQUIRE(result.coherenceAfter > 0.95f);
+    REQUIRE(result.coherenceAfter > result.coherenceBefore);
+}
+
+TEST_CASE("auto-rotate catches a phase-smeared reference and stays a smaller win")
+{
+    const auto source = whiteNoise(kLength, 27);
+
+    // Опора прошла через олпасс: задержка и полярность её не догонят,
+    // канал должен довернуть фазу ротатором.
+    beat::AllpassRotator rotator;
+    rotator.prepare(kSampleRate, 1);
+    rotator.setRotation(0, 900.0f, 1.0f);
+    rotator.reset();
+
+    std::vector<float> smeared(source.size());
+    for (size_t i = 0; i < source.size(); ++i)
+        smeared[i] = rotator.processSample(0, source[static_cast<size_t>(i)]);
+
+    Kit kit;
+    kit.add(smeared);
+    kit.add(delaySignal(source, 5.0f));
+
+    beat::AlignmentEngine engine;
+    beat::AnalysisRequest request;
+    request.sampleRate = kSampleRate;
+
+    const auto result = engine.analyze(kit.data(), kit.numChannels(), kit.numSamples(), request);
+
+    REQUIRE(result.status == beat::AnalysisStatus::ok);
+    REQUIRE(result.channels[1].rotatorAmount > 0.0f);
+    REQUIRE(result.channels[1].coherenceAfter > result.channels[1].coherenceBefore);
+    REQUIRE(result.snapshot.rotatorAmount[1] == result.channels[1].rotatorAmount);
+    REQUIRE(result.snapshot.rotatorCoeff[1] != 0.0f);
+}
+
+TEST_CASE("a clean pair is left on rotator bypass")
+{
+    const auto reference = whiteNoise(kLength, 31);
+
+    Kit kit;
+    kit.add(reference);
+    kit.add(delaySignal(reference, 7.0f));
+
+    beat::AlignmentEngine engine;
+    beat::AnalysisRequest request;
+    request.sampleRate = kSampleRate;
+
+    const auto result = engine.analyze(kit.data(), kit.numChannels(), kit.numSamples(), request);
+
+    REQUIRE(result.status == beat::AnalysisStatus::ok);
+    REQUIRE(result.channels[1].rotatorAmount == 0.0f);
+    REQUIRE(result.snapshot.rotatorCoeff[1] == 0.0f);
+    REQUIRE(result.coherenceAfter > 0.95f);
 }

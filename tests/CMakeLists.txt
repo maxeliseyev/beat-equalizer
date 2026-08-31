@@ -6,6 +6,8 @@ add_executable(beat_tests
     test_analysis_ring.cpp
     test_latency_model.cpp
     test_fractional_delay.cpp
+    test_allpass_rotator.cpp
+    test_coherence.cpp
     test_scope_ring.cpp)
 
 target_link_libraries(beat_tests

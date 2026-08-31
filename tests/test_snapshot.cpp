@@ -15,6 +15,7 @@ TEST_CASE("identity snapshot enables only live channels and zeros delays")
         REQUIRE(snapshot.delaySamples[i] == 0.0f);
         REQUIRE_FALSE(snapshot.invert[i]);
         REQUIRE(snapshot.rotatorCoeff[i] == 0.0f);
+        REQUIRE(snapshot.rotatorAmount[i] == 0.0f);
         REQUIRE(snapshot.enabled[i] == (i < 8));
     }
 }

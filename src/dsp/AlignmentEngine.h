@@ -1,6 +1,7 @@
 #pragma once
 
 #include "AlignmentSnapshot.h"
+#include "Coherence.h"
 #include "Constants.h"
 #include "GccPhat.h"
 
@@ -34,6 +35,13 @@ struct ChannelEstimate
     float confidence = 0.0f;
     int framesUsed = 0;
     bool valid = false;
+
+    // Когерентность суммы с опорой на самом громком кадре: до и после того,
+    // что предлагает Analyze (задержка, полярность, ротатор).
+    float coherenceBefore = 0.0f;
+    float coherenceAfter = 0.0f;
+    float rotatorHz = kDefaultRotatorHz;
+    float rotatorAmount = 0.0f;
 };
 
 // Кадры кольцевого буфера → GCC-PHAT на пару (опора, канал) → медиана лага,
@@ -48,6 +56,8 @@ public:
         int reference = 0;
         int framesTotal = 0;
         int framesLoud = 0;
+        float coherenceBefore = 0.0f;
+        float coherenceAfter = 0.0f;
         std::array<ChannelEstimate, kMaxChannels> channels {};
         AlignmentSnapshot snapshot {};
     };
@@ -64,7 +74,13 @@ public:
                    const AnalysisRequest& request);
 
 private:
+    void measureAndRotate(const float* const* channels,
+                          int loudestFrame,
+                          const AnalysisRequest& request,
+                          Result& result);
+
     GccPhat gcc;
+    Coherence coherence;
     int frame = 0;
     std::array<std::vector<float>, kMaxChannels> lagsPerChannel {};
     std::array<std::vector<float>, kMaxChannels> ratiosPerChannel {};

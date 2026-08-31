@@ -2,38 +2,36 @@
 
 Updated: 2026-08-31
 Stage: 1 (static alignment)
-Plan step: PR 4 — AlignmentEngine + worker + Analyze
-Branch: `feat/analyze-engine`
-PR: https://github.com/maxeliseyev/beat-equalizer/pull/9
+Plan step: PR 5 — олпасс + когерентность + auto-rotate
+Branch: `feat/rotator-coherence`
+PR: https://github.com/maxeliseyev/beat-equalizer/pull/10
 Blockers: none
 
 ## Done
 
-- PR 1–8 в `main`: скелет, GCC-PHAT, Lagrange+PDC, Makefile/docs, осциллограф,
-  канон детектора, Time-окно скопа (0.1.1).
-- На ветке: кольцевой буфер сырого входа, `AlignmentEngine`, worker-поток,
-  кнопки Analyze / Freeze, статус в UI, версия 0.2.0.
-  `make test` (38 кейсов) и `make test-gui` (7 кейсов) зелёные.
+- PR 1–4 плана слиты в `main` (репо-PR 1–9), последний — Analyze engine (0.2.0).
+- На ветке: `AllpassRotator`, `Coherence`, auto-rotate на Analyze, ротатор в
+  `processBlock` после задержки, строка «Sum coherence до → после» в UI, 0.3.0.
 
 ## Now
 
-PR 9 открыт, ждёт приёмки. Не проверено ушами: реальный кит и Standalone с двумя WAV —
-автотесты гоняют синтетику через `processBlock`, но не звук в живом хосте.
+PR 10 открыт, ждёт приёмки. Ушами не проверено: ротатор и рост когерентности на реальном
+ките — автотесты гоняют синтетику.
 
 ## Next
 
-Ручная приёмка в Standalone (2 канала, сдвиг ~2.3 мс + инверсия), затем PR 5 —
-олпасс-ротатор и когерентность.
+PR 6 — таблица каналов целиком (колонки rotator и corr), коррелометр, Mono Sum,
+компактная отрисовка снимка анализа.
 
 ## Resume
 
-1. `git fetch && git checkout feat/analyze-engine && git pull`
+1. `git fetch && git checkout feat/rotator-coherence && git pull`
 2. `make test && make test-gui && make standalone`
-3. Standalone: подать материал, нажать Analyze, сверить delay в таблице с
-   ожидаемым; Freeze не должен затирать ручную правку.
+3. Standalone: Analyze на паре со сдвигом и инверсией — «Sum coherence» должна
+   вырасти; A/B обязан звучать без ротатора.
 
 ## Open
 
-- Опора пересчитывает FFT на каждый канал: 8 с × 16 каналов — пара секунд на
-  проход. Кэш спектра опоры, если станет мешать.
+- Ротатор не виден в таблице каналов (колонка — в PR 6).
+- Сетка перебора ротатора 12 × 4 не калибрована на живых китах (PR 8).
 - GitHub Require PR on `main`.

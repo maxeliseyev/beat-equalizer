@@ -1,5 +1,6 @@
 #include "AlignmentEngine.h"
 
+#include "AllpassRotator.h"
 #include "LatencyModel.h"
 
 #include <algorithm>
@@ -41,6 +42,7 @@ float median(std::vector<float>& values)
 
 AlignmentEngine::AlignmentEngine(int fftOrder)
     : gcc(fftOrder),
+      coherence(fftOrder),
       frame(1 << fftOrder)
 {
 }
@@ -82,15 +84,26 @@ AlignmentEngine::Result AlignmentEngine::analyze(const float* const* channels,
 
     const float* reference = channels[result.reference];
     const int hop = hopSize();
+    int loudestFrame = -1;
+    float loudestRms = 0.0f;
 
     for (int start = 0; start + frame <= numSamples; start += hop)
     {
         ++result.framesTotal;
 
-        if (rms(reference + start, frame) < kAnalysisMinRms)
+        const float frameRms = rms(reference + start, frame);
+        if (frameRms < kAnalysisMinRms)
             continue;
 
         ++result.framesLoud;
+
+        // Когерентность и перебор ротатора считаем на одном кадре: самом
+        // громком. Так метрика не размывается тишиной между ударами.
+        if (frameRms > loudestRms)
+        {
+            loudestRms = frameRms;
+            loudestFrame = start;
+        }
 
         for (int ch = 0; ch < result.numChannels; ++ch)
         {
@@ -169,8 +182,101 @@ AlignmentEngine::Result AlignmentEngine::analyze(const float* const* channels,
     for (int ch = 0; ch < result.numChannels; ++ch)
         snapshot.invert[ch] = result.channels[static_cast<size_t>(ch)].invert;
 
+    measureAndRotate(channels, loudestFrame, request, result);
+
+    for (int ch = 0; ch < result.numChannels; ++ch)
+    {
+        const auto& estimate = result.channels[static_cast<size_t>(ch)];
+        snapshot.rotatorAmount[ch] = estimate.rotatorAmount;
+        snapshot.rotatorCoeff[ch] =
+            (estimate.rotatorAmount > 0.0f)
+                ? AllpassRotator::coefficient(estimate.rotatorHz, request.sampleRate)
+                : 0.0f;
+    }
+
     result.status = AnalysisStatus::ok;
     return result;
+}
+
+void AlignmentEngine::measureAndRotate(const float* const* channels,
+                                       int loudestFrame,
+                                       const AnalysisRequest& request,
+                                       Result& result)
+{
+    if (loudestFrame < 0)
+        return;
+
+    const float* reference = channels[result.reference] + loudestFrame;
+    constexpr float amounts[] = { 0.25f, 0.5f, 0.75f, 1.0f };
+    const float hzRatio = kRotatorSearchHighHz / kRotatorSearchLowHz;
+
+    double sumBefore = 0.0;
+    double sumAfter = 0.0;
+    int measured = 0;
+
+    for (int ch = 0; ch < result.numChannels; ++ch)
+    {
+        if (ch == result.reference || channels[ch] == nullptr)
+            continue;
+
+        auto& estimate = result.channels[static_cast<size_t>(ch)];
+        coherence.setPair(reference, channels[ch] + loudestFrame, frame, request.sampleRate);
+
+        Coherence::Transform transform;
+        // Канал звучит позже опоры, поэтому в метрике двигаем его вперёд.
+        transform.delaySamples = -estimate.tdoaSamples;
+        transform.invert = estimate.invert;
+
+        const float before = coherence.measureRaw();
+        const float aligned = coherence.measure(transform);
+
+        float bestValue = aligned;
+        float bestHz = kDefaultRotatorHz;
+        float bestAmount = 0.0f;
+
+        if (estimate.valid)
+        {
+            for (int step = 0; step < kRotatorSearchSteps; ++step)
+            {
+                const float t = static_cast<float>(step)
+                                / static_cast<float>(kRotatorSearchSteps - 1);
+                const float hz = kRotatorSearchLowHz * std::pow(hzRatio, t);
+
+                for (float amount : amounts)
+                {
+                    auto candidate = transform;
+                    candidate.rotatorHz = hz;
+                    candidate.rotatorAmount = amount;
+
+                    const float value = coherence.measure(candidate);
+                    if (value > bestValue)
+                    {
+                        bestValue = value;
+                        bestHz = hz;
+                        bestAmount = amount;
+                    }
+                }
+            }
+        }
+
+        // Вращать фазу ради сотых долей процента не стоит: остаёмся на bypass.
+        const bool worthRotating = bestAmount > 0.0f && bestValue > aligned + kRotatorMinGain;
+
+        estimate.coherenceBefore = before;
+        estimate.coherenceAfter = worthRotating ? bestValue : aligned;
+        estimate.rotatorHz = worthRotating ? bestHz : kDefaultRotatorHz;
+        estimate.rotatorAmount = worthRotating ? bestAmount : 0.0f;
+
+        sumBefore += static_cast<double>(before);
+        sumAfter += static_cast<double>(estimate.coherenceAfter);
+        ++measured;
+    }
+
+    if (measured > 0)
+    {
+        result.coherenceBefore = static_cast<float>(sumBefore / measured);
+        result.coherenceAfter = static_cast<float>(sumAfter / measured);
+    }
 }
 
 } // namespace beat
