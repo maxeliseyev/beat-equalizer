@@ -2,16 +2,14 @@
 
 Updated: 2026-08-31
 Stage: 1 (static alignment)
-Plan step: feat — oscilloscope strips (sMexoscope-style)
-Branch: `feat/scope`
-PR: https://github.com/maxeliseyev/beat-equalizer/pull/5
+Plan step: feat — scope Time window
+Branch: `feat/scope-time`
+PR: https://github.com/maxeliseyev/beat-equalizer/pull/7
 Blockers: none
 
 ## Done
 
-- PR 1–3 in `main`. GitHub #4 (Makefile + `docs/`) may still be open.
-- Per-channel output oscilloscope: min/max per pixel, rising trigger on Reference,
-  delay/invert visible on the trace.
+- PR 1–6 in `main` (strips, Makefile, detector canon, 0.1.1).
 
 ## Now
 
@@ -20,13 +18,12 @@ sMexoscope pixels/sample not copied — window is wall-clock.
 
 ## Next
 
-After this PR: **Analyze engine** from fresh `main` (after #4 if still open).
+After this PR: **Analyze engine** from fresh `main`.
 
 ## Resume
 
-1. `git fetch && git checkout feat/scope && git pull`
+1. `git fetch && git checkout feat/scope-time && git pull`
 2. `make test && make test-gui && make vst3`
-3. Fully quit Reaper (Cmd+Q), re-insert. Title must say `| scope`. Play the track.
 
 ## Open
 
