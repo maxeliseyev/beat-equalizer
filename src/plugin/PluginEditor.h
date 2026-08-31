@@ -43,6 +43,7 @@ private:
     juce::TextButton analyzeButton { "Analyze" };
     juce::ToggleButton freezeButton { "Freeze" };
     juce::Label analysisStatus;
+    juce::Label coherenceLabel;
 
     juce::ToggleButton abButton { "A/B (original, same PDC)" };
     juce::Label referenceLabel;

@@ -81,7 +81,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout()
             juce::ParameterID { channelParamId(i, "rotatorHz"), 1 },
             namePrefix + "Rotator Freq",
             juce::NormalisableRange<float>(20.0f, 20000.0f, 0.1f, 0.3f),
-            600.0f));
+            kDefaultRotatorHz));
     }
 
     return { params.begin(), params.end() };

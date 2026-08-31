@@ -19,6 +19,10 @@ BeatEqualizerAudioProcessor::BeatEqualizerAudioProcessor()
             parameters.getRawParameterValue(beat::channelParamId(i, "polarity"));
         channelParams[static_cast<size_t>(i)].enabled =
             parameters.getRawParameterValue(beat::channelParamId(i, "enabled"));
+        channelParams[static_cast<size_t>(i)].rotatorAmount =
+            parameters.getRawParameterValue(beat::channelParamId(i, "rotatorAmount"));
+        channelParams[static_cast<size_t>(i)].rotatorHz =
+            parameters.getRawParameterValue(beat::channelParamId(i, "rotatorHz"));
     }
 
     abBypassParam = parameters.getRawParameterValue("global.abBypass");
@@ -41,6 +45,7 @@ void BeatEqualizerAudioProcessor::prepareToPlay(double sampleRate, int)
     currentSampleRate = sampleRate;
     snapshot = beat::AlignmentSnapshot::identity(getTotalNumInputChannels());
     delay.prepare(sampleRate, beat::kMaxChannels);
+    rotator.prepare(sampleRate, beat::kMaxChannels);
     scope.prepare(beat::ScopeRing::capacityForSampleRate(sampleRate));
 
     const int analysisChannels = juce::jmin(getTotalNumInputChannels(), beat::kMaxChannels);
@@ -53,6 +58,7 @@ void BeatEqualizerAudioProcessor::prepareToPlay(double sampleRate, int)
 void BeatEqualizerAudioProcessor::releaseResources()
 {
     delay.reset();
+    rotator.reset();
 }
 
 bool BeatEqualizerAudioProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const
@@ -121,9 +127,17 @@ void BeatEqualizerAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
 
     for (int ch = 0; ch < numCh; ++ch)
     {
+        const auto& params = channelParams[static_cast<size_t>(ch)];
         const float appliedDelay = (bypass || !enabled[ch]) ? maxApplied : applied[ch];
         delay.setAppliedDelaySamples(ch, appliedDelay);
         delay.setInvert(ch, !bypass && invert[ch]);
+
+        const float amount = (bypass || !enabled[ch] || params.rotatorAmount == nullptr)
+                                 ? 0.0f
+                                 : params.rotatorAmount->load();
+        const float hz = (params.rotatorHz != nullptr) ? params.rotatorHz->load()
+                                                       : beat::kDefaultRotatorHz;
+        rotator.setRotation(ch, hz, amount);
     }
 
     float blockPeak[beat::kMaxChannels] {};
@@ -135,7 +149,7 @@ void BeatEqualizerAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
         {
             const float x = buffer.getSample(ch, n);
             blockPeak[ch] = juce::jmax(blockPeak[ch], std::abs(x));
-            const float y = delay.processSample(ch, x);
+            const float y = rotator.processSample(ch, delay.processSample(ch, x));
             scopeSample[ch] = y;
             buffer.setSample(ch, n, y);
         }
@@ -247,7 +261,14 @@ void BeatEqualizerAudioProcessor::applyAnalysisResult(const beat::AlignmentEngin
                                                   : beat::PolarityMode::positive;
         setParameterValue(beat::channelParamId(ch, "polarity"),
                           static_cast<float>(static_cast<int>(polarity)));
+
+        const auto& estimate = result.channels[static_cast<size_t>(ch)];
+        setParameterValue(beat::channelParamId(ch, "rotatorHz"), estimate.rotatorHz);
+        setParameterValue(beat::channelParamId(ch, "rotatorAmount"), estimate.rotatorAmount);
     }
+
+    coherenceBefore = result.coherenceBefore;
+    coherenceAfter = result.coherenceAfter;
 
     analysisStatus = juce::String(result.numChannels) + " ch aligned, ref Ch "
                      + juce::String(result.reference + 1) + ", "

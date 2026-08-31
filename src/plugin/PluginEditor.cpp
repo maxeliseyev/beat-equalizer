@@ -35,6 +35,10 @@ BeatEqualizerAudioProcessorEditor::BeatEqualizerAudioProcessorEditor(BeatEqualiz
     analysisStatus.setFont(juce::FontOptions(13.0f));
     addAndMakeVisible(analysisStatus);
 
+    coherenceLabel.setJustificationType(juce::Justification::centredRight);
+    coherenceLabel.setFont(juce::FontOptions(13.0f, juce::Font::bold));
+    addAndMakeVisible(coherenceLabel);
+
     addAndMakeVisible(abButton);
 
     referenceLabel.setText("Reference", juce::dontSendNotification);
@@ -144,6 +148,7 @@ void BeatEqualizerAudioProcessorEditor::paint(juce::Graphics& g)
     latencyLabel.setColour(juce::Label::textColourId, juce::Colour(0xffe8c547));
     hint.setColour(juce::Label::textColourId, juce::Colour(0xff8b919c));
     analysisStatus.setColour(juce::Label::textColourId, juce::Colour(0xffc5cad3));
+    coherenceLabel.setColour(juce::Label::textColourId, juce::Colour(0xff7ddc9a));
     referenceLabel.setColour(juce::Label::textColourId, juce::Colours::white);
     distanceLabel.setColour(juce::Label::textColourId, juce::Colours::white);
     scopeHeader.setColour(juce::Label::textColourId, juce::Colour(0xffc5cad3));
@@ -180,6 +185,7 @@ void BeatEqualizerAudioProcessorEditor::resized()
     analysisRow.removeFromLeft(12);
     freezeButton.setBounds(analysisRow.removeFromLeft(90));
     analysisRow.removeFromLeft(12);
+    coherenceLabel.setBounds(analysisRow.removeFromRight(240));
     analysisStatus.setBounds(analysisRow);
 
     area.removeFromTop(12);
@@ -246,6 +252,20 @@ void BeatEqualizerAudioProcessorEditor::updateAnalysisStatus()
 {
     analyzeButton.setEnabled(!audioProcessor.isAnalysisBusy());
     analysisStatus.setText(audioProcessor.getAnalysisStatus(), juce::dontSendNotification);
+
+    const float after = audioProcessor.getCoherenceAfter();
+    if (after <= 0.0f)
+    {
+        coherenceLabel.setText("Sum coherence  -", juce::dontSendNotification);
+        return;
+    }
+
+    const auto percent = [](float value)
+    { return juce::String(juce::roundToInt(100.0f * value)) + "%"; };
+
+    coherenceLabel.setText("Sum coherence  " + percent(audioProcessor.getCoherenceBefore())
+                               + " -> " + percent(after),
+                           juce::dontSendNotification);
 }
 
 void BeatEqualizerAudioProcessorEditor::refreshWaveforms()
