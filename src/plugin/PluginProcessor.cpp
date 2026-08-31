@@ -35,6 +35,9 @@ BeatEqualizerAudioProcessor::BeatEqualizerAudioProcessor()
     maxDistanceParam = parameters.getRawParameterValue("global.maxDistanceM");
     freezeParam = parameters.getRawParameterValue("global.freeze");
     monoSumParam = parameters.getRawParameterValue("global.monoSum");
+    tempoSourceParam = parameters.getRawParameterValue("global.tempoSource");
+    tempoBpmParam = parameters.getRawParameterValue("global.tempoBpm");
+    gridDivisionParam = parameters.getRawParameterValue("global.gridDivision");
 
     analysisWorker.onResult = [this] { applyAnalysisResult(analysisWorker.result()); };
     analysisWorker.readWindow = [this](float* dest, int channels, int count)
@@ -106,6 +109,8 @@ void BeatEqualizerAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
 
     for (int channel = numInput; channel < numOutput; ++channel)
         buffer.clear(channel, 0, numSamples);
+
+    updateTransport(numSamples);
 
     filePlayer.fill(buffer, numCh);
 
@@ -221,6 +226,74 @@ void BeatEqualizerAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
         inputPeak[static_cast<size_t>(ch)].store(juce::jmax(blockPeak[ch], decayed),
                                                  std::memory_order_relaxed);
     }
+}
+
+void BeatEqualizerAudioProcessor::updateTransport(int numSamples)
+{
+    double bpm = 0.0;
+    int numerator = 4;
+    int denominator = 4;
+    double quarters = 0.0;
+    bool hasPosition = false;
+
+    if (auto* head = getPlayHead())
+    {
+        if (const auto position = head->getPosition())
+        {
+            if (const auto hostTempo = position->getBpm())
+                bpm = *hostTempo;
+
+            if (const auto signature = position->getTimeSignature())
+            {
+                numerator = signature->numerator;
+                denominator = signature->denominator;
+            }
+
+            if (const auto ppq = position->getPpqPosition())
+            {
+                quarters = *ppq;
+                hasPosition = true;
+            }
+        }
+    }
+
+    hostBpm.store(bpm, std::memory_order_relaxed);
+    hostNumerator.store(numerator, std::memory_order_relaxed);
+    hostDenominator.store(denominator, std::memory_order_relaxed);
+    hostHasPosition.store(hasPosition, std::memory_order_relaxed);
+
+    // Хост отдаёт позицию на начало блока, а осциллограф показывает его конец.
+    if (hasPosition && bpm > 0.0 && currentSampleRate > 0.0)
+        quarters += static_cast<double>(numSamples) / currentSampleRate
+                    * beat::grid::quartersPerSecond(bpm);
+
+    quartersAtWrite.store(quarters, std::memory_order_relaxed);
+}
+
+BeatEqualizerAudioProcessor::TransportInfo BeatEqualizerAudioProcessor::getTransport() const
+{
+    TransportInfo info;
+    info.hostBpm = hostBpm.load(std::memory_order_relaxed);
+
+    const bool wantsHost = tempoSourceParam == nullptr
+                           || juce::roundToInt(tempoSourceParam->load()) == 0;
+    info.fromHost = wantsHost && info.hostBpm > 0.0;
+    info.bpm = info.fromHost
+                   ? info.hostBpm
+                   : (tempoBpmParam != nullptr ? tempoBpmParam->load() : beat::kDefaultTempoBpm);
+
+    info.numerator = hostNumerator.load(std::memory_order_relaxed);
+    info.denominator = hostDenominator.load(std::memory_order_relaxed);
+    info.hasPosition = hostHasPosition.load(std::memory_order_relaxed);
+    info.quartersAtWrite = quartersAtWrite.load(std::memory_order_relaxed);
+
+    const int division = (gridDivisionParam != nullptr)
+                             ? juce::roundToInt(gridDivisionParam->load())
+                             : 0;
+    info.division = static_cast<beat::grid::Division>(
+        juce::jlimit(0, beat::grid::kDivisionCount - 1, division));
+
+    return info;
 }
 
 float BeatEqualizerAudioProcessor::getInputPeak(int channel) const

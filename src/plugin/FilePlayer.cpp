@@ -96,6 +96,14 @@ juce::String FilePlayer::load(const juce::Array<juce::File>& files, double targe
 
     loadedChannels.store(clip.getNumChannels());
     loadedSamples.store(clip.getNumSamples());
+
+    // Первый удар ищем один раз при загрузке: отрисовка спрашивает его 25 раз
+    // в секунду, а материал между Load не меняется.
+    {
+        const juce::SpinLock::ScopedLockType scoped(lock);
+        onset.store(firstOnsetIndex(clip.getNumChannels()));
+    }
+
     position.store(0);
     playing.store(false);
 
@@ -118,6 +126,7 @@ void FilePlayer::clear()
     loadedChannels.store(0);
     loadedSamples.store(0);
     position.store(0);
+    onset.store(0);
     description = {};
     channelNames.clear();
 }
@@ -207,11 +216,7 @@ int FilePlayer::readDisplayWindow(int channel, float* dest, int count, int shift
     if (channel < 0 || channel >= clip.getNumChannels() || available <= 0)
         return 0;
 
-    // На паузе показываем первое окно после первого удара: сразу после Load
-    // строка должна что-то показывать, а не хвост тишины перед нулём.
-    const long long origin = playing.load() ? position.load()
-                                            : firstOnsetIndex(clip.getNumChannels()) + count;
-    const long long start = origin - count - shiftSamples;
+    const long long start = static_cast<long long>(displayOrigin(count)) - count - shiftSamples;
     const float* source = clip.getReadPointer(channel);
 
     for (int i = 0; i < count; ++i)
@@ -224,6 +229,13 @@ int FilePlayer::readDisplayWindow(int channel, float* dest, int count, int shift
     }
 
     return count;
+}
+
+int FilePlayer::displayOrigin(int count) const
+{
+    // На паузе окно стоит на первом ударе: сразу после Load строка должна
+    // что-то показывать, а не хвост тишины перед нулём.
+    return playing.load() ? position.load() : onset.load() + count;
 }
 
 int FilePlayer::readAnalysisWindow(float* dest, int channels, int count) const
@@ -239,7 +251,7 @@ int FilePlayer::readAnalysisWindow(float* dest, int channels, int count) const
     if (wanted <= 0 || available <= 0)
         return 0;
 
-    const int start = firstOnsetIndex(wanted);
+    const int start = std::min(onset.load(), available - 1);
     const int n = std::min(count, available - start);
     if (n <= 0)
         return 0;

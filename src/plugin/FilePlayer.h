@@ -37,6 +37,9 @@ public:
     // иначе восьмисекундное окно уедет в отсчёт перед первым ударом.
     int readAnalysisWindow(float* dest, int channels, int count) const;
 
+    // Позиция конца окна отрисовки в отсчётах клипа: по ней строится сетка.
+    int displayOrigin(int count) const;
+
     // Message thread: окно одного канала для осциллограммы. Заканчивается на
     // позиции воспроизведения (на паузе — на первом ударе), сдвинуто назад на
     // задержку канала, поэтому строки видно уже выровненными. Клип закольцован.
@@ -57,5 +60,6 @@ private:
     std::atomic<int> loadedChannels { 0 };
     std::atomic<int> loadedSamples { 0 };
     std::atomic<int> position { 0 };
+    std::atomic<int> onset { 0 };
     std::atomic<bool> playing { false };
 };

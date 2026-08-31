@@ -42,6 +42,28 @@ juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout()
         "Mono Sum",
         false));
 
+    // Темп: хост отдаёт его не всегда (Standalone, запись без клика), поэтому
+    // источник выбирается явно, а ручное значение живёт всегда.
+    params.push_back(std::make_unique<juce::AudioParameterChoice>(
+        juce::ParameterID { "global.tempoSource", 1 },
+        "Tempo Source",
+        juce::StringArray { "Host", "Manual" },
+        0));
+
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        juce::ParameterID { "global.tempoBpm", 1 },
+        "Tempo",
+        juce::NormalisableRange<float>(kMinTempoBpm, kMaxTempoBpm, 0.01f),
+        kDefaultTempoBpm,
+        juce::AudioParameterFloatAttributes().withStringFromValueFunction(
+            [](float value, int) { return juce::String(value, 2) + " BPM"; })));
+
+    params.push_back(std::make_unique<juce::AudioParameterChoice>(
+        juce::ParameterID { "global.gridDivision", 1 },
+        "Grid",
+        juce::StringArray { "Off", "1/4", "1/8", "1/8T", "1/16", "1/16T", "1/32" },
+        2));
+
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
         juce::ParameterID { "global.scopeTimeMs", 1 },
         "Time",

@@ -71,10 +71,11 @@ TEST_CASE("table columns never overlap and the waveform takes the right edge")
     REQUIRE_FALSE(overlaps(columns.delay, columns.rotator));
     REQUIRE_FALSE(overlaps(columns.rotator, columns.polarity));
     REQUIRE_FALSE(overlaps(columns.polarity, columns.corr));
-    REQUIRE_FALSE(overlaps(columns.corr, columns.scope));
+    REQUIRE_FALSE(overlaps(columns.corr, columns.phase));
+    REQUIRE_FALSE(overlaps(columns.phase, columns.scope));
 
     // Ручки фиксированной ширины, вся лишняя ширина уходит осциллограмме.
-    REQUIRE(columns.corr.getRight() == ChannelRow::kControlsWidth);
+    REQUIRE(columns.phase.getRight() == ChannelRow::kControlsWidth);
     REQUIRE(columns.scope.getRight() == 1200);
     REQUIRE(columns.scope.getWidth() == 1200 - ChannelRow::kControlsWidth);
 }
@@ -289,6 +290,23 @@ TEST_CASE("a channel row shows the number and the stem name")
     REQUIRE(row.getLabelText() == "01  kick");
     row.setChannelName({});
     REQUIRE(row.getLabelText() == "01");
+}
+
+TEST_CASE("the phase column shows the coherence of the pair before and after")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+
+    BeatEqualizerAudioProcessor processor;
+    ChannelRow row(processor.getParameters(), 2);
+
+    // До Analyze мерить нечего.
+    REQUIRE(row.getPhaseText() == "-");
+
+    row.setPhaseMatch(0.62f, 0.88f, true);
+    REQUIRE(row.getPhaseText() == "62 -> 88");
+
+    row.setPhaseMatch(0.0f, 0.0f, false);
+    REQUIRE(row.getPhaseText() == "-");
 }
 
 TEST_CASE("editor fills the correlometer from the scope ring")

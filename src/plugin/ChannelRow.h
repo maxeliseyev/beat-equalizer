@@ -19,6 +19,7 @@ struct ChannelColumns
     juce::Rectangle<int> rotator;
     juce::Rectangle<int> polarity;
     juce::Rectangle<int> corr;
+    juce::Rectangle<int> phase;
     juce::Rectangle<int> scope;
 
     static ChannelColumns from(juce::Rectangle<int> row);
@@ -35,15 +36,16 @@ public:
     static constexpr int kEnableWidth = 44;
     static constexpr int kSoloWidth = 28;
     static constexpr int kMuteWidth = 28;
-    static constexpr int kNameWidth = 140;
+    static constexpr int kNameWidth = 126;
     static constexpr int kRoleWidth = 84;
-    static constexpr int kDelayWidth = 240;
-    static constexpr int kRotatorWidth = 148;
-    static constexpr int kPolarityWidth = 100;
+    static constexpr int kDelayWidth = 210;
+    static constexpr int kRotatorWidth = 132;
+    static constexpr int kPolarityWidth = 92;
     static constexpr int kCorrWidth = 56;
+    static constexpr int kPhaseWidth = 92;
     static constexpr int kControlsWidth = kEnableWidth + kSoloWidth + kMuteWidth + kNameWidth
                                           + kRoleWidth + kDelayWidth + kRotatorWidth
-                                          + kPolarityWidth + kCorrWidth;
+                                          + kPolarityWidth + kCorrWidth + kPhaseWidth;
     static constexpr int kMinScopeWidth = 280;
 
     ChannelRow(juce::AudioProcessorValueTreeState& state, int channelIndex);
@@ -55,11 +57,15 @@ public:
     void setCorrelation(float value);
     void setIsReference(bool isReference);
     void setWaveform(const float* samples, int count);
+    void setGrid(const beat::grid::Line* lines, int count);
+    // Когерентность пары «канал + опора» из последнего Analyze, до и после.
+    void setPhaseMatch(float before, float after, bool measured);
     // Пусто — в строке остаётся один номер: в хосте имён дорожек нет.
     void setChannelName(const juce::String& name);
 
     juce::Rectangle<int> getScopeBounds() const { return scope.getBounds(); }
     juce::String getLabelText() const { return nameLabel.getText(); }
+    juce::String getPhaseText() const { return phaseLabel.getText(); }
 
 private:
     int index = 0;
@@ -74,6 +80,7 @@ private:
     juce::Slider rotatorSlider;
     juce::ComboBox polarityBox;
     juce::Label corrLabel;
+    juce::Label phaseLabel;
     ScopeStrip scope;
 
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> enabledAttachment;

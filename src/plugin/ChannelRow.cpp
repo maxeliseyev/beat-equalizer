@@ -12,6 +12,7 @@ ChannelColumns ChannelColumns::from(juce::Rectangle<int> row)
     columns.rotator = row.removeFromLeft(ChannelRow::kRotatorWidth);
     columns.polarity = row.removeFromLeft(ChannelRow::kPolarityWidth);
     columns.corr = row.removeFromLeft(ChannelRow::kCorrWidth);
+    columns.phase = row.removeFromLeft(ChannelRow::kPhaseWidth);
     // Осциллограмма забирает весь остаток: она одна тянется по ширине окна.
     columns.scope = row;
     return columns;
@@ -68,6 +69,11 @@ ChannelRow::ChannelRow(juce::AudioProcessorValueTreeState& state, int channelInd
     corrLabel.setFont(juce::FontOptions(12.0f));
     addAndMakeVisible(corrLabel);
 
+    phaseLabel.setJustificationType(juce::Justification::centredRight);
+    phaseLabel.setFont(juce::FontOptions(12.0f));
+    addAndMakeVisible(phaseLabel);
+    setPhaseMatch(0.0f, 0.0f, false);
+
     // Номер канала уже стоит в колонке Ch, второй раз внутри осциллограммы не нужен.
     scope.setShowIndex(false);
     addAndMakeVisible(scope);
@@ -110,6 +116,7 @@ void ChannelRow::resized()
     rotatorSlider.setBounds(centred(columns.rotator, 4));
     polarityBox.setBounds(centred(columns.polarity, 2));
     corrLabel.setBounds(centred(columns.corr, 0));
+    phaseLabel.setBounds(centred(columns.phase, 4));
     scope.setBounds(columns.scope);
 }
 
@@ -127,6 +134,34 @@ void ChannelRow::setActive(bool shouldBeActive)
     scope.setActive(shouldBeActive);
     nameLabel.setColour(juce::Label::textColourId,
                         shouldBeActive ? juce::Colours::white : juce::Colour(0xff6b7280));
+}
+
+void ChannelRow::setGrid(const beat::grid::Line* lines, int count)
+{
+    scope.setGrid(lines, count);
+}
+
+void ChannelRow::setPhaseMatch(float before, float after, bool measured)
+{
+    if (!measured)
+    {
+        phaseLabel.setText("-", juce::dontSendNotification);
+        phaseLabel.setColour(juce::Label::textColourId, juce::Colour(0xff6b7280));
+        return;
+    }
+
+    const auto percent = [](float value)
+    { return juce::String(juce::roundToInt(100.0f * juce::jlimit(0.0f, 1.0f, value))); };
+
+    phaseLabel.setText(percent(before) + " -> " + percent(after), juce::dontSendNotification);
+
+    // Зелёное — выравнивание помогло, красное — стало хуже: оценке на этом
+    // канале верить нельзя, смотреть руками.
+    const float delta = after - before;
+    const auto colour = (delta > 0.02f)    ? juce::Colour(0xff7ddc9a)
+                        : (delta < -0.02f) ? juce::Colour(0xffe06c75)
+                                           : juce::Colour(0xffc5cad3);
+    phaseLabel.setColour(juce::Label::textColourId, colour);
 }
 
 void ChannelRow::setChannelName(const juce::String& name)

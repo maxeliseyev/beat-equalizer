@@ -172,9 +172,12 @@ BeatEqualizerAudioProcessorEditor::BeatEqualizerAudioProcessorEditor(BeatEqualiz
     setupHeader(headerRotator, "Rotator");
     setupHeader(headerPolarity, "Polarity");
     setupHeader(headerCorr, "Corr");
+    setupHeader(headerPhase, "Phase %");
     headerCorr.setJustificationType(juce::Justification::centredRight);
+    headerPhase.setJustificationType(juce::Justification::centredRight);
     for (auto* header : { &headerOn, &headerSolo, &headerMute, &headerName, &headerRole,
-                          &headerDelay, &headerRotator, &headerPolarity, &headerCorr })
+                          &headerDelay, &headerRotator, &headerPolarity, &headerCorr,
+                          &headerPhase })
         addAndMakeVisible(*header);
 
     addAndMakeVisible(correlometer);
@@ -183,6 +186,22 @@ BeatEqualizerAudioProcessorEditor::BeatEqualizerAudioProcessorEditor(BeatEqualiz
                         juce::dontSendNotification);
     scopeHeader.setFont(juce::FontOptions(12.0f, juce::Font::bold));
     addAndMakeVisible(scopeHeader);
+
+    tempoLabel.setText("Tempo", juce::dontSendNotification);
+    addAndMakeVisible(tempoLabel);
+    tempoBox.addItem("Host", 1);
+    tempoBox.addItem("Manual", 2);
+    addAndMakeVisible(tempoBox);
+
+    tempoSlider.setSliderStyle(juce::Slider::LinearHorizontal);
+    tempoSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 76, 22);
+    addAndMakeVisible(tempoSlider);
+
+    gridLabel.setText("Grid", juce::dontSendNotification);
+    addAndMakeVisible(gridLabel);
+    for (const auto* name : { "Off", "1/4", "1/8", "1/8T", "1/16", "1/16T", "1/32" })
+        gridBox.addItem(name, gridBox.getNumItems() + 1);
+    addAndMakeVisible(gridBox);
 
     timeLabel.setText("Time", juce::dontSendNotification);
     addAndMakeVisible(timeLabel);
@@ -242,6 +261,12 @@ BeatEqualizerAudioProcessorEditor::BeatEqualizerAudioProcessorEditor(BeatEqualiz
         state, "global.maxDistanceM", distanceSlider);
     timeAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
         state, "global.scopeTimeMs", timeSlider);
+    tempoSourceAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
+        state, "global.tempoSource", tempoBox);
+    tempoAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
+        state, "global.tempoBpm", tempoSlider);
+    gridAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
+        state, "global.gridDivision", gridBox);
     scopeTimeParam = state.getRawParameterValue("global.scopeTimeMs");
 
     audioProcessor.addChangeListener(this);
@@ -259,7 +284,7 @@ BeatEqualizerAudioProcessorEditor::BeatEqualizerAudioProcessorEditor(BeatEqualiz
                     chromeHeight() + ChannelRow::kHeight,
                     2400,
                     chromeHeight() + beat::kMaxChannels * ChannelRow::kHeight);
-    setSize(juce::jmax(minWidth, 1240), chromeHeight() + lastActiveChannels * ChannelRow::kHeight);
+    setSize(juce::jmax(minWidth, 1400), chromeHeight() + lastActiveChannels * ChannelRow::kHeight);
     startTimerHz(25);
 }
 
@@ -283,6 +308,8 @@ void BeatEqualizerAudioProcessorEditor::paint(juce::Graphics& g)
     referenceLabel.setColour(juce::Label::textColourId, juce::Colours::white);
     distanceLabel.setColour(juce::Label::textColourId, juce::Colours::white);
     scopeHeader.setColour(juce::Label::textColourId, juce::Colour(0xffc5cad3));
+    tempoLabel.setColour(juce::Label::textColourId, juce::Colours::white);
+    gridLabel.setColour(juce::Label::textColourId, juce::Colours::white);
     timeLabel.setColour(juce::Label::textColourId, juce::Colours::white);
     scopeTimeLeft.setColour(juce::Label::textColourId, juce::Colour(0xff8b919c));
     scopeTimeRight.setColour(juce::Label::textColourId, juce::Colour(0xff8b919c));
@@ -347,7 +374,15 @@ void BeatEqualizerAudioProcessorEditor::resized()
     area.removeFromTop(kGapL);
 
     auto scopeControls = area.removeFromTop(kScopeControlsHeight);
-    scopeHeader.setBounds(scopeControls.removeFromLeft(280));
+    scopeHeader.setBounds(scopeControls.removeFromLeft(300));
+    tempoLabel.setBounds(scopeControls.removeFromLeft(52));
+    tempoBox.setBounds(scopeControls.removeFromLeft(84));
+    scopeControls.removeFromLeft(6);
+    tempoSlider.setBounds(scopeControls.removeFromLeft(180));
+    scopeControls.removeFromLeft(10);
+    gridLabel.setBounds(scopeControls.removeFromLeft(36));
+    gridBox.setBounds(scopeControls.removeFromLeft(84));
+    scopeControls.removeFromLeft(10);
     timeLabel.setBounds(scopeControls.removeFromLeft(40));
     timeSlider.setBounds(scopeControls);
     area.removeFromTop(kGapS);
@@ -363,6 +398,7 @@ void BeatEqualizerAudioProcessorEditor::resized()
     headerRotator.setBounds(headerColumns.rotator);
     headerPolarity.setBounds(headerColumns.polarity);
     headerCorr.setBounds(headerColumns.corr);
+    headerPhase.setBounds(headerColumns.phase);
 
     // Шкала времени стоит над колонкой осциллограмм, а не под всей таблицей:
     // так подписи остаются напротив того, что они размечают.
@@ -395,6 +431,7 @@ void BeatEqualizerAudioProcessorEditor::timerCallback()
     updateLayoutInfo();
     updateAnalysisStatus();
     updateBench();
+    updateTransportInfo();
     updateWaveforms();
 }
 
@@ -477,6 +514,48 @@ bool BeatEqualizerAudioProcessorEditor::isAudible(int channel) const
         anySolo = anySolo || on(soloParams[static_cast<size_t>(ch)]);
 
     return !anySolo || on(soloParams[static_cast<size_t>(channel)]);
+}
+
+void BeatEqualizerAudioProcessorEditor::updateTransportInfo()
+{
+    const auto transport = audioProcessor.getTransport();
+
+    tempoSlider.setEnabled(!transport.fromHost);
+
+    juce::String text = "Output  -  one trace per channel";
+    if (transport.division != beat::grid::Division::off)
+    {
+        text += "   grid " + gridBox.getText() + " @ " + juce::String(transport.bpm, 1) + " BPM ";
+        text += transport.fromHost ? "host" : "manual";
+        text += "  " + juce::String(transport.numerator) + "/"
+                + juce::String(transport.denominator);
+    }
+
+    if (text != scopeHeader.getText())
+        scopeHeader.setText(text, juce::dontSendNotification);
+}
+
+int BeatEqualizerAudioProcessorEditor::buildGrid(double startQuarters,
+                                                 int windowSamples,
+                                                 beat::grid::Line* out) const
+{
+    const auto transport = audioProcessor.getTransport();
+    const double step = beat::grid::stepQuarters(transport.division);
+    const double sampleRate = audioProcessor.getCurrentSampleRate();
+
+    if (step <= 0.0 || transport.bpm <= 0.0 || sampleRate <= 0.0 || windowSamples <= 0)
+        return 0;
+
+    const double windowQuarters = static_cast<double>(windowSamples) / sampleRate
+                                  * beat::grid::quartersPerSecond(transport.bpm);
+
+    return beat::grid::linesInWindow(startQuarters,
+                                     windowQuarters,
+                                     step,
+                                     beat::grid::barQuarters(transport.numerator,
+                                                             transport.denominator),
+                                     out,
+                                     beat::grid::kMaxLines);
 }
 
 void BeatEqualizerAudioProcessorEditor::updateChannelNames()
@@ -586,6 +665,30 @@ void BeatEqualizerAudioProcessorEditor::updateWaveforms()
                   dest.begin());
     };
 
+    // Сетка одна на все строки: она размечает окно, а не канал. В стенде
+    // отсчёт идёт от начала клипа, в хосте — от позиции на таймлайне.
+    const auto transport = audioProcessor.getTransport();
+    const double quartersPerSample =
+        (sr > 0.0f) ? beat::grid::quartersPerSecond(transport.bpm) / static_cast<double>(sr) : 0.0;
+
+    beat::grid::Line gridLines[beat::grid::kMaxLines] {};
+    int gridCount = 0;
+
+    if (fromFiles)
+    {
+        const double start = static_cast<double>(player.displayOrigin(window) - window);
+        gridCount = buildGrid(start * quartersPerSample, window, gridLines);
+    }
+    else if (transport.hasPosition)
+    {
+        const double behind = static_cast<double>(captured - origin);
+        gridCount = buildGrid(transport.quartersAtWrite - behind * quartersPerSample,
+                              window,
+                              gridLines);
+    }
+
+    const auto& estimates = audioProcessor.getLastResult();
+
     readChannel(ref, referenceWindow);
     std::fill(sumWindow.begin(), sumWindow.end(), 0.0f);
 
@@ -600,7 +703,15 @@ void BeatEqualizerAudioProcessorEditor::updateWaveforms()
 
         auto& row = *rows[static_cast<size_t>(ch)];
         row.setWaveform(scopeWindow.data(), window);
+        row.setGrid(gridLines, gridCount);
         row.setIsReference(ch == ref);
+
+        // Сравнение фаз считает Analyze: колонка показывает когерентность пары
+        // «канал + опора» до и после выравнивания.
+        const auto& estimate = estimates.channels[static_cast<size_t>(ch)];
+        const bool measured = ch != estimates.reference && ch < estimates.numChannels
+                              && estimate.valid;
+        row.setPhaseMatch(estimate.coherenceBefore, estimate.coherenceAfter, measured);
 
         if (ch == ref)
             continue;
