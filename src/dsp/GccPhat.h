@@ -16,6 +16,8 @@ public:
     {
         float lagSamples = 0.0f;
         float phatPeak = 0.0f;
+        // Высота пика к медиане окна поиска: уверенность кадра, не громкость.
+        float peakRatio = 0.0f;
         float unweightedAtLag = 0.0f;
         bool invert = false;
         bool valid = false;
@@ -35,6 +37,7 @@ private:
     Fft fft;
     std::vector<std::complex<float>> spectrumRef;
     std::vector<std::complex<float>> spectrumSig;
+    std::vector<float> searchWindow;
 };
 
 } // namespace beat

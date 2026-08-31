@@ -21,6 +21,15 @@ inline constexpr float kMinScopeTimeMs = 5.0f;
 inline constexpr float kMaxScopeTimeMs = 1000.0f;
 inline constexpr float kDefaultScopeTimeMs = 40.0f;
 
+// Analysis window: кадр FFT, hop 50 %, кольцевой буфер сырого входа.
+inline constexpr float kAnalysisSeconds = 8.0f;
+inline constexpr float kAnalysisMinRms = 0.0005f;
+// Пик GCC к медиане окна поиска: ниже — кадр без внятного пика, не считаем.
+// На синтетике пара «шум и его копия» даёт ~380, две независимые дорожки ~5.
+// Порог калибруется на реальных китах (plan.md, PR 8).
+inline constexpr float kAnalysisMinPeakRatio = 8.0f;
+inline constexpr int kAnalysisMinFrames = 3;
+
 enum class ChannelRole
 {
     unknown = 0,

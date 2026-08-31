@@ -2,6 +2,8 @@ add_executable(beat_tests
     test_constants.cpp
     test_snapshot.cpp
     test_gcc_phat.cpp
+    test_alignment_engine.cpp
+    test_analysis_ring.cpp
     test_latency_model.cpp
     test_fractional_delay.cpp
     test_scope_ring.cpp)
