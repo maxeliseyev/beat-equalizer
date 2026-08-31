@@ -19,6 +19,7 @@ juce::String FilePlayer::load(const juce::Array<juce::File>& files, double targe
 
     std::vector<std::vector<float>> channels;
     juce::StringArray names;
+    juce::StringArray perChannelNames;
 
     for (const auto& file : files)
     {
@@ -38,6 +39,8 @@ juce::String FilePlayer::load(const juce::Array<juce::File>& files, double targe
         // и экспорт считались бы в разных временах.
         const double ratio = reader->sampleRate / targetSampleRate;
 
+        const auto stem = file.getFileNameWithoutExtension();
+
         for (int ch = 0; ch < fileChannels; ++ch)
         {
             if (static_cast<int>(channels.size()) >= beat::kMaxChannels)
@@ -45,9 +48,15 @@ juce::String FilePlayer::load(const juce::Array<juce::File>& files, double targe
 
             const float* source = raw.getReadPointer(ch);
 
+            // Моно-файл даёт имя как есть, многоканальный — с номером дорожки:
+            // иначе шесть каналов одного wav подписаны одинаково. Имя кладём
+            // только вместе с данными, чтобы подписи не разъехались с каналами.
+            const auto channelName = (fileChannels > 1) ? stem + " " + juce::String(ch + 1) : stem;
+
             if (std::abs(ratio - 1.0) < 1.0e-9)
             {
                 channels.emplace_back(source, source + fileSamples);
+                perChannelNames.add(channelName);
                 continue;
             }
 
@@ -59,6 +68,7 @@ juce::String FilePlayer::load(const juce::Array<juce::File>& files, double targe
             juce::LagrangeInterpolator interpolator;
             interpolator.process(ratio, source, resampled.data(), outSamples);
             channels.push_back(std::move(resampled));
+            perChannelNames.add(channelName);
         }
 
         names.add(file.getFileName());
@@ -82,8 +92,18 @@ juce::String FilePlayer::load(const juce::Array<juce::File>& files, double targe
         clip = std::move(loaded);
     }
 
+    channelNames = perChannelNames;
+
     loadedChannels.store(clip.getNumChannels());
     loadedSamples.store(clip.getNumSamples());
+
+    // Первый удар ищем один раз при загрузке: отрисовка спрашивает его 25 раз
+    // в секунду, а материал между Load не меняется.
+    {
+        const juce::SpinLock::ScopedLockType scoped(lock);
+        onset.store(firstOnsetIndex(clip.getNumChannels()));
+    }
+
     position.store(0);
     playing.store(false);
 
@@ -106,7 +126,17 @@ void FilePlayer::clear()
     loadedChannels.store(0);
     loadedSamples.store(0);
     position.store(0);
+    onset.store(0);
     description = {};
+    channelNames.clear();
+}
+
+juce::String FilePlayer::getChannelName(int channel) const
+{
+    if (channel < 0 || channel >= channelNames.size())
+        return {};
+
+    return channelNames[channel];
 }
 
 void FilePlayer::setPlaying(bool shouldPlay)
@@ -176,17 +206,17 @@ int FilePlayer::readDisplayWindow(int channel, float* dest, int count, int shift
     if (dest == nullptr || count <= 0 || !hasMaterial())
         return 0;
 
-    const juce::SpinLock::ScopedLockType scoped(lock);
+    // Отрисовка ждать не имеет права: аудиопоток берёт этот же замок try-версией
+    // и на неудаче отдаёт блок мимо стенда, то есть слышимым щелчком.
+    const juce::SpinLock::ScopedTryLockType scoped(lock);
+    if (!scoped.isLocked())
+        return 0;
 
     const int available = clip.getNumSamples();
     if (channel < 0 || channel >= clip.getNumChannels() || available <= 0)
         return 0;
 
-    // На паузе показываем первое окно после первого удара: сразу после Load
-    // строка должна что-то показывать, а не хвост тишины перед нулём.
-    const long long origin = playing.load() ? position.load()
-                                            : firstOnsetIndex(clip.getNumChannels()) + count;
-    const long long start = origin - count - shiftSamples;
+    const long long start = static_cast<long long>(displayOrigin(count)) - count - shiftSamples;
     const float* source = clip.getReadPointer(channel);
 
     for (int i = 0; i < count; ++i)
@@ -199,6 +229,13 @@ int FilePlayer::readDisplayWindow(int channel, float* dest, int count, int shift
     }
 
     return count;
+}
+
+int FilePlayer::displayOrigin(int count) const
+{
+    // На паузе окно стоит на первом ударе: сразу после Load строка должна
+    // что-то показывать, а не хвост тишины перед нулём.
+    return playing.load() ? position.load() : onset.load() + count;
 }
 
 int FilePlayer::readAnalysisWindow(float* dest, int channels, int count) const
@@ -214,7 +251,7 @@ int FilePlayer::readAnalysisWindow(float* dest, int channels, int count) const
     if (wanted <= 0 || available <= 0)
         return 0;
 
-    const int start = firstOnsetIndex(wanted);
+    const int start = std::min(onset.load(), available - 1);
     const int n = std::min(count, available - start);
     if (n <= 0)
         return 0;

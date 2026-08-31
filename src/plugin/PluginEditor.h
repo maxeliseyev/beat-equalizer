@@ -39,6 +39,11 @@ private:
     void updateAnalysisStatus();
     void updateBench();
     void syncChannelCount();
+    void updateChannelNames();
+    void updateTransportInfo();
+    // Линии сетки внутри показанного окна; count = 0, когда темпа или позиции нет.
+    int buildGrid(double startQuarters, int windowSamples, beat::grid::Line* out) const;
+    bool isAudible(int channel) const;
 
     BeatEqualizerAudioProcessor& audioProcessor;
 
@@ -50,6 +55,7 @@ private:
     juce::TextButton loadButton { "Load files..." };
     juce::TextButton playButton { "Play" };
     juce::TextButton exportButton { "Export aligned..." };
+    juce::TextButton audioButton { "Audio..." };
     juce::Label benchLabel;
     std::unique_ptr<juce::FileChooser> chooser;
     bool standalone = false;
@@ -69,16 +75,24 @@ private:
     juce::Slider distanceSlider;
 
     juce::Label headerOn;
+    juce::Label headerSolo;
+    juce::Label headerMute;
     juce::Label headerName;
     juce::Label headerRole;
     juce::Label headerDelay;
     juce::Label headerRotator;
     juce::Label headerPolarity;
     juce::Label headerCorr;
+    juce::Label headerPhase;
 
     Correlometer correlometer;
 
     juce::Label scopeHeader;
+    juce::Label tempoLabel;
+    juce::ComboBox tempoBox;
+    juce::Slider tempoSlider;
+    juce::Label gridLabel;
+    juce::ComboBox gridBox;
     juce::Label timeLabel;
     juce::Slider timeSlider;
     juce::Label scopeTimeLeft;
@@ -91,6 +105,8 @@ private:
     std::array<std::atomic<float>*, beat::kMaxChannels> enabledParams {};
     std::array<std::atomic<float>*, beat::kMaxChannels> delayParams {};
     std::array<std::atomic<float>*, beat::kMaxChannels> polarityParams {};
+    std::array<std::atomic<float>*, beat::kMaxChannels> muteParams {};
+    std::array<std::atomic<float>*, beat::kMaxChannels> soloParams {};
     std::atomic<float>* bypassParam = nullptr;
 
     juce::Viewport tableViewport;
@@ -103,6 +119,9 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> referenceAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> distanceAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> timeAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> tempoSourceAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> tempoAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> gridAttachment;
     std::atomic<float>* scopeTimeParam = nullptr;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(BeatEqualizerAudioProcessorEditor)

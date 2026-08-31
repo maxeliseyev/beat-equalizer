@@ -9,6 +9,7 @@
 #include "dsp/AllpassRotator.h"
 #include "dsp/AnalysisRing.h"
 #include "dsp/FractionalDelay.h"
+#include "dsp/Grid.h"
 
 #include <array>
 #include <atomic>
@@ -53,6 +54,23 @@ public:
     const beat::ScopeRing& getScope() const { return scope; }
     int getReferenceChannelIndex() const;
 
+    // Темп и позиция для сетки. Хост отдаёт их не всегда, поэтому в структуре
+    // видно и то, что пришло, и то, что выбрал пользователь.
+    struct TransportInfo
+    {
+        double bpm = beat::kDefaultTempoBpm;
+        double hostBpm = 0.0;
+        int numerator = 4;
+        int denominator = 4;
+        bool fromHost = false;
+        bool hasPosition = false;
+        double quartersAtWrite = 0.0;
+        beat::grid::Division division = beat::grid::Division::off;
+    };
+
+    TransportInfo getTransport() const;
+    const beat::AlignmentEngine::Result& getLastResult() const { return lastResult; }
+
     void requestAnalyze();
     FilePlayer& getFilePlayer() { return filePlayer; }
     juce::String exportAligned(const juce::File& file);
@@ -72,11 +90,15 @@ private:
         std::atomic<float>* delayMs = nullptr;
         std::atomic<float>* polarity = nullptr;
         std::atomic<float>* enabled = nullptr;
+        std::atomic<float>* mute = nullptr;
+        std::atomic<float>* solo = nullptr;
         std::atomic<float>* rotatorAmount = nullptr;
         std::atomic<float>* rotatorHz = nullptr;
     };
 
     static BusesProperties createBusesProperties();
+
+    void updateTransport(int numSamples);
 
     void setParameterValue(const juce::String& parameterId, float value);
 
@@ -92,6 +114,14 @@ private:
     std::atomic<float>* maxDistanceParam = nullptr;
     std::atomic<float>* freezeParam = nullptr;
     std::atomic<float>* monoSumParam = nullptr;
+    std::atomic<float>* tempoSourceParam = nullptr;
+    std::atomic<float>* tempoBpmParam = nullptr;
+    std::atomic<float>* gridDivisionParam = nullptr;
+    std::atomic<double> hostBpm { 0.0 };
+    std::atomic<double> quartersAtWrite { 0.0 };
+    std::atomic<int> hostNumerator { 4 };
+    std::atomic<int> hostDenominator { 4 };
+    std::atomic<bool> hostHasPosition { false };
     beat::AnalysisRing analysisRing;
     FilePlayer filePlayer;
     beat::AlignmentEngine::Result lastResult;

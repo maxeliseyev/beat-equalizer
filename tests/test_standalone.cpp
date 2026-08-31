@@ -245,6 +245,77 @@ TEST_CASE("saved estimates come back without a new Analyze")
                  WithinAbs(0.5f, 0.01f));
 }
 
+TEST_CASE("each channel keeps the name of the file it came from")
+{
+    auto dir = juce::File::getSpecialLocation(juce::File::tempDirectory)
+                   .getChildFile("beat-bench-names");
+    dir.deleteRecursively();
+    REQUIRE(dir.createDirectory());
+
+    juce::AudioBuffer<float> mono(1, 512);
+    mono.clear();
+    mono.setSample(0, 100, 1.0f);
+
+    juce::AudioBuffer<float> pair(2, 512);
+    pair.clear();
+    pair.setSample(0, 100, 1.0f);
+    pair.setSample(1, 100, 1.0f);
+
+    const auto kick = dir.getChildFile("kick.wav");
+    const auto overheads = dir.getChildFile("overheads.wav");
+    REQUIRE(beat::exporter::writeWav(kick, mono, kSampleRate));
+    REQUIRE(beat::exporter::writeWav(overheads, pair, kSampleRate));
+
+    FilePlayer player;
+    REQUIRE(player.load({ kick, overheads }, kSampleRate).isEmpty());
+    REQUIRE(player.numChannels() == 3);
+
+    // Моно-файл подписан как есть, стерео — с номером дорожки.
+    REQUIRE(player.getChannelName(0) == "kick");
+    REQUIRE(player.getChannelName(1) == "overheads 1");
+    REQUIRE(player.getChannelName(2) == "overheads 2");
+    REQUIRE(player.getChannelName(3).isEmpty());
+
+    player.clear();
+    REQUIRE(player.getChannelName(0).isEmpty());
+
+    dir.deleteRecursively();
+}
+
+TEST_CASE("mute does not reach the offline render")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+
+    juce::AudioProcessor::setTypeOfNextNewPlugin(juce::AudioProcessor::wrapperType_Standalone);
+    BeatEqualizerAudioProcessor processor;
+    juce::AudioProcessor::setTypeOfNextNewPlugin(juce::AudioProcessor::wrapperType_Undefined);
+    processor.enableAllBuses();
+    processor.prepareToPlay(kSampleRate, 128);
+
+    const auto source = impulsePair(4096, 100, 124);
+    const auto input = writeTempWav(source);
+    REQUIRE(processor.getFilePlayer().load({ input }, kSampleRate).isEmpty());
+
+    // Solo/Mute — мониторинг: экспорт обязан отдать весь кит.
+    processor.getParameters().getParameter(beat::channelParamId(0, "mute"))
+        ->setValueNotifyingHost(1.0f);
+
+    const auto exported = juce::File::createTempFile("wav");
+    REQUIRE(processor.exportAligned(exported).isEmpty());
+
+    juce::AudioFormatManager formats;
+    formats.registerBasicFormats();
+    std::unique_ptr<juce::AudioFormatReader> reader(formats.createReaderFor(exported));
+    REQUIRE(reader != nullptr);
+
+    juce::AudioBuffer<float> rendered((int) reader->numChannels, (int) reader->lengthInSamples);
+    reader->read(&rendered, 0, rendered.getNumSamples(), 0, true, true);
+    REQUIRE(rendered.getMagnitude(0, 0, rendered.getNumSamples()) > 0.5f);
+
+    input.deleteFile();
+    exported.deleteFile();
+}
+
 TEST_CASE("the display window lines a delayed mic up with the reference")
 {
     juce::AudioBuffer<float> source(2, 4096);
@@ -382,8 +453,8 @@ TEST_CASE("the bench row only exists in Standalone")
             if (button->isVisible())
                 ++visibleButtons;
 
-    // Analyze плюс три кнопки стенда.
-    REQUIRE(visibleButtons == 4);
+    // Analyze плюс четыре кнопки стенда: Load, Play, Export, Audio.
+    REQUIRE(visibleButtons == 5);
 
     input.deleteFile();
 }

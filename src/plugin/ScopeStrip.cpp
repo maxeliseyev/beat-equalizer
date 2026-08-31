@@ -37,6 +37,23 @@ void ScopeStrip::paint(juce::Graphics& g)
     g.setColour(juce::Colour(0xff4a5a6a));
     g.drawRect(bounds);
 
+    // Сетка рисуется под волной: доли ярче делений, такты ярче долей.
+    for (int i = 0; i < gridCount; ++i)
+    {
+        const auto& line = grid[static_cast<size_t>(i)];
+        const int x = bounds.getX()
+                      + juce::roundToInt(line.position * (float) (bounds.getWidth() - 1));
+
+        if (line.bar)
+            g.setColour(juce::Colour(0xff7a889b));
+        else if (line.beat)
+            g.setColour(juce::Colour(0xff4d5a6b));
+        else
+            g.setColour(juce::Colour(0xff2b333d));
+
+        g.drawVerticalLine(x, (float) bounds.getY() + 1.0f, (float) bounds.getBottom() - 1.0f);
+    }
+
     const float midY = (float) bounds.getCentreY();
     g.setColour(juce::Colour(0xff3a4450));
     g.drawHorizontalLine((int) midY, (float) bounds.getX() + 1.0f, (float) bounds.getRight() - 1.0f);
@@ -116,6 +133,19 @@ void ScopeStrip::setReference(bool isReference)
 
     reference = isReference;
     repaint();
+}
+
+void ScopeStrip::setGrid(const beat::grid::Line* lines, int count)
+{
+    const int wanted = (lines == nullptr) ? 0 : juce::jlimit(0, beat::grid::kMaxLines, count);
+    if (wanted == 0 && gridCount == 0)
+        return;
+
+    gridCount = wanted;
+    for (int i = 0; i < wanted; ++i)
+        grid[static_cast<size_t>(i)] = lines[i];
+
+    repaint(waveBounds());
 }
 
 void ScopeStrip::setWaveform(const float* samples, int count)

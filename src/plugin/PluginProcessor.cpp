@@ -20,6 +20,10 @@ BeatEqualizerAudioProcessor::BeatEqualizerAudioProcessor()
             parameters.getRawParameterValue(beat::channelParamId(i, "polarity"));
         channelParams[static_cast<size_t>(i)].enabled =
             parameters.getRawParameterValue(beat::channelParamId(i, "enabled"));
+        channelParams[static_cast<size_t>(i)].mute =
+            parameters.getRawParameterValue(beat::channelParamId(i, "mute"));
+        channelParams[static_cast<size_t>(i)].solo =
+            parameters.getRawParameterValue(beat::channelParamId(i, "solo"));
         channelParams[static_cast<size_t>(i)].rotatorAmount =
             parameters.getRawParameterValue(beat::channelParamId(i, "rotatorAmount"));
         channelParams[static_cast<size_t>(i)].rotatorHz =
@@ -31,6 +35,9 @@ BeatEqualizerAudioProcessor::BeatEqualizerAudioProcessor()
     maxDistanceParam = parameters.getRawParameterValue("global.maxDistanceM");
     freezeParam = parameters.getRawParameterValue("global.freeze");
     monoSumParam = parameters.getRawParameterValue("global.monoSum");
+    tempoSourceParam = parameters.getRawParameterValue("global.tempoSource");
+    tempoBpmParam = parameters.getRawParameterValue("global.tempoBpm");
+    gridDivisionParam = parameters.getRawParameterValue("global.gridDivision");
 
     analysisWorker.onResult = [this] { applyAnalysisResult(analysisWorker.result()); };
     analysisWorker.readWindow = [this](float* dest, int channels, int count)
@@ -103,6 +110,8 @@ void BeatEqualizerAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
     for (int channel = numInput; channel < numOutput; ++channel)
         buffer.clear(channel, 0, numSamples);
 
+    updateTransport(numSamples);
+
     filePlayer.fill(buffer, numCh);
 
     // Анализ смотрит на вход, до задержки и инверсии: буфер пишем до DSP.
@@ -114,12 +123,25 @@ void BeatEqualizerAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
     float applied[beat::kMaxChannels] {};
     bool enabled[beat::kMaxChannels] {};
     bool invert[beat::kMaxChannels] {};
+    bool audible[beat::kMaxChannels] {};
     float maxApplied = 0.0f;
+    bool anySolo = false;
+
+    for (int ch = 0; ch < numCh; ++ch)
+    {
+        const auto& params = channelParams[static_cast<size_t>(ch)];
+        if (params.solo != nullptr && params.solo->load() >= 0.5f)
+            anySolo = true;
+    }
 
     for (int ch = 0; ch < numCh; ++ch)
     {
         const auto& params = channelParams[static_cast<size_t>(ch)];
         enabled[ch] = params.enabled == nullptr || params.enabled->load() >= 0.5f;
+
+        const bool muted = params.mute != nullptr && params.mute->load() >= 0.5f;
+        const bool soloed = params.solo != nullptr && params.solo->load() >= 0.5f;
+        audible[ch] = !muted && (!anySolo || soloed);
 
         const float delayMs = (params.delayMs != nullptr) ? params.delayMs->load() : 0.0f;
         applied[ch] = enabled[ch] ? delayMs * 0.001f * sr : 0.0f;
@@ -158,7 +180,7 @@ void BeatEqualizerAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
 
     int enabledCount = 0;
     for (int ch = 0; ch < numCh; ++ch)
-        enabledCount += enabled[ch] ? 1 : 0;
+        enabledCount += (enabled[ch] && audible[ch]) ? 1 : 0;
 
     const bool monoSum = monoSumParam != nullptr && monoSumParam->load() >= 0.5f && numCh >= 2
                          && enabledCount > 0;
@@ -171,15 +193,18 @@ void BeatEqualizerAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
             const float x = buffer.getSample(ch, n);
             blockPeak[ch] = juce::jmax(blockPeak[ch], std::abs(x));
             const float y = rotator.processSample(ch, delay.processSample(ch, x));
+
+            // Осциллограф показывает выровненный канал даже под mute: глушим
+            // только выход, картинку глушить незачем.
             scopeSample[ch] = y;
-            buffer.setSample(ch, n, y);
+            buffer.setSample(ch, n, audible[ch] ? y : 0.0f);
         }
 
         if (monoSum)
         {
             float mono = 0.0f;
             for (int ch = 0; ch < numCh; ++ch)
-                if (enabled[ch])
+                if (enabled[ch] && audible[ch])
                     mono += scopeSample[ch];
 
             mono *= monoGain;
@@ -201,6 +226,74 @@ void BeatEqualizerAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
         inputPeak[static_cast<size_t>(ch)].store(juce::jmax(blockPeak[ch], decayed),
                                                  std::memory_order_relaxed);
     }
+}
+
+void BeatEqualizerAudioProcessor::updateTransport(int numSamples)
+{
+    double bpm = 0.0;
+    int numerator = 4;
+    int denominator = 4;
+    double quarters = 0.0;
+    bool hasPosition = false;
+
+    if (auto* head = getPlayHead())
+    {
+        if (const auto position = head->getPosition())
+        {
+            if (const auto hostTempo = position->getBpm())
+                bpm = *hostTempo;
+
+            if (const auto signature = position->getTimeSignature())
+            {
+                numerator = signature->numerator;
+                denominator = signature->denominator;
+            }
+
+            if (const auto ppq = position->getPpqPosition())
+            {
+                quarters = *ppq;
+                hasPosition = true;
+            }
+        }
+    }
+
+    hostBpm.store(bpm, std::memory_order_relaxed);
+    hostNumerator.store(numerator, std::memory_order_relaxed);
+    hostDenominator.store(denominator, std::memory_order_relaxed);
+    hostHasPosition.store(hasPosition, std::memory_order_relaxed);
+
+    // Хост отдаёт позицию на начало блока, а осциллограф показывает его конец.
+    if (hasPosition && bpm > 0.0 && currentSampleRate > 0.0)
+        quarters += static_cast<double>(numSamples) / currentSampleRate
+                    * beat::grid::quartersPerSecond(bpm);
+
+    quartersAtWrite.store(quarters, std::memory_order_relaxed);
+}
+
+BeatEqualizerAudioProcessor::TransportInfo BeatEqualizerAudioProcessor::getTransport() const
+{
+    TransportInfo info;
+    info.hostBpm = hostBpm.load(std::memory_order_relaxed);
+
+    const bool wantsHost = tempoSourceParam == nullptr
+                           || juce::roundToInt(tempoSourceParam->load()) == 0;
+    info.fromHost = wantsHost && info.hostBpm > 0.0;
+    info.bpm = info.fromHost
+                   ? info.hostBpm
+                   : (tempoBpmParam != nullptr ? tempoBpmParam->load() : beat::kDefaultTempoBpm);
+
+    info.numerator = hostNumerator.load(std::memory_order_relaxed);
+    info.denominator = hostDenominator.load(std::memory_order_relaxed);
+    info.hasPosition = hostHasPosition.load(std::memory_order_relaxed);
+    info.quartersAtWrite = quartersAtWrite.load(std::memory_order_relaxed);
+
+    const int division = (gridDivisionParam != nullptr)
+                             ? juce::roundToInt(gridDivisionParam->load())
+                             : 0;
+    info.division = static_cast<beat::grid::Division>(
+        juce::jlimit(0, beat::grid::kDivisionCount - 1, division));
+
+    return info;
 }
 
 float BeatEqualizerAudioProcessor::getInputPeak(int channel) const

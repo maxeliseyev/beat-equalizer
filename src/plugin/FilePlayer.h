@@ -22,6 +22,9 @@ public:
     int numChannels() const { return loadedChannels.load(); }
     int numSamples() const { return loadedSamples.load(); }
     juce::String getDescription() const { return description; }
+    // Message thread: имя дорожки на этом канале ("kick", "OH L"). Пусто, если
+    // материала нет. Меняется только в load(), с того же потока.
+    juce::String getChannelName(int channel) const;
 
     void setPlaying(bool shouldPlay);
     bool isPlaying() const { return playing.load(); }
@@ -33,6 +36,9 @@ public:
     // Worker: окно для Analyze, channel-major. Тишину в начале пропускаем,
     // иначе восьмисекундное окно уедет в отсчёт перед первым ударом.
     int readAnalysisWindow(float* dest, int channels, int count) const;
+
+    // Позиция конца окна отрисовки в отсчётах клипа: по ней строится сетка.
+    int displayOrigin(int count) const;
 
     // Message thread: окно одного канала для осциллограммы. Заканчивается на
     // позиции воспроизведения (на паузе — на первом ударе), сдвинуто назад на
@@ -49,9 +55,11 @@ private:
     juce::AudioFormatManager formats;
     juce::AudioBuffer<float> clip;
     juce::String description;
+    juce::StringArray channelNames;
     mutable juce::SpinLock lock;
     std::atomic<int> loadedChannels { 0 };
     std::atomic<int> loadedSamples { 0 };
     std::atomic<int> position { 0 };
+    std::atomic<int> onset { 0 };
     std::atomic<bool> playing { false };
 };

@@ -29,6 +29,12 @@ inline constexpr float kMinScopeTimeMs = 5.0f;
 inline constexpr float kMaxScopeTimeMs = 1000.0f;
 inline constexpr float kDefaultScopeTimeMs = 40.0f;
 
+// Темп для сетки. Верх и низ — просто здравые границы ввода, алгоритм от них
+// не зависит.
+inline constexpr float kMinTempoBpm = 40.0f;
+inline constexpr float kMaxTempoBpm = 300.0f;
+inline constexpr float kDefaultTempoBpm = 120.0f;
+
 // Analysis window: кадр FFT, hop 50 %, кольцевой буфер сырого входа.
 inline constexpr float kAnalysisSeconds = 8.0f;
 inline constexpr float kAnalysisMinRms = 0.0005f;
