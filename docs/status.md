@@ -4,7 +4,7 @@ Updated: 2026-08-31
 Stage: 1 (static alignment)
 Plan step: между PR 7 и PR 8 — UI-правка перед прогоном на ките
 Branch: `feat/per-channel-scopes`
-PR: не открыт
+PR: https://github.com/maxeliseyev/beat-equalizer/pull/13
 Blockers: none
 
 ## Done
@@ -15,8 +15,8 @@ Blockers: none
 
 ## Now
 
-Ветка собрана и зелёная (`make test` 61 кейс, `make test-gui` 28 кейсов).
-Осталось открыть PR.
+PR 13 открыт, ждёт приёмки. Ветка зелёная: `make test` 61 кейс,
+`make test-gui` 28 кейсов.
 
 ## Next
 
