@@ -4,7 +4,7 @@ Updated: 2026-08-31
 Stage: 1 (static alignment)
 Plan step: PR 6 — таблица, коррелометр, Mono Sum
 Branch: `feat/table-correlometer`
-PR: открыть из этой ветки
+PR: https://github.com/maxeliseyev/beat-equalizer/pull/11
 Blockers: none
 
 ## Done
@@ -15,7 +15,7 @@ Blockers: none
 
 ## Now
 
-Ветка готова к PR. Ушами не проверено: Mono Sum и коррелометр на живом ките.
+PR 11 открыт, ждёт приёмки. Ушами не проверено: Mono Sum и коррелометр на живом ките.
 
 ## Next
 
