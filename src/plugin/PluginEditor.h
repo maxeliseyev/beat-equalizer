@@ -4,6 +4,7 @@
 #include "PluginProcessor.h"
 #include "ScopeStrip.h"
 
+#include <atomic>
 #include <memory>
 #include <vector>
 
@@ -21,6 +22,7 @@ public:
     void paint(juce::Graphics&) override;
     void resized() override;
     void refreshWaveforms();
+    int getScopeWindowSamples() const;
 
 private:
     void changeListenerCallback(juce::ChangeBroadcaster*) override;
@@ -49,6 +51,8 @@ private:
     juce::Label headerPolarity;
 
     juce::Label scopeHeader;
+    juce::Label timeLabel;
+    juce::Slider timeSlider;
     juce::Label scopeTimeLeft;
     juce::Label scopeTimeRight;
 
@@ -66,6 +70,8 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> abAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> referenceAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> distanceAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> timeAttachment;
+    std::atomic<float>* scopeTimeParam = nullptr;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(BeatEqualizerAudioProcessorEditor)
 };

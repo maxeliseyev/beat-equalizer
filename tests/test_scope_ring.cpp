@@ -28,3 +28,15 @@ TEST_CASE("rising trigger finds the last crossing")
     REQUIRE(beat::ScopeRing::findRisingTrigger(x, 8, 0.12f) == 5);
     REQUIRE(beat::ScopeRing::findRisingTrigger(x, 8, 0.9f) == -1);
 }
+
+TEST_CASE("scope time in milliseconds maps to a sample window")
+{
+    REQUIRE(beat::ScopeRing::windowSamples(40.0f, 48000.0) == 1920);
+    REQUIRE(beat::ScopeRing::windowSamples(5.0f, 48000.0) == 240);
+    REQUIRE(beat::ScopeRing::windowSamples(200.0f, 48000.0) == 9600);
+    REQUIRE(beat::ScopeRing::windowSamples(200.0f, 192000.0) == 38400);
+    REQUIRE(beat::ScopeRing::windowSamples(1000.0f, 48000.0) == 48000);
+    REQUIRE(beat::ScopeRing::windowSamples(1000.0f, 192000.0) == 192000);
+    REQUIRE(beat::ScopeRing::windowSamples(10000.0f, 48000.0) == 48000);
+    REQUIRE(beat::ScopeRing::windowSamples(0.0f, 48000.0) == 240);
+}

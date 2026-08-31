@@ -1,30 +1,30 @@
 # Status
 
-Updated: 2026-08-30
+Updated: 2026-08-31
 Stage: 1 (static alignment)
-Plan step: docs — detector canon + semver 0.1.1
-Branch: `docs/detector-design`
-PR: https://github.com/maxeliseyev/beat-equalizer/pull/6
+Plan step: feat — scope Time window
+Branch: `feat/scope-time`
+PR: https://github.com/maxeliseyev/beat-equalizer/pull/7
 Blockers: none
 
 ## Done
 
-- Канон детекции вшит в AGENTS / план продукта.
-- Версионирование: `VERSION` = 0.1.1, changelog, UI показывает номер.
+- PR 1–6 in `main` (strips, Makefile, detector canon, 0.1.1).
 
 ## Now
 
-Донести PR #6 в `main`. Код детектора не писать.
+<<<<<<< HEAD
+Scope Time slider (ms, 5-1000, default 40). Shared window for all strips.
+sMexoscope pixels/sample not copied — window is wall-clock.
 
 ## Next
 
-Осциллограф (#5) если ещё открыт; затем Analyze по detector-design.
+After this PR: **Analyze engine** from fresh `main`.
 
 ## Resume
 
-1. `git fetch && git checkout docs/detector-design && git pull`
-2. `make version` → 0.1.1
-3. После merge — Analyze с свежего `main`.
+1. `git fetch && git checkout feat/scope-time && git pull`
+2. `make test && make test-gui && make vst3`
 
 ## Open
 

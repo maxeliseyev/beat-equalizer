@@ -37,6 +37,12 @@ juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout()
         "Mono Sum",
         false));
 
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        juce::ParameterID { "global.scopeTimeMs", 1 },
+        "Time",
+        juce::NormalisableRange<float>(kMinScopeTimeMs, kMaxScopeTimeMs, 0.1f, 0.4f),
+        kDefaultScopeTimeMs));
+
     const juce::StringArray polarityLabels { "Auto", "Positive", "Invert" };
 
     for (int i = 0; i < kMaxChannels; ++i)
