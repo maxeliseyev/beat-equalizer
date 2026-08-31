@@ -164,4 +164,8 @@ TEST_CASE("scope time parameter sets the visible window")
     param->setValueNotifyingHost(param->convertTo0to1(40.0f));
     scoped->refreshWaveforms();
     REQUIRE(scoped->getScopeWindowSamples() == 1920);
+
+    param->setValueNotifyingHost(param->convertTo0to1(1000.0f));
+    scoped->refreshWaveforms();
+    REQUIRE(scoped->getScopeWindowSamples() == 48000);
 }

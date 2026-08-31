@@ -37,7 +37,7 @@ void BeatEqualizerAudioProcessor::prepareToPlay(double sampleRate, int)
     currentSampleRate = sampleRate;
     snapshot = beat::AlignmentSnapshot::identity(getTotalNumInputChannels());
     delay.prepare(sampleRate, beat::kMaxChannels);
-    scope.reset();
+    scope.prepare(beat::ScopeRing::capacityForSampleRate(sampleRate));
     setLatencySamples(beat::LatencyModel::reportedLatency(0.0f));
 }
 
