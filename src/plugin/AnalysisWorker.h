@@ -29,6 +29,9 @@ public:
     int frameSize() const { return engine.frameSize(); }
 
     std::function<void()> onResult;
+    // Откуда брать окно: кольцо живого входа или загруженные файлы.
+    // Зовётся из worker-потока, channel-major, как AnalysisRing::readLast.
+    std::function<int(float*, int, int)> readWindow;
 
 private:
     void run() override;

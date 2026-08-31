@@ -43,6 +43,11 @@ void FractionalDelay::setAppliedDelaySamples(int channel, float delaySamples)
     targetDelay[static_cast<size_t>(channel)] = std::clamp(delaySamples, 0.0f, maxApplied);
 }
 
+void FractionalDelay::snapToTargets()
+{
+    std::copy(targetDelay.begin(), targetDelay.end(), currentDelay.begin());
+}
+
 void FractionalDelay::setInvert(int channel, bool shouldInvert)
 {
     if (channel < 0 || channel >= numChannels)

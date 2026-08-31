@@ -28,6 +28,78 @@ BeatEqualizerAudioProcessorEditor::BeatEqualizerAudioProcessorEditor(BeatEqualiz
     hint.setJustificationType(juce::Justification::centredLeft);
     addAndMakeVisible(hint);
 
+    // Стенд с файлами — только в Standalone: в хосте материал приходит с дорожки.
+    standalone = audioProcessor.wrapperType == juce::AudioProcessor::wrapperType_Standalone;
+
+    loadButton.onClick = [this]
+    {
+        chooser = std::make_unique<juce::FileChooser>("Load kit stems",
+                                                      juce::File {},
+                                                      "*.wav;*.aif;*.aiff;*.flac");
+        const auto flags = juce::FileBrowserComponent::openMode
+                           | juce::FileBrowserComponent::canSelectFiles
+                           | juce::FileBrowserComponent::canSelectMultipleItems;
+
+        chooser->launchAsync(flags,
+                             [this](const juce::FileChooser& browser)
+                             {
+                                 const auto files = browser.getResults();
+                                 if (files.isEmpty())
+                                     return;
+
+                                 auto& player = audioProcessor.getFilePlayer();
+                                 const auto error =
+                                     player.load(files, audioProcessor.getCurrentSampleRate());
+                                 benchLabel.setText(error.isEmpty() ? player.getDescription()
+                                                                    : error,
+                                                    juce::dontSendNotification);
+                                 updateBench();
+                             });
+    };
+
+    playButton.onClick = [this]
+    {
+        auto& player = audioProcessor.getFilePlayer();
+        player.setPlaying(!player.isPlaying());
+        updateBench();
+    };
+
+    exportButton.onClick = [this]
+    {
+        const auto suggested =
+            juce::File::getSpecialLocation(juce::File::userMusicDirectory).getChildFile("aligned.wav");
+        chooser = std::make_unique<juce::FileChooser>("Export aligned WAV", suggested, "*.wav");
+        const auto flags = juce::FileBrowserComponent::saveMode
+                           | juce::FileBrowserComponent::canSelectFiles
+                           | juce::FileBrowserComponent::warnAboutOverwriting;
+
+        chooser->launchAsync(flags,
+                             [this](const juce::FileChooser& browser)
+                             {
+                                 const auto file = browser.getResult();
+                                 if (file == juce::File {})
+                                     return;
+
+                                 const auto error = audioProcessor.exportAligned(file);
+                                 benchLabel.setText(error.isEmpty()
+                                                        ? "Exported " + file.getFileName()
+                                                        : error,
+                                                    juce::dontSendNotification);
+                             });
+    };
+
+    for (auto* button : { &loadButton, &playButton, &exportButton })
+    {
+        addChildComponent(*button);
+        button->setVisible(standalone);
+    }
+
+    benchLabel.setJustificationType(juce::Justification::centredLeft);
+    benchLabel.setFont(juce::FontOptions(13.0f));
+    benchLabel.setText("No files loaded", juce::dontSendNotification);
+    addChildComponent(benchLabel);
+    benchLabel.setVisible(standalone);
+
     analyzeButton.onClick = [this] { audioProcessor.requestAnalyze(); };
     addAndMakeVisible(analyzeButton);
     addAndMakeVisible(freezeButton);
@@ -140,10 +212,13 @@ BeatEqualizerAudioProcessorEditor::BeatEqualizerAudioProcessorEditor(BeatEqualiz
     updateLayoutInfo();
     updateRowVisibility();
     updateAnalysisStatus();
+    updateBench();
 
+    // Стенд добавляет ещё один ряд кнопок, поэтому окно в Standalone выше.
+    const int benchRow = standalone ? 36 : 0;
     setResizable(true, true);
-    setResizeLimits(880, 640, 1600, 1400);
-    setSize(1040, 760);
+    setResizeLimits(880, 640 + benchRow, 1600, 1400);
+    setSize(1040, 760 + benchRow);
     startTimerHz(25);
 }
 
@@ -162,6 +237,7 @@ void BeatEqualizerAudioProcessorEditor::paint(juce::Graphics& g)
     hint.setColour(juce::Label::textColourId, juce::Colour(0xff8b919c));
     monoSumButton.setColour(juce::ToggleButton::textColourId, juce::Colours::white);
     analysisStatus.setColour(juce::Label::textColourId, juce::Colour(0xffc5cad3));
+    benchLabel.setColour(juce::Label::textColourId, juce::Colour(0xff8b919c));
     coherenceLabel.setColour(juce::Label::textColourId, juce::Colour(0xff7ddc9a));
     referenceLabel.setColour(juce::Label::textColourId, juce::Colours::white);
     distanceLabel.setColour(juce::Label::textColourId, juce::Colours::white);
@@ -202,6 +278,19 @@ void BeatEqualizerAudioProcessorEditor::resized()
     analysisRow.removeFromLeft(12);
     coherenceLabel.setBounds(analysisRow.removeFromRight(240));
     analysisStatus.setBounds(analysisRow);
+
+    if (standalone)
+    {
+        area.removeFromTop(8);
+        auto bench = area.removeFromTop(28);
+        loadButton.setBounds(bench.removeFromLeft(130));
+        bench.removeFromLeft(8);
+        playButton.setBounds(bench.removeFromLeft(80));
+        bench.removeFromLeft(8);
+        exportButton.setBounds(bench.removeFromLeft(160));
+        bench.removeFromLeft(12);
+        benchLabel.setBounds(bench);
+    }
 
     area.removeFromTop(12);
 
@@ -266,7 +355,30 @@ void BeatEqualizerAudioProcessorEditor::timerCallback()
 {
     updateLayoutInfo();
     updateAnalysisStatus();
+    updateBench();
     updateWaveforms();
+}
+
+void BeatEqualizerAudioProcessorEditor::updateBench()
+{
+    if (!standalone)
+        return;
+
+    auto& player = audioProcessor.getFilePlayer();
+    const bool loaded = player.hasMaterial();
+
+    playButton.setEnabled(loaded);
+    exportButton.setEnabled(loaded);
+    playButton.setButtonText(player.isPlaying() ? "Stop" : "Play");
+
+    // Строку перерисовываем только на смене состояния: иначе таймер затрёт
+    // сообщение об экспорте через сорок миллисекунд.
+    if (loaded != benchLoaded)
+    {
+        benchLoaded = loaded;
+        benchLabel.setText(loaded ? player.getDescription() : "No files loaded",
+                           juce::dontSendNotification);
+    }
 }
 
 void BeatEqualizerAudioProcessorEditor::updateAnalysisStatus()

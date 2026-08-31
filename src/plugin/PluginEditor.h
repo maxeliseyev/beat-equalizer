@@ -34,6 +34,7 @@ private:
     void updateRowVisibility();
     void updateWaveforms();
     void updateAnalysisStatus();
+    void updateBench();
     int activeChannelCount() const;
 
     BeatEqualizerAudioProcessor& audioProcessor;
@@ -42,6 +43,14 @@ private:
     juce::Label layoutLabel;
     juce::Label latencyLabel;
     juce::Label hint;
+
+    juce::TextButton loadButton { "Load files..." };
+    juce::TextButton playButton { "Play" };
+    juce::TextButton exportButton { "Export aligned..." };
+    juce::Label benchLabel;
+    std::unique_ptr<juce::FileChooser> chooser;
+    bool standalone = false;
+    bool benchLoaded = false;
 
     juce::TextButton analyzeButton { "Analyze" };
     juce::ToggleButton freezeButton { "Freeze" };

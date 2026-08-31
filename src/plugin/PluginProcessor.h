@@ -1,6 +1,8 @@
 #pragma once
 
 #include "AnalysisWorker.h"
+#include "Exporter.h"
+#include "FilePlayer.h"
 #include "Parameters.h"
 #include "ScopeRing.h"
 #include "dsp/AlignmentSnapshot.h"
@@ -52,6 +54,8 @@ public:
     int getReferenceChannelIndex() const;
 
     void requestAnalyze();
+    FilePlayer& getFilePlayer() { return filePlayer; }
+    juce::String exportAligned(const juce::File& file);
     // Публично, потому что путь «результат -> параметры» проверяется тестом
     // без message loop; worker зовёт то же самое из handleAsyncUpdate.
     void applyAnalysisResult(const beat::AlignmentEngine::Result& result);
@@ -89,6 +93,8 @@ private:
     std::atomic<float>* freezeParam = nullptr;
     std::atomic<float>* monoSumParam = nullptr;
     beat::AnalysisRing analysisRing;
+    FilePlayer filePlayer;
+    beat::AlignmentEngine::Result lastResult;
     AnalysisWorker analysisWorker { analysisRing };
     juce::String analysisStatus { "Press Analyze after playing a few bars" };
     float coherenceBefore = 0.0f;

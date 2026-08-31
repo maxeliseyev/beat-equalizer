@@ -2,35 +2,36 @@
 
 Updated: 2026-08-31
 Stage: 1 (static alignment)
-Plan step: PR 6 — таблица, коррелометр, Mono Sum
-Branch: `feat/table-correlometer`
-PR: https://github.com/maxeliseyev/beat-equalizer/pull/11
+Plan step: PR 7 — Standalone loader, export, персистентность
+Branch: `feat/standalone-bench`
+PR: https://github.com/maxeliseyev/beat-equalizer/pull/12
 Blockers: none
 
 ## Done
 
-- PR 1–5 плана в `main` (репо-PR 1–10), последний — ротатор и когерентность (0.3.0).
-- На ветке: колонки Role / Rotator / Corr, `ChannelColumns`, коррелометр,
-  Mono Sum, `beat::correlation`, 0.4.0.
+- PR 1–6 плана в `main` (репо-PR 1–11), последний — таблица и коррелометр (0.4.0).
+- На ветке: `FilePlayer`, `Exporter`, версионный блоб оценок, ряд стенда в UI,
+  Analyze читает файлы, 0.5.0.
 
 ## Now
 
-PR 11 открыт, ждёт приёмки. Ушами не проверено: Mono Sum и коррелометр на живом ките.
+PR 12 открыт, ждёт приёмки. Стенд собран, но на живом ките ещё не гонялся — это и есть
+следующий шаг плана.
 
 ## Next
 
-PR 7 — Standalone loader (несколько WAV на каналы), export aligned WAV,
-персистентность последних оценок между открытиями проекта.
+PR 8 — прогон на реальном ките: 8-16 микрофонов через стенд, калибровка
+`kAnalysisMinPeakRatio` и сетки ротатора, протокол ожидаемых задержек в `docs/`.
 
 ## Resume
 
-1. `git fetch && git checkout feat/table-correlometer && git pull`
-2. `make test && make test-gui && make standalone`
-3. Standalone: включить Mono Sum, проверить, что стемы выше 1-2 не сломались;
-   инвертировать канал руками — Corr и коррелометр должны уйти в минус.
+1. `git fetch && git checkout feat/standalone-bench && git pull`
+2. `make test && make test-gui && make standalone && make run`
+3. В Standalone: Load files… на набор стемов, Play, Analyze, Export aligned…,
+   затем сверить экспорт в редакторе.
 
 ## Open
 
-- Роль канала — метаданные, алгоритм её не читает (инвариант 8).
-- Corr зависит от окна Time скопа: на редком материале цифра шумит.
+- Клип целиком в памяти: 16 дорожек по минуте ≈ 180 МБ.
+- Проигрывание ограничено каналами устройства, анализ и экспорт — нет.
 - GitHub Require PR on `main`.

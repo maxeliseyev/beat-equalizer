@@ -58,7 +58,9 @@ void AnalysisWorker::run()
                 pointers[static_cast<size_t>(ch)] =
                     scratch.data() + static_cast<std::ptrdiff_t>(ch) * window;
 
-            const int available = ring.readLast(scratch.data(), channels, window);
+            const int available = (readWindow != nullptr)
+                                      ? readWindow(scratch.data(), channels, window)
+                                      : ring.readLast(scratch.data(), channels, window);
             result = engine.analyze(pointers.data(), channels, available, request);
         }
         else
