@@ -22,6 +22,9 @@ public:
     int numChannels() const { return loadedChannels.load(); }
     int numSamples() const { return loadedSamples.load(); }
     juce::String getDescription() const { return description; }
+    // Message thread: имя дорожки на этом канале ("kick", "OH L"). Пусто, если
+    // материала нет. Меняется только в load(), с того же потока.
+    juce::String getChannelName(int channel) const;
 
     void setPlaying(bool shouldPlay);
     bool isPlaying() const { return playing.load(); }
@@ -49,6 +52,7 @@ private:
     juce::AudioFormatManager formats;
     juce::AudioBuffer<float> clip;
     juce::String description;
+    juce::StringArray channelNames;
     mutable juce::SpinLock lock;
     std::atomic<int> loadedChannels { 0 };
     std::atomic<int> loadedSamples { 0 };

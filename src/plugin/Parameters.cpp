@@ -61,6 +61,18 @@ juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout()
             namePrefix + "Enabled",
             true));
 
+        // Solo/Mute — мониторинг: глушат выход канала, но не трогают ни оценки,
+        // ни офлайн-рендер, иначе экспорт зависел бы от того, что сейчас слушают.
+        params.push_back(std::make_unique<juce::AudioParameterBool>(
+            juce::ParameterID { channelParamId(i, "mute"), 1 },
+            namePrefix + "Mute",
+            false));
+
+        params.push_back(std::make_unique<juce::AudioParameterBool>(
+            juce::ParameterID { channelParamId(i, "solo"), 1 },
+            namePrefix + "Solo",
+            false));
+
         params.push_back(std::make_unique<juce::AudioParameterFloat>(
             juce::ParameterID { channelParamId(i, "delayMs"), 1 },
             namePrefix + "Delay",

@@ -19,6 +19,7 @@ juce::String FilePlayer::load(const juce::Array<juce::File>& files, double targe
 
     std::vector<std::vector<float>> channels;
     juce::StringArray names;
+    juce::StringArray perChannelNames;
 
     for (const auto& file : files)
     {
@@ -38,6 +39,8 @@ juce::String FilePlayer::load(const juce::Array<juce::File>& files, double targe
         // и экспорт считались бы в разных временах.
         const double ratio = reader->sampleRate / targetSampleRate;
 
+        const auto stem = file.getFileNameWithoutExtension();
+
         for (int ch = 0; ch < fileChannels; ++ch)
         {
             if (static_cast<int>(channels.size()) >= beat::kMaxChannels)
@@ -45,9 +48,15 @@ juce::String FilePlayer::load(const juce::Array<juce::File>& files, double targe
 
             const float* source = raw.getReadPointer(ch);
 
+            // Моно-файл даёт имя как есть, многоканальный — с номером дорожки:
+            // иначе шесть каналов одного wav подписаны одинаково. Имя кладём
+            // только вместе с данными, чтобы подписи не разъехались с каналами.
+            const auto channelName = (fileChannels > 1) ? stem + " " + juce::String(ch + 1) : stem;
+
             if (std::abs(ratio - 1.0) < 1.0e-9)
             {
                 channels.emplace_back(source, source + fileSamples);
+                perChannelNames.add(channelName);
                 continue;
             }
 
@@ -59,6 +68,7 @@ juce::String FilePlayer::load(const juce::Array<juce::File>& files, double targe
             juce::LagrangeInterpolator interpolator;
             interpolator.process(ratio, source, resampled.data(), outSamples);
             channels.push_back(std::move(resampled));
+            perChannelNames.add(channelName);
         }
 
         names.add(file.getFileName());
@@ -81,6 +91,8 @@ juce::String FilePlayer::load(const juce::Array<juce::File>& files, double targe
         const juce::SpinLock::ScopedLockType scoped(lock);
         clip = std::move(loaded);
     }
+
+    channelNames = perChannelNames;
 
     loadedChannels.store(clip.getNumChannels());
     loadedSamples.store(clip.getNumSamples());
@@ -107,6 +119,15 @@ void FilePlayer::clear()
     loadedSamples.store(0);
     position.store(0);
     description = {};
+    channelNames.clear();
+}
+
+juce::String FilePlayer::getChannelName(int channel) const
+{
+    if (channel < 0 || channel >= channelNames.size())
+        return {};
+
+    return channelNames[channel];
 }
 
 void FilePlayer::setPlaying(bool shouldPlay)
@@ -176,7 +197,11 @@ int FilePlayer::readDisplayWindow(int channel, float* dest, int count, int shift
     if (dest == nullptr || count <= 0 || !hasMaterial())
         return 0;
 
-    const juce::SpinLock::ScopedLockType scoped(lock);
+    // Отрисовка ждать не имеет права: аудиопоток берёт этот же замок try-версией
+    // и на неудаче отдаёт блок мимо стенда, то есть слышимым щелчком.
+    const juce::SpinLock::ScopedTryLockType scoped(lock);
+    if (!scoped.isLocked())
+        return 0;
 
     const int available = clip.getNumSamples();
     if (channel < 0 || channel >= clip.getNumChannels() || available <= 0)

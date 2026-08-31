@@ -209,6 +209,88 @@ TEST_CASE("a disabled channel drops out of the mono sum")
     REQUIRE_THAT(buffer.getSample(0, 63), WithinAbs((0.1f + 0.2f + 0.3f) / 3.0f, 1.0e-4f));
 }
 
+TEST_CASE("mute silences its own channel, solo silences the others")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+
+    BeatEqualizerAudioProcessor processor;
+    REQUIRE(setFourChannels(processor));
+    processor.prepareToPlay(48000.0, 64);
+
+    auto& state = processor.getParameters();
+    juce::AudioBuffer<float> buffer(4, 64);
+    juce::MidiBuffer midi;
+
+    const auto run = [&]
+    {
+        for (int block = 0; block < 4; ++block)
+        {
+            for (int ch = 0; ch < 4; ++ch)
+                for (int n = 0; n < 64; ++n)
+                    buffer.setSample(ch, n, 0.1f * static_cast<float>(ch + 1));
+
+            processor.processBlock(buffer, midi);
+        }
+    };
+
+    state.getParameter(beat::channelParamId(1, "mute"))->setValueNotifyingHost(1.0f);
+    run();
+
+    REQUIRE_THAT(buffer.getSample(0, 63), WithinAbs(0.1f, 1.0e-4f));
+    REQUIRE(buffer.getSample(1, 63) == 0.0f);
+    REQUIRE_THAT(buffer.getSample(2, 63), WithinAbs(0.3f, 1.0e-4f));
+
+    // Solo сильнее mute на других каналах: слышен только он.
+    state.getParameter(beat::channelParamId(2, "solo"))->setValueNotifyingHost(1.0f);
+    run();
+
+    REQUIRE(buffer.getSample(0, 63) == 0.0f);
+    REQUIRE(buffer.getSample(1, 63) == 0.0f);
+    REQUIRE_THAT(buffer.getSample(2, 63), WithinAbs(0.3f, 1.0e-4f));
+    REQUIRE(buffer.getSample(3, 63) == 0.0f);
+}
+
+TEST_CASE("a muted channel drops out of the mono sum")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+
+    BeatEqualizerAudioProcessor processor;
+    REQUIRE(setFourChannels(processor));
+    processor.prepareToPlay(48000.0, 64);
+
+    processor.getParameters().getParameter("global.monoSum")->setValueNotifyingHost(1.0f);
+    processor.getParameters().getParameter(beat::channelParamId(3, "mute"))
+        ->setValueNotifyingHost(1.0f);
+
+    juce::AudioBuffer<float> buffer(4, 64);
+    juce::MidiBuffer midi;
+
+    for (int block = 0; block < 4; ++block)
+    {
+        for (int ch = 0; ch < 4; ++ch)
+            for (int n = 0; n < 64; ++n)
+                buffer.setSample(ch, n, 0.1f * static_cast<float>(ch + 1));
+
+        processor.processBlock(buffer, midi);
+    }
+
+    REQUIRE_THAT(buffer.getSample(0, 63), WithinAbs((0.1f + 0.2f + 0.3f) / 3.0f, 1.0e-4f));
+}
+
+TEST_CASE("a channel row shows the number and the stem name")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+
+    BeatEqualizerAudioProcessor processor;
+    ChannelRow row(processor.getParameters(), 0);
+
+    REQUIRE(row.getLabelText() == "01");
+    row.setChannelName("kick");
+    REQUIRE(row.getLabelText() == "01  kick");
+    row.setChannelName({});
+    REQUIRE(row.getLabelText() == "01");
+}
+
 TEST_CASE("editor fills the correlometer from the scope ring")
 {
     juce::ScopedJuceInitialiser_GUI gui;

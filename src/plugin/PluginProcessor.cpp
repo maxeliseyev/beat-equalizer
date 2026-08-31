@@ -20,6 +20,10 @@ BeatEqualizerAudioProcessor::BeatEqualizerAudioProcessor()
             parameters.getRawParameterValue(beat::channelParamId(i, "polarity"));
         channelParams[static_cast<size_t>(i)].enabled =
             parameters.getRawParameterValue(beat::channelParamId(i, "enabled"));
+        channelParams[static_cast<size_t>(i)].mute =
+            parameters.getRawParameterValue(beat::channelParamId(i, "mute"));
+        channelParams[static_cast<size_t>(i)].solo =
+            parameters.getRawParameterValue(beat::channelParamId(i, "solo"));
         channelParams[static_cast<size_t>(i)].rotatorAmount =
             parameters.getRawParameterValue(beat::channelParamId(i, "rotatorAmount"));
         channelParams[static_cast<size_t>(i)].rotatorHz =
@@ -114,12 +118,25 @@ void BeatEqualizerAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
     float applied[beat::kMaxChannels] {};
     bool enabled[beat::kMaxChannels] {};
     bool invert[beat::kMaxChannels] {};
+    bool audible[beat::kMaxChannels] {};
     float maxApplied = 0.0f;
+    bool anySolo = false;
+
+    for (int ch = 0; ch < numCh; ++ch)
+    {
+        const auto& params = channelParams[static_cast<size_t>(ch)];
+        if (params.solo != nullptr && params.solo->load() >= 0.5f)
+            anySolo = true;
+    }
 
     for (int ch = 0; ch < numCh; ++ch)
     {
         const auto& params = channelParams[static_cast<size_t>(ch)];
         enabled[ch] = params.enabled == nullptr || params.enabled->load() >= 0.5f;
+
+        const bool muted = params.mute != nullptr && params.mute->load() >= 0.5f;
+        const bool soloed = params.solo != nullptr && params.solo->load() >= 0.5f;
+        audible[ch] = !muted && (!anySolo || soloed);
 
         const float delayMs = (params.delayMs != nullptr) ? params.delayMs->load() : 0.0f;
         applied[ch] = enabled[ch] ? delayMs * 0.001f * sr : 0.0f;
@@ -158,7 +175,7 @@ void BeatEqualizerAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
 
     int enabledCount = 0;
     for (int ch = 0; ch < numCh; ++ch)
-        enabledCount += enabled[ch] ? 1 : 0;
+        enabledCount += (enabled[ch] && audible[ch]) ? 1 : 0;
 
     const bool monoSum = monoSumParam != nullptr && monoSumParam->load() >= 0.5f && numCh >= 2
                          && enabledCount > 0;
@@ -171,15 +188,18 @@ void BeatEqualizerAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
             const float x = buffer.getSample(ch, n);
             blockPeak[ch] = juce::jmax(blockPeak[ch], std::abs(x));
             const float y = rotator.processSample(ch, delay.processSample(ch, x));
+
+            // Осциллограф показывает выровненный канал даже под mute: глушим
+            // только выход, картинку глушить незачем.
             scopeSample[ch] = y;
-            buffer.setSample(ch, n, y);
+            buffer.setSample(ch, n, audible[ch] ? y : 0.0f);
         }
 
         if (monoSum)
         {
             float mono = 0.0f;
             for (int ch = 0; ch < numCh; ++ch)
-                if (enabled[ch])
+                if (enabled[ch] && audible[ch])
                     mono += scopeSample[ch];
 
             mono *= monoGain;
