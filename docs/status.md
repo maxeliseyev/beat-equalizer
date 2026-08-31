@@ -4,7 +4,7 @@ Updated: 2026-08-31
 Stage: 1 (static alignment)
 Plan step: стенд — транспорт и разбор рваного звука
 Branch: `fix/bench-transport`
-PR: не открыт
+PR: https://github.com/maxeliseyev/beat-equalizer/pull/16
 Blockers: none
 
 ## Done
