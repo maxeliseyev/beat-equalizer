@@ -13,7 +13,6 @@ Blockers: none
 
 ## Now
 
-<<<<<<< HEAD
 Scope Time slider (ms, 5-1000, default 40). Shared window for all strips.
 sMexoscope pixels/sample not copied — window is wall-clock.
 
