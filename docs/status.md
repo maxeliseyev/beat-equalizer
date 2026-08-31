@@ -4,7 +4,7 @@ Updated: 2026-08-31
 Stage: 1 (static alignment)
 Plan step: feat — scope Time window
 Branch: `feat/scope-time`
-PR: none
+PR: https://github.com/maxeliseyev/beat-equalizer/pull/7
 Blockers: none
 
 ## Done
