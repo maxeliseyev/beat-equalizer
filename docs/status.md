@@ -4,7 +4,7 @@ Updated: 2026-08-31
 Stage: 1 (static alignment)
 Plan step: подготовка к этапу 2/3 — темп, сетка и сравнение фаз в интерфейсе
 Branch: `feat/tempo-grid-phase`
-PR: не открыт
+PR: https://github.com/maxeliseyev/beat-equalizer/pull/15
 Blockers: none
 
 ## Done
