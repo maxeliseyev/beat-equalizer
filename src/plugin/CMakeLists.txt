@@ -19,6 +19,7 @@ target_sources(BeatEqualizer
     PRIVATE
         AnalysisWorker.cpp
         ChannelRow.cpp
+        Correlometer.cpp
         Parameters.cpp
         PluginProcessor.cpp
         PluginEditor.cpp

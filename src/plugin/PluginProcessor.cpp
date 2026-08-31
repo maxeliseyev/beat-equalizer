@@ -29,6 +29,7 @@ BeatEqualizerAudioProcessor::BeatEqualizerAudioProcessor()
     referenceParam = parameters.getRawParameterValue("global.reference");
     maxDistanceParam = parameters.getRawParameterValue("global.maxDistanceM");
     freezeParam = parameters.getRawParameterValue("global.freeze");
+    monoSumParam = parameters.getRawParameterValue("global.monoSum");
 
     analysisWorker.onResult = [this] { applyAnalysisResult(analysisWorker.result()); };
 }
@@ -143,6 +144,14 @@ void BeatEqualizerAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
     float blockPeak[beat::kMaxChannels] {};
     float scopeSample[beat::kMaxChannels] {};
 
+    int enabledCount = 0;
+    for (int ch = 0; ch < numCh; ++ch)
+        enabledCount += enabled[ch] ? 1 : 0;
+
+    const bool monoSum = monoSumParam != nullptr && monoSumParam->load() >= 0.5f && numCh >= 2
+                         && enabledCount > 0;
+    const float monoGain = (enabledCount > 0) ? 1.0f / static_cast<float>(enabledCount) : 0.0f;
+
     for (int n = 0; n < numSamples; ++n)
     {
         for (int ch = 0; ch < numCh; ++ch)
@@ -153,6 +162,24 @@ void BeatEqualizerAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
             scopeSample[ch] = y;
             buffer.setSample(ch, n, y);
         }
+
+        if (monoSum)
+        {
+            float mono = 0.0f;
+            for (int ch = 0; ch < numCh; ++ch)
+                if (enabled[ch])
+                    mono += scopeSample[ch];
+
+            mono *= monoGain;
+
+            // Мониторинг: моно уходит только на 1-2, остальные стемы идут
+            // выровненными дальше, разводка кита не ломается.
+            buffer.setSample(0, n, mono);
+            buffer.setSample(1, n, mono);
+            scopeSample[0] = mono;
+            scopeSample[1] = mono;
+        }
+
         scope.push(numCh, scopeSample);
     }
 

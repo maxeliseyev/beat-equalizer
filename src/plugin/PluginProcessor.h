@@ -87,6 +87,7 @@ private:
     std::atomic<float>* referenceParam = nullptr;
     std::atomic<float>* maxDistanceParam = nullptr;
     std::atomic<float>* freezeParam = nullptr;
+    std::atomic<float>* monoSumParam = nullptr;
     beat::AnalysisRing analysisRing;
     AnalysisWorker analysisWorker { analysisRing };
     juce::String analysisStatus { "Press Analyze after playing a few bars" };

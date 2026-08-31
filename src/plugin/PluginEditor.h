@@ -1,9 +1,11 @@
 #pragma once
 
 #include "ChannelRow.h"
+#include "Correlometer.h"
 #include "PluginProcessor.h"
 #include "ScopeStrip.h"
 
+#include <array>
 #include <atomic>
 #include <memory>
 #include <vector>
@@ -23,6 +25,7 @@ public:
     void resized() override;
     void refreshWaveforms();
     int getScopeWindowSamples() const;
+    float getCorrelometerValue() const { return correlometer.getCorrelation(); }
 
 private:
     void changeListenerCallback(juce::ChangeBroadcaster*) override;
@@ -45,7 +48,8 @@ private:
     juce::Label analysisStatus;
     juce::Label coherenceLabel;
 
-    juce::ToggleButton abButton { "A/B (original, same PDC)" };
+    juce::ToggleButton abButton { "A/B dry" };
+    juce::ToggleButton monoSumButton { "Mono sum" };
     juce::Label referenceLabel;
     juce::ComboBox referenceBox;
     juce::Label distanceLabel;
@@ -53,8 +57,13 @@ private:
 
     juce::Label headerOn;
     juce::Label headerName;
+    juce::Label headerRole;
     juce::Label headerDelay;
+    juce::Label headerRotator;
     juce::Label headerPolarity;
+    juce::Label headerCorr;
+
+    Correlometer correlometer;
 
     juce::Label scopeHeader;
     juce::Label timeLabel;
@@ -64,6 +73,9 @@ private:
 
     std::vector<float> scopeScratch;
     std::vector<float> scopeWindow;
+    std::vector<float> referenceWindow;
+    std::vector<float> sumWindow;
+    std::array<std::atomic<float>*, beat::kMaxChannels> enabledParams {};
 
     juce::Viewport tableViewport;
     juce::Component tableList;
@@ -75,6 +87,7 @@ private:
 
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> abAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> freezeAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> monoSumAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> referenceAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> distanceAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> timeAttachment;

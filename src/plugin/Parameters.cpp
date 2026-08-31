@@ -49,6 +49,8 @@ juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout()
         kDefaultScopeTimeMs));
 
     const juce::StringArray polarityLabels { "Auto", "Positive", "Invert" };
+    // Роль — метаданные этапа 1: подписи и дефолтная опора, не ветка алгоритма.
+    const juce::StringArray roleLabels { "-", "Close", "OH", "Room", "Hats" };
 
     for (int i = 0; i < kMaxChannels; ++i)
     {
@@ -71,11 +73,21 @@ juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout()
             polarityLabels,
             0));
 
+        // Глубина хранится 0…1, но и в таблице, и в списке параметров хоста
+        // читается процентами: «35 %» понятнее, чем «0.350».
         params.push_back(std::make_unique<juce::AudioParameterFloat>(
             juce::ParameterID { channelParamId(i, "rotatorAmount"), 1 },
             namePrefix + "Rotator",
             juce::NormalisableRange<float>(0.0f, 1.0f, 0.001f),
-            0.0f));
+            0.0f,
+            juce::AudioParameterFloatAttributes().withStringFromValueFunction(
+                [](float value, int) { return juce::String(juce::roundToInt(100.0f * value)) + " %"; })));
+
+        params.push_back(std::make_unique<juce::AudioParameterChoice>(
+            juce::ParameterID { channelParamId(i, "role"), 1 },
+            namePrefix + "Role",
+            roleLabels,
+            0));
 
         params.push_back(std::make_unique<juce::AudioParameterFloat>(
             juce::ParameterID { channelParamId(i, "rotatorHz"), 1 },

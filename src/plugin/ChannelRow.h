@@ -5,13 +5,31 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_gui_basics/juce_gui_basics.h>
 
+// Геометрия колонок таблицы живёт в одном месте: и строка, и её шапка
+// раскладываются отсюда, иначе они разъезжаются при первой же правке.
+struct ChannelColumns
+{
+    juce::Rectangle<int> enable;
+    juce::Rectangle<int> name;
+    juce::Rectangle<int> role;
+    juce::Rectangle<int> delay;
+    juce::Rectangle<int> rotator;
+    juce::Rectangle<int> polarity;
+    juce::Rectangle<int> corr;
+
+    static ChannelColumns from(juce::Rectangle<int> row);
+};
+
 class ChannelRow final : public juce::Component
 {
 public:
     static constexpr int kHeight = 36;
-    static constexpr int kEnableWidth = 48;
-    static constexpr int kNameWidth = 44;
-    static constexpr int kPolarityWidth = 108;
+    static constexpr int kEnableWidth = 44;
+    static constexpr int kNameWidth = 36;
+    static constexpr int kRoleWidth = 84;
+    static constexpr int kRotatorWidth = 148;
+    static constexpr int kPolarityWidth = 100;
+    static constexpr int kCorrWidth = 56;
 
     ChannelRow(juce::AudioProcessorValueTreeState& state, int channelIndex);
 
@@ -19,23 +37,24 @@ public:
     void paint(juce::Graphics&) override;
 
     void setActive(bool shouldBeActive);
-
-    static void layoutHeader(juce::Rectangle<int> row,
-                             juce::Label& on,
-                             juce::Label& name,
-                             juce::Label& delay,
-                             juce::Label& polarity);
+    void setCorrelation(float value);
+    void setIsReference(bool isReference);
 
 private:
     bool active = false;
 
     juce::ToggleButton enabledButton;
     juce::Label nameLabel;
+    juce::ComboBox roleBox;
     juce::Slider delaySlider;
+    juce::Slider rotatorSlider;
     juce::ComboBox polarityBox;
+    juce::Label corrLabel;
 
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> enabledAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> roleAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> delayAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> rotatorAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> polarityAttachment;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ChannelRow)
