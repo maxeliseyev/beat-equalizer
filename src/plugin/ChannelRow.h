@@ -8,10 +8,9 @@
 class ChannelRow final : public juce::Component
 {
 public:
-    static constexpr int kHeight = 28;
-    static constexpr int kEnableWidth = 44;
-    static constexpr int kNameWidth = 52;
-    static constexpr int kPeakWidth = 56;
+    static constexpr int kHeight = 36;
+    static constexpr int kEnableWidth = 48;
+    static constexpr int kNameWidth = 44;
     static constexpr int kPolarityWidth = 108;
 
     ChannelRow(juce::AudioProcessorValueTreeState& state, int channelIndex);
@@ -20,20 +19,17 @@ public:
     void paint(juce::Graphics&) override;
 
     void setActive(bool shouldBeActive);
-    void setPeak(float linearPeak);
 
     static void layoutHeader(juce::Rectangle<int> row,
                              juce::Label& on,
                              juce::Label& name,
-                             juce::Label& peak,
                              juce::Label& delay,
                              juce::Label& polarity);
 
 private:
     bool active = false;
-    float peak = 0.0f;
 
-    juce::ToggleButton enabledButton { "On" };
+    juce::ToggleButton enabledButton;
     juce::Label nameLabel;
     juce::Slider delaySlider;
     juce::ComboBox polarityBox;

@@ -22,6 +22,7 @@ BeatEqualizerAudioProcessor::BeatEqualizerAudioProcessor()
     }
 
     abBypassParam = parameters.getRawParameterValue("global.abBypass");
+    referenceParam = parameters.getRawParameterValue("global.reference");
 }
 
 juce::AudioProcessor::BusesProperties BeatEqualizerAudioProcessor::createBusesProperties()
@@ -36,6 +37,7 @@ void BeatEqualizerAudioProcessor::prepareToPlay(double sampleRate, int)
     currentSampleRate = sampleRate;
     snapshot = beat::AlignmentSnapshot::identity(getTotalNumInputChannels());
     delay.prepare(sampleRate, beat::kMaxChannels);
+    scope.reset();
     setLatencySamples(beat::LatencyModel::reportedLatency(0.0f));
 }
 
@@ -113,6 +115,7 @@ void BeatEqualizerAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
     }
 
     float blockPeak[beat::kMaxChannels] {};
+    float scopeSample[beat::kMaxChannels] {};
 
     for (int n = 0; n < numSamples; ++n)
     {
@@ -120,8 +123,11 @@ void BeatEqualizerAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
         {
             const float x = buffer.getSample(ch, n);
             blockPeak[ch] = juce::jmax(blockPeak[ch], std::abs(x));
-            buffer.setSample(ch, n, delay.processSample(ch, x));
+            const float y = delay.processSample(ch, x);
+            scopeSample[ch] = y;
+            buffer.setSample(ch, n, y);
         }
+        scope.push(numCh, scopeSample);
     }
 
     for (int ch = 0; ch < numCh; ++ch)
@@ -138,6 +144,12 @@ float BeatEqualizerAudioProcessor::getInputPeak(int channel) const
         return 0.0f;
 
     return inputPeak[static_cast<size_t>(channel)].load(std::memory_order_relaxed);
+}
+
+int BeatEqualizerAudioProcessor::getReferenceChannelIndex() const
+{
+    const int raw = (referenceParam != nullptr) ? juce::roundToInt(referenceParam->load()) : 1;
+    return juce::jlimit(0, beat::kMaxChannels - 1, raw - 1);
 }
 
 void BeatEqualizerAudioProcessor::numChannelsChanged()

@@ -2,6 +2,7 @@
 
 #include "ChannelRow.h"
 #include "PluginProcessor.h"
+#include "ScopeStrip.h"
 
 #include <memory>
 #include <vector>
@@ -19,12 +20,15 @@ public:
 
     void paint(juce::Graphics&) override;
     void resized() override;
+    void refreshWaveforms();
 
 private:
     void changeListenerCallback(juce::ChangeBroadcaster*) override;
     void timerCallback() override;
     void updateLayoutInfo();
     void updateRowVisibility();
+    void updateWaveforms();
+    int activeChannelCount() const;
 
     BeatEqualizerAudioProcessor& audioProcessor;
 
@@ -41,13 +45,23 @@ private:
 
     juce::Label headerOn;
     juce::Label headerName;
-    juce::Label headerPeak;
     juce::Label headerDelay;
     juce::Label headerPolarity;
 
-    juce::Viewport viewport;
-    juce::Component rowList;
+    juce::Label scopeHeader;
+    juce::Label scopeTimeLeft;
+    juce::Label scopeTimeRight;
+
+    std::vector<float> scopeScratch;
+    std::vector<float> scopeWindow;
+
+    juce::Viewport tableViewport;
+    juce::Component tableList;
     std::vector<std::unique_ptr<ChannelRow>> rows;
+
+    juce::Viewport scopeViewport;
+    juce::Component scopeList;
+    std::vector<std::unique_ptr<ScopeStrip>> strips;
 
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> abAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> referenceAttachment;
