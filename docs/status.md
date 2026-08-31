@@ -4,7 +4,7 @@ Updated: 2026-08-31
 Stage: 1 (static alignment)
 Plan step: PR 5 — олпасс + когерентность + auto-rotate
 Branch: `feat/rotator-coherence`
-PR: открыть из этой ветки
+PR: https://github.com/maxeliseyev/beat-equalizer/pull/10
 Blockers: none
 
 ## Done
@@ -15,7 +15,7 @@ Blockers: none
 
 ## Now
 
-Ветка готова к PR. Ушами не проверено: ротатор и рост когерентности на реальном
+PR 10 открыт, ждёт приёмки. Ушами не проверено: ротатор и рост когерентности на реальном
 ките — автотесты гоняют синтетику.
 
 ## Next
