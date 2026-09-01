@@ -7,8 +7,6 @@ ChannelColumns ChannelColumns::from(juce::Rectangle<int> row, bool withMonitor)
     columns.solo = row.removeFromLeft(ChannelRow::kSoloWidth);
     columns.mute = row.removeFromLeft(ChannelRow::kMuteWidth);
     columns.name = row.removeFromLeft(ChannelRow::kNameWidth);
-    columns.role = row.removeFromLeft(ChannelRow::kRoleWidth);
-
     if (withMonitor)
     {
         columns.level = row.removeFromLeft(ChannelRow::kLevelWidth);
@@ -49,32 +47,29 @@ ChannelRow::ChannelRow(juce::AudioProcessorValueTreeState& state, int channelInd
     addAndMakeVisible(nameLabel);
     setChannelName({});
 
-    roleBox.addItem("-", 1);
-    roleBox.addItem("Close", 2);
-    roleBox.addItem("OH", 3);
-    roleBox.addItem("Room", 4);
-    roleBox.addItem("Hats", 5);
-    addAndMakeVisible(roleBox);
+    // Все четыре регулятора — полосы со значением внутри: ручку с отдельным
+    // текстовым полем строка себе позволить не может, окно и так шире экрана.
+    // Тянется мышью, двойной клик даёт ввод числа.
+    const auto compact = [](juce::Slider& slider)
+    {
+        slider.setSliderStyle(juce::Slider::LinearBar);
+        slider.setTextBoxStyle(juce::Slider::TextBoxLeft, false, 10, 10);
+        slider.setColour(juce::Slider::trackColourId, juce::Colour(0xff2a3340));
+    };
 
-    levelSlider.setSliderStyle(juce::Slider::LinearHorizontal);
-    levelSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 54, 20);
+    compact(levelSlider);
     addChildComponent(levelSlider);
 
-    // Ползунок посередине читается как центр панорамы; подпись рядом говорит,
-    // насколько и куда уведён канал.
-    panSlider.setSliderStyle(juce::Slider::LinearHorizontal);
-    panSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 48, 20);
+    compact(panSlider);
     addChildComponent(panSlider);
 
-    delaySlider.setSliderStyle(juce::Slider::LinearHorizontal);
-    delaySlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 64, 20);
-    delaySlider.setNumDecimalPlacesToDisplay(2);
+    compact(delaySlider);
+    delaySlider.setNumDecimalPlacesToDisplay(3);
     addAndMakeVisible(delaySlider);
 
-    rotatorSlider.setSliderStyle(juce::Slider::LinearHorizontal);
     // Проценты приходят из самого параметра: attachment перетирает
     // textFromValueFunction слайдера своей версией.
-    rotatorSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 52, 20);
+    compact(rotatorSlider);
     addAndMakeVisible(rotatorSlider);
 
     polarityBox.addItem("Auto", 1);
@@ -101,8 +96,6 @@ ChannelRow::ChannelRow(juce::AudioProcessorValueTreeState& state, int channelInd
         state, beat::channelParamId(index, "solo"), soloButton);
     muteAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
         state, beat::channelParamId(index, "mute"), muteButton);
-    roleAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
-        state, beat::channelParamId(index, "role"), roleBox);
     levelAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
         state, beat::channelParamId(index, "levelDb"), levelSlider);
     panAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
@@ -132,8 +125,6 @@ void ChannelRow::resized()
     soloButton.setBounds(centred(columns.solo, 2));
     muteButton.setBounds(centred(columns.mute, 2));
     nameLabel.setBounds(centred(columns.name, 4));
-    roleBox.setBounds(centred(columns.role, 2));
-
     if (monitorVisible)
     {
         levelSlider.setBounds(centred(columns.level, 4));
