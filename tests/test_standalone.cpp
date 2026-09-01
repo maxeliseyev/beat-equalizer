@@ -6,6 +6,7 @@
 #include "plugin/ChannelRow.h"
 #include "plugin/Exporter.h"
 #include "plugin/FilePlayer.h"
+#include "plugin/OverviewStrip.h"
 #include "plugin/PluginEditor.h"
 #include "plugin/PluginProcessor.h"
 
@@ -572,6 +573,94 @@ TEST_CASE("the display window lines a delayed mic up with the reference")
     file.deleteFile();
 }
 
+TEST_CASE("a decimated display window keeps the transient")
+{
+    juce::AudioBuffer<float> source(1, 8192);
+    source.clear();
+
+    // Удар в один отсчёт: прореживание «через один» его бы потеряло.
+    source.setSample(0, 4000, 0.9f);
+
+    const auto file = writeTempWav(source);
+
+    FilePlayer player;
+    REQUIRE(player.load({ file }, kSampleRate).isEmpty());
+    player.setPosition(8000);
+    player.setPlaying(true);
+
+    std::vector<float> full(4096, 0.0f);
+    std::vector<float> decimated(512, 0.0f);
+
+    REQUIRE(player.readDisplayWindow(0, full.data(), 4096, 0) == 4096);
+    REQUIRE(player.readDisplayWindow(0, decimated.data(), 512, 0, 8) == 512);
+
+    const auto peak = [](const std::vector<float>& window)
+    { return *std::max_element(window.begin(), window.end()); };
+
+    // Оба окна покрывают одни и те же 4096 отсчётов и обязаны видеть один пик.
+    REQUIRE_THAT(peak(full), WithinAbs(0.9f, 1.0e-3f));
+    REQUIRE_THAT(peak(decimated), WithinAbs(0.9f, 1.0e-3f));
+
+    file.deleteFile();
+}
+
+TEST_CASE("the overview covers the whole take, not the visible window")
+{
+    juce::AudioBuffer<float> source(2, 48000);
+    source.clear();
+
+    // Материал звучит только во второй половине: обзор обязан это показать.
+    for (int ch = 0; ch < 2; ++ch)
+        for (int i = 30000; i < 32000; ++i)
+            source.setSample(ch, i, 0.8f);
+
+    const auto file = writeTempWav(source);
+
+    FilePlayer player;
+    const int before = player.getGeneration();
+    REQUIRE(player.load({ file }, kSampleRate).isEmpty());
+    REQUIRE(player.getGeneration() != before);
+
+    std::vector<float> bins(FilePlayer::kOverviewBins, -1.0f);
+    const int count = player.readOverview(bins.data(), (int) bins.size());
+    REQUIRE(count == FilePlayer::kOverviewBins);
+
+    const int loud = count * 31000 / 48000;
+    REQUIRE_THAT(bins[static_cast<size_t>(loud)], WithinAbs(0.8f, 1.0e-2f));
+    REQUIRE_THAT(bins[static_cast<size_t>(count / 4)], WithinAbs(0.0f, 1.0e-4f));
+
+    player.clear();
+    REQUIRE(player.readOverview(bins.data(), (int) bins.size()) == 0);
+
+    file.deleteFile();
+}
+
+TEST_CASE("clicking the overview moves the play position")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+
+    OverviewStrip strip;
+    strip.setBounds(0, 0, 401, OverviewStrip::kHeight);
+
+    double seeked = -1.0;
+    strip.onSeek = [&seeked](double value) { seeked = value; };
+
+    const juce::MouseEvent event(juce::Desktop::getInstance().getMainMouseSource(),
+                                 { 200.0f, 10.0f },
+                                 juce::ModifierKeys::noModifiers,
+                                 1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+                                 &strip, &strip,
+                                 juce::Time::getCurrentTime(),
+                                 { 200.0f, 10.0f },
+                                 juce::Time::getCurrentTime(),
+                                 1,
+                                 false);
+    strip.mouseDown(event);
+
+    // Клик посередине полосы — середина партии.
+    REQUIRE_THAT(seeked, WithinAbs(0.5, 0.01));
+}
+
 TEST_CASE("bench rows follow the loaded files, not the audio device")
 {
     juce::ScopedJuceInitialiser_GUI gui;
@@ -635,6 +724,94 @@ TEST_CASE("bench rows follow the loaded files, not the audio device")
         }
 
     REQUIRE(cyan > 200);
+
+    file.deleteFile();
+}
+
+TEST_CASE("the transport shows the whole take with the playhead on it")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+
+    juce::AudioProcessor::setTypeOfNextNewPlugin(juce::AudioProcessor::wrapperType_Standalone);
+    BeatEqualizerAudioProcessor processor;
+    juce::AudioProcessor::setTypeOfNextNewPlugin(juce::AudioProcessor::wrapperType_Undefined);
+    processor.enableAllBuses();
+    processor.prepareToPlay(kSampleRate, 128);
+
+    // Двенадцать секунд с паузой посередине: по обзору обязано быть видно и
+    // длину партии, и то, что в середине тихо.
+    const int length = static_cast<int>(12.0 * kSampleRate);
+    juce::AudioBuffer<float> kit(4, length);
+    kit.clear();
+
+    for (int hit = 0; hit < 24; ++hit)
+    {
+        const int at = static_cast<int>((0.5 * hit) * kSampleRate);
+        if (at > length - 2048)
+            break;
+        if (hit >= 8 && hit < 14) // тишина в середине
+            continue;
+
+        for (int ch = 0; ch < 4; ++ch)
+            for (int i = 0; i < 2048; ++i)
+                kit.setSample(ch, at + i,
+                              0.9f * std::exp(-0.004f * (float) i)
+                                  * std::sin(0.05f * (float) i));
+    }
+
+    const auto file = writeTempWav(kit);
+    REQUIRE(processor.getFilePlayer().load({ file }, kSampleRate).isEmpty());
+    processor.getFilePlayer().setPosition(length / 2);
+
+    std::unique_ptr<juce::AudioProcessorEditor> editor(processor.createEditor());
+    auto* scoped = dynamic_cast<BeatEqualizerAudioProcessorEditor*>(editor.get());
+    REQUIRE(scoped != nullptr);
+    scoped->refreshTransport();
+
+    juce::Image image(juce::Image::ARGB, editor->getWidth(), editor->getHeight(), true);
+    {
+        juce::Graphics g(image);
+        editor->paintEntireComponent(g, true);
+    }
+
+    const juce::File png = juce::File(BEAT_GUI_TEST_PNG).getSiblingFile("bench-overview-test.png");
+    png.deleteFile();
+    {
+        juce::FileOutputStream stream(png);
+        REQUIRE(stream.openedOk());
+        juce::PNGImageFormat format;
+        REQUIRE(format.writeImageToStream(image, stream));
+    }
+
+    const auto strip = scoped->getOverviewBounds();
+    REQUIRE(strip.getHeight() > 0);
+
+    int played = 0;
+    int ahead = 0;
+    int playhead = 0;
+    for (int y = strip.getY(); y < strip.getBottom(); ++y)
+        for (int x = strip.getX(); x < strip.getRight(); ++x)
+        {
+            const auto p = image.getPixelAt(x, y);
+            const auto near = [&p](juce::uint8 r, juce::uint8 g, juce::uint8 b)
+            {
+                return std::abs((int) p.getRed() - (int) r) <= 24
+                       && std::abs((int) p.getGreen() - (int) g) <= 24
+                       && std::abs((int) p.getBlue() - (int) b) <= 24;
+            };
+
+            if (near(0x5e, 0xc8, 0xff))
+                ++played;
+            else if (near(0x3c, 0x5a, 0x72))
+                ++ahead;
+            else if (near(0xe8, 0xc5, 0x47))
+                ++playhead;
+        }
+
+    // Сыгранное, оставшееся и курсор — три разных цвета, и все три на полосе.
+    REQUIRE(played > 100);
+    REQUIRE(ahead > 100);
+    REQUIRE(playhead > 10);
 
     file.deleteFile();
 }

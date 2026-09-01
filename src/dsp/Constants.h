@@ -25,9 +25,19 @@ inline constexpr float kPhatEps = 1.0e-12f;
 inline constexpr int kLagrangeOrder = 5;
 inline constexpr int kInterpolatorLatencySamples = 2;
 inline constexpr float kDelaySmoothMs = 5.0f;
-inline constexpr float kMinScopeTimeMs = 5.0f;
-inline constexpr float kMaxScopeTimeMs = 1000.0f;
+inline constexpr float kMinScopeTimeMs = 10.0f;
+inline constexpr float kMaxScopeTimeMs = 2000.0f;
 inline constexpr float kDefaultScopeTimeMs = 40.0f;
+
+// Кольцо живого входа держит секунду: длинное окно нужно стенду, где материал
+// лежит в клипе целиком, а не осциллографу в хосте. Иначе на 24 каналах и
+// 96 кГц кольцо выросло бы вдвое ради картинки, которую там никто не смотрит.
+inline constexpr float kMaxRingTimeMs = 1000.0f;
+
+// Отрисовка берёт не больше этого числа точек на канал: полоса осциллограммы
+// втрое уже, а память и работа в message thread растут с окном линейно.
+// Точка — абсолютный максимум своей группы, поэтому транзиент не теряется.
+inline constexpr int kMaxDisplayPoints = 4096;
 
 // Монитор-микс стенда: уровень и панорама на канал. Мониторинг, в экспорт и в
 // N-out passthrough не попадают.

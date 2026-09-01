@@ -50,7 +50,21 @@ public:
     // Message thread: окно одного канала для осциллограммы. Заканчивается на
     // позиции воспроизведения (на паузе — на первом ударе), сдвинуто назад на
     // задержку канала, поэтому строки видно уже выровненными. Клип закольцован.
-    int readDisplayWindow(int channel, float* dest, int count, int shiftSamples) const;
+    // decimation > 1: точка = отсчёт с наибольшим модулем в своей группе, окно
+    // покрывает count * decimation отсчётов клипа.
+    int readDisplayWindow(int channel,
+                          float* dest,
+                          int count,
+                          int shiftSamples,
+                          int decimation = 1) const;
+
+    // Message thread: огибающая всей партии для полосы транспорта. Считается
+    // один раз при загрузке — по ней видно, что было до позиции и что после.
+    static constexpr int kOverviewBins = 2048;
+    int readOverview(float* dest, int count) const;
+    // Растёт на каждой загрузке и очистке: по нему видно, что материал сменился,
+    // даже если число каналов и длина совпали.
+    int getGeneration() const { return generation.load(); }
 
     // Message thread, для экспорта.
     const juce::AudioBuffer<float>& getBuffer() const;
@@ -66,7 +80,13 @@ private:
     static int firstOnsetIndex(const juce::AudioBuffer<float>& clip);
 
     juce::AudioFormatManager formats;
+    void buildOverview(const juce::AudioBuffer<float>& clip);
+
     std::array<juce::AudioBuffer<float>, kSlots> slots;
+    // Пишется в load() и читается в paint — обе стороны в message thread.
+    std::array<float, kOverviewBins> overview {};
+    int overviewBins = 0;
+    std::atomic<int> generation { 0 };
     juce::Array<juce::File> loadedFiles;
     juce::String description;
     juce::StringArray channelNames;

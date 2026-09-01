@@ -2,6 +2,7 @@
 
 #include "ChannelRow.h"
 #include "Correlometer.h"
+#include "OverviewStrip.h"
 #include "PluginProcessor.h"
 
 #include <array>
@@ -23,12 +24,18 @@ public:
     void paint(juce::Graphics&) override;
     void resized() override;
     void refreshWaveforms();
-    int getScopeWindowSamples() const;
+    // Окно в исходных отсчётах — то, что задаёт Time. Точек в буфере может
+    // быть меньше: длинное окно прореживается.
+    int getScopeWindowSamples() const { return displaySpan; }
+    int getScopeDisplayPoints() const;
     float getCorrelometerValue() const { return correlometer.getCorrelation(); }
     // Сколько строк канал+осциллограмма сейчас показано: в Standalone это
     // может быть больше, чем каналов у устройства.
     int activeChannelCount() const;
     int chromeHeight() const;
+    // Тестам нужно попасть в полосу обзора и обновить её без таймера.
+    juce::Rectangle<int> getOverviewBounds() const { return overview.getBounds(); }
+    void refreshTransport() { updateTransportRow(); }
 
 private:
     void changeListenerCallback(juce::ChangeBroadcaster*) override;
@@ -61,13 +68,14 @@ private:
     juce::TextButton exportButton { "Export aligned..." };
     juce::TextButton audioButton { "Audio..." };
     juce::Label benchLabel;
-    juce::Slider positionSlider;
+    OverviewStrip overview;
     juce::Label positionLabel;
     juce::Label deviceLabel;
-    bool draggingPosition = false;
     std::unique_ptr<juce::FileChooser> chooser;
     bool standalone = false;
     bool benchLoaded = false;
+    int overviewGeneration = -1;
+    int displaySpan = 0;
     bool monitorColumns = false;
     int lastActiveChannels = 0;
 
