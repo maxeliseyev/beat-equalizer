@@ -4,7 +4,7 @@ Updated: 2026-09-01
 Stage: 1 (static alignment)
 Plan step: PR 9 — монитор-микс стенда
 Branch: `feat/bench-monitor-mix`
-PR: —
+PR: https://github.com/maxeliseyev/beat-equalizer/pull/18
 Blockers: none
 
 ## Done
