@@ -221,14 +221,11 @@ void BeatEqualizerAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
 
     if (bench)
     {
-        // Нормируем на число слышимых каналов: кит из шестнадцати микрофонов,
-        // сложенный в единицу, уходит в клип. Выключенный канал из суммы не
-        // выкидываем — enabled это про выравнивание, а не про слышимость.
-        int audibleCount = 0;
-        for (int ch = 0; ch < numCh; ++ch)
-            audibleCount += audible[ch] ? 1 : 0;
-
-        const float norm = (audibleCount > 0) ? 1.0f / static_cast<float>(audibleCount) : 0.0f;
+        // Делитель — число загруженных каналов, а не слышимых сейчас. Иначе
+        // Solo на одном канале поднимал бы его в numCh раз: на ките из
+        // шестнадцати микрофонов это +24 дБ на ровном месте. Solo и Mute меняют,
+        // что слышно, а не громкость того, что осталось.
+        const float norm = 1.0f / static_cast<float>(juce::jmax(1, numCh));
         const float quarterPi = 0.25f * juce::MathConstants<float>::pi;
 
         for (int ch = 0; ch < numCh; ++ch)
@@ -242,7 +239,9 @@ void BeatEqualizerAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
                                   : 0.0f;
 
             // Равная мощность: центр отдаёт по -3 дБ в каждую сторону. Mono Sum
-            // — та же сумма со сведёнными в центр панорамами.
+            // — та же сумма со сведёнными в центр панорамами. Выключенный канал
+            // из суммы не выкидываем: enabled — про выравнивание, не про
+            // слышимость.
             const float angle = mono ? quarterPi : quarterPi * (pan + 1.0f);
             monitorLeft[ch] = audible[ch] ? gain * std::cos(angle) : 0.0f;
             monitorRight[ch] = audible[ch] ? gain * std::sin(angle) : 0.0f;

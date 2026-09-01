@@ -498,8 +498,56 @@ TEST_CASE("panning hard left keeps a bench channel out of the right output")
     block.clear();
     processor.processBlock(block, midi);
 
-    REQUIRE_THAT(block.getSample(0, 100), WithinAbs(0.4f, 1.0e-3f));
+    // Крайняя левая панорама отдаёт весь канал налево. Делитель монитора — все
+    // четыре загруженных канала, а не один оставшийся слышимым.
+    REQUIRE_THAT(block.getSample(0, 100), WithinAbs(0.25f * 0.4f, 1.0e-3f));
     REQUIRE_THAT(block.getSample(1, 100), WithinAbs(0.0f, 1.0e-4f));
+
+    file.deleteFile();
+}
+
+TEST_CASE("solo does not make the channel louder than it was in the mix")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+
+    juce::AudioProcessor::setTypeOfNextNewPlugin(juce::AudioProcessor::wrapperType_Standalone);
+    BeatEqualizerAudioProcessor processor;
+    juce::AudioProcessor::setTypeOfNextNewPlugin(juce::AudioProcessor::wrapperType_Undefined);
+    processor.enableAllBuses();
+    processor.prepareToPlay(kSampleRate, 128);
+
+    juce::AudioBuffer<float> kit(4, 4096);
+    for (int ch = 0; ch < 4; ++ch)
+        for (int i = 0; i < kit.getNumSamples(); ++i)
+            kit.setSample(ch, i, 0.1f * static_cast<float>(ch + 1));
+
+    const auto file = writeTempWav(kit);
+    auto& player = processor.getFilePlayer();
+    REQUIRE(player.load({ file }, kSampleRate).isEmpty());
+    player.setPlaying(true);
+
+    juce::AudioBuffer<float> block(2, 128);
+    juce::MidiBuffer midi;
+    const float centre = std::cos(0.25f * juce::MathConstants<float>::pi);
+
+    block.clear();
+    processor.processBlock(block, midi);
+    REQUIRE_THAT(block.getSample(0, 100), WithinAbs(0.25f * 1.0f * centre, 1.0e-3f));
+
+    // Solo убирает остальные, но не поднимает оставшийся: делитель монитора —
+    // число загруженных каналов, а не слышимых сейчас.
+    processor.getParameters().getParameter(beat::channelParamId(0, "solo"))
+        ->setValueNotifyingHost(1.0f);
+    processor.processBlock(block, midi);
+    REQUIRE_THAT(block.getSample(0, 100), WithinAbs(0.25f * 0.1f * centre, 1.0e-4f));
+
+    // Mute на одном канале — то же самое: остальные остаются на своём уровне.
+    processor.getParameters().getParameter(beat::channelParamId(0, "solo"))
+        ->setValueNotifyingHost(0.0f);
+    processor.getParameters().getParameter(beat::channelParamId(3, "mute"))
+        ->setValueNotifyingHost(1.0f);
+    processor.processBlock(block, midi);
+    REQUIRE_THAT(block.getSample(0, 100), WithinAbs(0.25f * (0.1f + 0.2f + 0.3f) * centre, 1.0e-3f));
 
     file.deleteFile();
 }
