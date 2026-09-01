@@ -6,6 +6,7 @@
 #include "plugin/ChannelRow.h"
 #include "plugin/Exporter.h"
 #include "plugin/FilePlayer.h"
+#include "plugin/OverviewStrip.h"
 #include "plugin/PluginEditor.h"
 #include "plugin/PluginProcessor.h"
 
@@ -390,6 +391,205 @@ TEST_CASE("mute does not reach the offline render")
     exported.deleteFile();
 }
 
+TEST_CASE("the bench monitor sums the whole kit into the stereo output")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+
+    juce::AudioProcessor::setTypeOfNextNewPlugin(juce::AudioProcessor::wrapperType_Standalone);
+    BeatEqualizerAudioProcessor processor;
+    juce::AudioProcessor::setTypeOfNextNewPlugin(juce::AudioProcessor::wrapperType_Undefined);
+    processor.enableAllBuses();
+    processor.prepareToPlay(kSampleRate, 128);
+
+    // Устройство отдаёт два выхода, на стенде шесть дорожек с разными уровнями.
+    REQUIRE(processor.getTotalNumOutputChannels() == 2);
+
+    juce::AudioBuffer<float> kit(6, 4096);
+    for (int ch = 0; ch < 6; ++ch)
+        for (int i = 0; i < kit.getNumSamples(); ++i)
+            kit.setSample(ch, i, 0.1f * static_cast<float>(ch + 1));
+
+    const auto file = writeTempWav(kit);
+    REQUIRE(processor.getFilePlayer().load({ file }, kSampleRate).isEmpty());
+    processor.getFilePlayer().setPlaying(true);
+
+    juce::AudioBuffer<float> block(2, 128);
+    juce::MidiBuffer midi;
+    block.clear();
+    processor.processBlock(block, midi);
+
+    // Все шесть каналов слышны в обоих выходах: 2.1 на шесть каналов, центр
+    // равной мощности. Без монитор-микса на выходах лежали бы 0.1 и 0.2.
+    const float expected = (2.1f / 6.0f) * std::cos(0.25f * juce::MathConstants<float>::pi);
+    REQUIRE_THAT(block.getSample(0, 100), WithinAbs(expected, 1.0e-3f));
+    REQUIRE_THAT(block.getSample(1, 100), WithinAbs(expected, 1.0e-3f));
+
+    file.deleteFile();
+}
+
+TEST_CASE("pause silences the monitor instead of looping the last block")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+
+    juce::AudioProcessor::setTypeOfNextNewPlugin(juce::AudioProcessor::wrapperType_Standalone);
+    BeatEqualizerAudioProcessor processor;
+    juce::AudioProcessor::setTypeOfNextNewPlugin(juce::AudioProcessor::wrapperType_Undefined);
+    processor.enableAllBuses();
+    processor.prepareToPlay(kSampleRate, 128);
+
+    juce::AudioBuffer<float> kit(4, 4096);
+    for (int ch = 0; ch < 4; ++ch)
+        for (int i = 0; i < kit.getNumSamples(); ++i)
+            kit.setSample(ch, i, 0.5f);
+
+    const auto file = writeTempWav(kit);
+    auto& player = processor.getFilePlayer();
+    REQUIRE(player.load({ file }, kSampleRate).isEmpty());
+    player.setPlaying(true);
+
+    juce::AudioBuffer<float> block(2, 128);
+    juce::MidiBuffer midi;
+    block.clear();
+    processor.processBlock(block, midi);
+    REQUIRE(block.getMagnitude(0, 0, block.getNumSamples()) > 0.1f);
+
+    // Буфер стенда не переписывается на паузе: без очистки монитор гонял бы
+    // по кругу тот же блок, и это слышно как зависший кусок.
+    player.setPlaying(false);
+    processor.processBlock(block, midi);
+    REQUIRE_THAT(block.getSample(0, 100), WithinAbs(0.0f, 1.0e-5f));
+    REQUIRE_THAT(block.getSample(1, 100), WithinAbs(0.0f, 1.0e-5f));
+
+    // И продолжает с того же места, когда сняли паузу.
+    player.setPlaying(true);
+    processor.processBlock(block, midi);
+    REQUIRE(block.getMagnitude(0, 0, block.getNumSamples()) > 0.1f);
+
+    file.deleteFile();
+}
+
+TEST_CASE("panning hard left keeps a bench channel out of the right output")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+
+    juce::AudioProcessor::setTypeOfNextNewPlugin(juce::AudioProcessor::wrapperType_Standalone);
+    BeatEqualizerAudioProcessor processor;
+    juce::AudioProcessor::setTypeOfNextNewPlugin(juce::AudioProcessor::wrapperType_Undefined);
+    processor.enableAllBuses();
+    processor.prepareToPlay(kSampleRate, 128);
+
+    juce::AudioBuffer<float> kit(4, 4096);
+    for (int ch = 0; ch < 4; ++ch)
+        for (int i = 0; i < kit.getNumSamples(); ++i)
+            kit.setSample(ch, i, 0.4f);
+
+    const auto file = writeTempWav(kit);
+    REQUIRE(processor.getFilePlayer().load({ file }, kSampleRate).isEmpty());
+    processor.getFilePlayer().setPlaying(true);
+
+    auto& state = processor.getParameters();
+    // 0.0 нормализованного — это -1, крайнее левое.
+    state.getParameter(beat::channelParamId(0, "pan"))->setValueNotifyingHost(0.0f);
+    for (int ch = 1; ch < 4; ++ch)
+        state.getParameter(beat::channelParamId(ch, "mute"))->setValueNotifyingHost(1.0f);
+
+    juce::AudioBuffer<float> block(2, 128);
+    juce::MidiBuffer midi;
+    block.clear();
+    processor.processBlock(block, midi);
+
+    // Крайняя левая панорама отдаёт весь канал налево. Делитель монитора — все
+    // четыре загруженных канала, а не один оставшийся слышимым.
+    REQUIRE_THAT(block.getSample(0, 100), WithinAbs(0.25f * 0.4f, 1.0e-3f));
+    REQUIRE_THAT(block.getSample(1, 100), WithinAbs(0.0f, 1.0e-4f));
+
+    file.deleteFile();
+}
+
+TEST_CASE("solo does not make the channel louder than it was in the mix")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+
+    juce::AudioProcessor::setTypeOfNextNewPlugin(juce::AudioProcessor::wrapperType_Standalone);
+    BeatEqualizerAudioProcessor processor;
+    juce::AudioProcessor::setTypeOfNextNewPlugin(juce::AudioProcessor::wrapperType_Undefined);
+    processor.enableAllBuses();
+    processor.prepareToPlay(kSampleRate, 128);
+
+    juce::AudioBuffer<float> kit(4, 4096);
+    for (int ch = 0; ch < 4; ++ch)
+        for (int i = 0; i < kit.getNumSamples(); ++i)
+            kit.setSample(ch, i, 0.1f * static_cast<float>(ch + 1));
+
+    const auto file = writeTempWav(kit);
+    auto& player = processor.getFilePlayer();
+    REQUIRE(player.load({ file }, kSampleRate).isEmpty());
+    player.setPlaying(true);
+
+    juce::AudioBuffer<float> block(2, 128);
+    juce::MidiBuffer midi;
+    const float centre = std::cos(0.25f * juce::MathConstants<float>::pi);
+
+    block.clear();
+    processor.processBlock(block, midi);
+    REQUIRE_THAT(block.getSample(0, 100), WithinAbs(0.25f * 1.0f * centre, 1.0e-3f));
+
+    // Solo убирает остальные, но не поднимает оставшийся: делитель монитора —
+    // число загруженных каналов, а не слышимых сейчас.
+    processor.getParameters().getParameter(beat::channelParamId(0, "solo"))
+        ->setValueNotifyingHost(1.0f);
+    processor.processBlock(block, midi);
+    REQUIRE_THAT(block.getSample(0, 100), WithinAbs(0.25f * 0.1f * centre, 1.0e-4f));
+
+    // Mute на одном канале — то же самое: остальные остаются на своём уровне.
+    processor.getParameters().getParameter(beat::channelParamId(0, "solo"))
+        ->setValueNotifyingHost(0.0f);
+    processor.getParameters().getParameter(beat::channelParamId(3, "mute"))
+        ->setValueNotifyingHost(1.0f);
+    processor.processBlock(block, midi);
+    REQUIRE_THAT(block.getSample(0, 100), WithinAbs(0.25f * (0.1f + 0.2f + 0.3f) * centre, 1.0e-3f));
+
+    file.deleteFile();
+}
+
+TEST_CASE("monitor level and pan do not reach the offline render")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+
+    juce::AudioProcessor::setTypeOfNextNewPlugin(juce::AudioProcessor::wrapperType_Standalone);
+    BeatEqualizerAudioProcessor processor;
+    juce::AudioProcessor::setTypeOfNextNewPlugin(juce::AudioProcessor::wrapperType_Undefined);
+    processor.enableAllBuses();
+    processor.prepareToPlay(kSampleRate, 128);
+
+    const auto source = impulsePair(4096, 100, 124);
+    const auto input = writeTempWav(source);
+    REQUIRE(processor.getFilePlayer().load({ input }, kSampleRate).isEmpty());
+
+    auto& state = processor.getParameters();
+    state.getParameter(beat::channelParamId(0, "pan"))->setValueNotifyingHost(0.0f);
+    state.getParameter(beat::channelParamId(0, "levelDb"))->setValueNotifyingHost(0.0f);
+
+    const auto exported = juce::File::createTempFile("wav");
+    REQUIRE(processor.exportAligned(exported).isEmpty());
+
+    juce::AudioFormatManager formats;
+    formats.registerBasicFormats();
+    std::unique_ptr<juce::AudioFormatReader> reader(formats.createReaderFor(exported));
+    REQUIRE(reader != nullptr);
+
+    juce::AudioBuffer<float> rendered((int) reader->numChannels, (int) reader->lengthInSamples);
+    reader->read(&rendered, 0, rendered.getNumSamples(), 0, true, true);
+
+    // Уровень -60 дБ и крайняя панорама — это мониторинг: стем обязан выйти
+    // нетронутым, иначе экспорт зависел бы от того, что сейчас слушают.
+    REQUIRE(rendered.getNumChannels() == 2);
+    REQUIRE(rendered.getMagnitude(0, 0, rendered.getNumSamples()) > 0.5f);
+
+    input.deleteFile();
+    exported.deleteFile();
+}
+
 TEST_CASE("the display window lines a delayed mic up with the reference")
 {
     juce::AudioBuffer<float> source(2, 4096);
@@ -419,6 +619,94 @@ TEST_CASE("the display window lines a delayed mic up with the reference")
     REQUIRE(peakAt(first) == peakAt(second));
 
     file.deleteFile();
+}
+
+TEST_CASE("a decimated display window keeps the transient")
+{
+    juce::AudioBuffer<float> source(1, 8192);
+    source.clear();
+
+    // Удар в один отсчёт: прореживание «через один» его бы потеряло.
+    source.setSample(0, 4000, 0.9f);
+
+    const auto file = writeTempWav(source);
+
+    FilePlayer player;
+    REQUIRE(player.load({ file }, kSampleRate).isEmpty());
+    player.setPosition(8000);
+    player.setPlaying(true);
+
+    std::vector<float> full(4096, 0.0f);
+    std::vector<float> decimated(512, 0.0f);
+
+    REQUIRE(player.readDisplayWindow(0, full.data(), 4096, 0) == 4096);
+    REQUIRE(player.readDisplayWindow(0, decimated.data(), 512, 0, 8) == 512);
+
+    const auto peak = [](const std::vector<float>& window)
+    { return *std::max_element(window.begin(), window.end()); };
+
+    // Оба окна покрывают одни и те же 4096 отсчётов и обязаны видеть один пик.
+    REQUIRE_THAT(peak(full), WithinAbs(0.9f, 1.0e-3f));
+    REQUIRE_THAT(peak(decimated), WithinAbs(0.9f, 1.0e-3f));
+
+    file.deleteFile();
+}
+
+TEST_CASE("the overview covers the whole take, not the visible window")
+{
+    juce::AudioBuffer<float> source(2, 48000);
+    source.clear();
+
+    // Материал звучит только во второй половине: обзор обязан это показать.
+    for (int ch = 0; ch < 2; ++ch)
+        for (int i = 30000; i < 32000; ++i)
+            source.setSample(ch, i, 0.8f);
+
+    const auto file = writeTempWav(source);
+
+    FilePlayer player;
+    const int before = player.getGeneration();
+    REQUIRE(player.load({ file }, kSampleRate).isEmpty());
+    REQUIRE(player.getGeneration() != before);
+
+    std::vector<float> bins(FilePlayer::kOverviewBins, -1.0f);
+    const int count = player.readOverview(bins.data(), (int) bins.size());
+    REQUIRE(count == FilePlayer::kOverviewBins);
+
+    const int loud = count * 31000 / 48000;
+    REQUIRE_THAT(bins[static_cast<size_t>(loud)], WithinAbs(0.8f, 1.0e-2f));
+    REQUIRE_THAT(bins[static_cast<size_t>(count / 4)], WithinAbs(0.0f, 1.0e-4f));
+
+    player.clear();
+    REQUIRE(player.readOverview(bins.data(), (int) bins.size()) == 0);
+
+    file.deleteFile();
+}
+
+TEST_CASE("clicking the overview moves the play position")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+
+    OverviewStrip strip;
+    strip.setBounds(0, 0, 401, OverviewStrip::kHeight);
+
+    double seeked = -1.0;
+    strip.onSeek = [&seeked](double value) { seeked = value; };
+
+    const juce::MouseEvent event(juce::Desktop::getInstance().getMainMouseSource(),
+                                 { 200.0f, 10.0f },
+                                 juce::ModifierKeys::noModifiers,
+                                 1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+                                 &strip, &strip,
+                                 juce::Time::getCurrentTime(),
+                                 { 200.0f, 10.0f },
+                                 juce::Time::getCurrentTime(),
+                                 1,
+                                 false);
+    strip.mouseDown(event);
+
+    // Клик посередине полосы — середина партии.
+    REQUIRE_THAT(seeked, WithinAbs(0.5, 0.01));
 }
 
 TEST_CASE("bench rows follow the loaded files, not the audio device")
@@ -484,6 +772,94 @@ TEST_CASE("bench rows follow the loaded files, not the audio device")
         }
 
     REQUIRE(cyan > 200);
+
+    file.deleteFile();
+}
+
+TEST_CASE("the transport shows the whole take with the playhead on it")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+
+    juce::AudioProcessor::setTypeOfNextNewPlugin(juce::AudioProcessor::wrapperType_Standalone);
+    BeatEqualizerAudioProcessor processor;
+    juce::AudioProcessor::setTypeOfNextNewPlugin(juce::AudioProcessor::wrapperType_Undefined);
+    processor.enableAllBuses();
+    processor.prepareToPlay(kSampleRate, 128);
+
+    // Двенадцать секунд с паузой посередине: по обзору обязано быть видно и
+    // длину партии, и то, что в середине тихо.
+    const int length = static_cast<int>(12.0 * kSampleRate);
+    juce::AudioBuffer<float> kit(4, length);
+    kit.clear();
+
+    for (int hit = 0; hit < 24; ++hit)
+    {
+        const int at = static_cast<int>((0.5 * hit) * kSampleRate);
+        if (at > length - 2048)
+            break;
+        if (hit >= 8 && hit < 14) // тишина в середине
+            continue;
+
+        for (int ch = 0; ch < 4; ++ch)
+            for (int i = 0; i < 2048; ++i)
+                kit.setSample(ch, at + i,
+                              0.9f * std::exp(-0.004f * (float) i)
+                                  * std::sin(0.05f * (float) i));
+    }
+
+    const auto file = writeTempWav(kit);
+    REQUIRE(processor.getFilePlayer().load({ file }, kSampleRate).isEmpty());
+    processor.getFilePlayer().setPosition(length / 2);
+
+    std::unique_ptr<juce::AudioProcessorEditor> editor(processor.createEditor());
+    auto* scoped = dynamic_cast<BeatEqualizerAudioProcessorEditor*>(editor.get());
+    REQUIRE(scoped != nullptr);
+    scoped->refreshTransport();
+
+    juce::Image image(juce::Image::ARGB, editor->getWidth(), editor->getHeight(), true);
+    {
+        juce::Graphics g(image);
+        editor->paintEntireComponent(g, true);
+    }
+
+    const juce::File png = juce::File(BEAT_GUI_TEST_PNG).getSiblingFile("bench-overview-test.png");
+    png.deleteFile();
+    {
+        juce::FileOutputStream stream(png);
+        REQUIRE(stream.openedOk());
+        juce::PNGImageFormat format;
+        REQUIRE(format.writeImageToStream(image, stream));
+    }
+
+    const auto strip = scoped->getOverviewBounds();
+    REQUIRE(strip.getHeight() > 0);
+
+    int played = 0;
+    int ahead = 0;
+    int playhead = 0;
+    for (int y = strip.getY(); y < strip.getBottom(); ++y)
+        for (int x = strip.getX(); x < strip.getRight(); ++x)
+        {
+            const auto p = image.getPixelAt(x, y);
+            const auto near = [&p](juce::uint8 r, juce::uint8 g, juce::uint8 b)
+            {
+                return std::abs((int) p.getRed() - (int) r) <= 24
+                       && std::abs((int) p.getGreen() - (int) g) <= 24
+                       && std::abs((int) p.getBlue() - (int) b) <= 24;
+            };
+
+            if (near(0x5e, 0xc8, 0xff))
+                ++played;
+            else if (near(0x3c, 0x5a, 0x72))
+                ++ahead;
+            else if (near(0xe8, 0xc5, 0x47))
+                ++playhead;
+        }
+
+    // Сыгранное, оставшееся и курсор — три разных цвета, и все три на полосе.
+    REQUIRE(played > 100);
+    REQUIRE(ahead > 100);
+    REQUIRE(playhead > 10);
 
     file.deleteFile();
 }

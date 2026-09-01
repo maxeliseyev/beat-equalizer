@@ -80,6 +80,33 @@ TEST_CASE("table columns never overlap and the waveform takes the right edge")
     REQUIRE(columns.scope.getWidth() == 1200 - ChannelRow::kControlsWidth);
 }
 
+TEST_CASE("monitor columns appear only when the bench has material")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+
+    BeatEqualizerAudioProcessor processor;
+    ChannelRow row(processor.getParameters(), 0);
+    row.setActive(true);
+    row.setBounds(0, 0, 1200, ChannelRow::kHeight);
+    row.resized();
+
+    const int withoutMonitor = row.getScopeBounds().getWidth();
+
+    row.setMonitorVisible(true);
+    const auto columns = ChannelColumns::from({ 0, 0, 1200, ChannelRow::kHeight });
+    REQUIRE(row.getScopeBounds() == columns.scope);
+    REQUIRE(columns.level.getWidth() == ChannelRow::kLevelWidth);
+    REQUIRE(columns.pan.getWidth() == ChannelRow::kPanWidth);
+
+    // Level и Pan забирают ширину у осциллограммы, а не у ручек выравнивания.
+    REQUIRE(withoutMonitor - row.getScopeBounds().getWidth()
+            == ChannelRow::kLevelWidth + ChannelRow::kPanWidth);
+    REQUIRE(columns.delay.getX() == columns.pan.getRight());
+
+    row.setMonitorVisible(false);
+    REQUIRE(row.getScopeBounds().getWidth() == withoutMonitor);
+}
+
 TEST_CASE("a channel row draws its own waveform right of the controls")
 {
     juce::ScopedJuceInitialiser_GUI gui;
@@ -94,12 +121,14 @@ TEST_CASE("a channel row draws its own waveform right of the controls")
     row.setWaveform(sine.data(), (int) sine.size());
 
     const auto image = render(row, 1200, ChannelRow::kHeight);
-    const auto columns = ChannelColumns::from({ 0, 0, 1200, ChannelRow::kHeight });
+    // Материала стенда нет, значит нет и колонок монитора: осциллограмма
+    // забирает их место.
+    const auto columns = ChannelColumns::from({ 0, 0, 1200, ChannelRow::kHeight }, false);
     REQUIRE(row.getScopeBounds() == columns.scope);
 
     const auto cyan = juce::Colour(0xff5ec8ff);
     REQUIRE(countNearColour(image.getClippedImage(columns.scope), cyan, 40) > 200);
-    REQUIRE(countNearColour(image.getClippedImage({ 0, 0, ChannelRow::kControlsWidth,
+    REQUIRE(countNearColour(image.getClippedImage({ 0, 0, columns.scope.getX(),
                                                    ChannelRow::kHeight }),
                             cyan,
                             40)

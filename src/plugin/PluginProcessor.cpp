@@ -28,6 +28,10 @@ BeatEqualizerAudioProcessor::BeatEqualizerAudioProcessor()
             parameters.getRawParameterValue(beat::channelParamId(i, "rotatorAmount"));
         channelParams[static_cast<size_t>(i)].rotatorHz =
             parameters.getRawParameterValue(beat::channelParamId(i, "rotatorHz"));
+        channelParams[static_cast<size_t>(i)].pan =
+            parameters.getRawParameterValue(beat::channelParamId(i, "pan"));
+        channelParams[static_cast<size_t>(i)].levelDb =
+            parameters.getRawParameterValue(beat::channelParamId(i, "levelDb"));
     }
 
     abBypassParam = parameters.getRawParameterValue("global.abBypass");
@@ -58,9 +62,12 @@ juce::AudioProcessor::BusesProperties BeatEqualizerAudioProcessor::createBusesPr
         .withOutput("Output", juce::AudioChannelSet::stereo(), true);
 }
 
-void BeatEqualizerAudioProcessor::prepareToPlay(double sampleRate, int)
+void BeatEqualizerAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
 {
     currentSampleRate = sampleRate;
+    // Блок стенда аллоцируется здесь и только здесь: в processBlock памяти не
+    // просят. Запас — на хост, который дал блок больше заявленного.
+    benchBuffer.setSize(beat::kMaxChannels, juce::jmax(samplesPerBlock, 2048), false, true, true);
     snapshot = beat::AlignmentSnapshot::identity(getTotalNumInputChannels());
     delay.prepare(sampleRate, beat::kMaxChannels);
     rotator.prepare(sampleRate, beat::kMaxChannels);
@@ -110,17 +117,35 @@ void BeatEqualizerAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
     const int numInput = getTotalNumInputChannels();
     const int numOutput = getTotalNumOutputChannels();
     const int numSamples = buffer.getNumSamples();
-    const int numCh = juce::jmin(numInput, beat::kMaxChannels);
-
     for (int channel = numInput; channel < numOutput; ++channel)
         buffer.clear(channel, 0, numSamples);
 
     updateTransport(numSamples);
 
-    filePlayer.fill(buffer, numCh);
+    // Стенд обрабатывается в своём буфере: кит шире, чем выходы устройства, и в
+    // одноимённые выходы его класть нельзя — на стерео-карте это звучит как
+    // «нечётные слева, чётные справа». Внутри хоста этого пути нет вовсе, там
+    // N-out passthrough и разводка стемов не ломается.
+    const int benchChannels = juce::jmin(filePlayer.numChannels(), beat::kMaxChannels);
+    const bool bench = filePlayer.hasMaterial() && benchChannels > 0
+                       && numSamples <= benchBuffer.getNumSamples();
+
+    juce::AudioBuffer<float> benchView(benchBuffer.getArrayOfWritePointers(),
+                                       bench ? benchChannels : 0,
+                                       bench ? numSamples : 0);
+    // На паузе fill() возвращает false и буфер не трогает — там остаётся
+    // прошлый блок. Без очистки монитор гонял бы его по кругу: один и тот же
+    // кусок в сорок миллисекунд бесконечно.
+    if (bench && !filePlayer.fill(benchView, benchChannels))
+        benchView.clear();
+
+    const int numCh = bench ? benchChannels : juce::jmin(numInput, beat::kMaxChannels);
+    auto& source = bench ? benchView : buffer;
 
     // Анализ смотрит на вход, до задержки и инверсии: буфер пишем до DSP.
-    analysisRing.write(buffer.getArrayOfReadPointers(), numCh, numSamples);
+    analysisRing.write(source.getArrayOfReadPointers(),
+                       juce::jmin(numCh, analysisRing.numChannels()),
+                       numSamples);
 
     const bool bypass = abBypassParam != nullptr && abBypassParam->load() >= 0.5f;
     const float sr = static_cast<float>(currentSampleRate);
@@ -187,39 +212,92 @@ void BeatEqualizerAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
     for (int ch = 0; ch < numCh; ++ch)
         enabledCount += (enabled[ch] && audible[ch]) ? 1 : 0;
 
-    const bool monoSum = monoSumParam != nullptr && monoSumParam->load() >= 0.5f && numCh >= 2
-                         && enabledCount > 0;
+    const bool mono = monoSumParam != nullptr && monoSumParam->load() >= 0.5f;
+    const bool monoSum = mono && !bench && numCh >= 2 && enabledCount > 0;
     const float monoGain = (enabledCount > 0) ? 1.0f / static_cast<float>(enabledCount) : 0.0f;
+
+    float monitorLeft[beat::kMaxChannels] {};
+    float monitorRight[beat::kMaxChannels] {};
+
+    if (bench)
+    {
+        // Делитель — число загруженных каналов, а не слышимых сейчас. Иначе
+        // Solo на одном канале поднимал бы его в numCh раз: на ките из
+        // шестнадцати микрофонов это +24 дБ на ровном месте. Solo и Mute меняют,
+        // что слышно, а не громкость того, что осталось.
+        const float norm = 1.0f / static_cast<float>(juce::jmax(1, numCh));
+        const float quarterPi = 0.25f * juce::MathConstants<float>::pi;
+
+        for (int ch = 0; ch < numCh; ++ch)
+        {
+            const auto& params = channelParams[static_cast<size_t>(ch)];
+            const float levelDb = (params.levelDb != nullptr) ? params.levelDb->load() : 0.0f;
+            const float gain =
+                norm * juce::Decibels::decibelsToGain(levelDb, beat::kMinMonitorLevelDb);
+            const float pan = (params.pan != nullptr)
+                                  ? juce::jlimit(-1.0f, 1.0f, params.pan->load())
+                                  : 0.0f;
+
+            // Равная мощность: центр отдаёт по -3 дБ в каждую сторону. Mono Sum
+            // — та же сумма со сведёнными в центр панорамами. Выключенный канал
+            // из суммы не выкидываем: enabled — про выравнивание, не про
+            // слышимость.
+            const float angle = mono ? quarterPi : quarterPi * (pan + 1.0f);
+            monitorLeft[ch] = audible[ch] ? gain * std::cos(angle) : 0.0f;
+            monitorRight[ch] = audible[ch] ? gain * std::sin(angle) : 0.0f;
+        }
+
+        buffer.clear();
+    }
+
+    const int monitorChannels = juce::jmin(numOutput, 2);
 
     for (int n = 0; n < numSamples; ++n)
     {
+        float left = 0.0f;
+        float right = 0.0f;
+
         for (int ch = 0; ch < numCh; ++ch)
         {
-            const float x = buffer.getSample(ch, n);
+            const float x = source.getSample(ch, n);
             blockPeak[ch] = juce::jmax(blockPeak[ch], std::abs(x));
             const float y = rotator.processSample(ch, delay.processSample(ch, x));
 
             // Осциллограф показывает выровненный канал даже под mute: глушим
             // только выход, картинку глушить незачем.
             scopeSample[ch] = y;
-            buffer.setSample(ch, n, audible[ch] ? y : 0.0f);
+
+            if (bench)
+            {
+                left += y * monitorLeft[ch];
+                right += y * monitorRight[ch];
+            }
+            else
+            {
+                buffer.setSample(ch, n, audible[ch] ? y : 0.0f);
+            }
         }
 
-        if (monoSum)
+        if (bench)
         {
-            float mono = 0.0f;
+            for (int ch = 0; ch < monitorChannels; ++ch)
+                buffer.setSample(ch, n, (ch == 0) ? left : right);
+        }
+        else if (monoSum)
+        {
+            float monoSample = 0.0f;
             for (int ch = 0; ch < numCh; ++ch)
                 if (enabled[ch] && audible[ch])
-                    mono += scopeSample[ch];
+                    monoSample += scopeSample[ch];
 
-            mono *= monoGain;
+            monoSample *= monoGain;
 
             // Мониторинг: моно уходит только на 1-2, остальные стемы идут
             // выровненными дальше, разводка кита не ломается.
-            buffer.setSample(0, n, mono);
-            buffer.setSample(1, n, mono);
-            scopeSample[0] = mono;
-            scopeSample[1] = mono;
+            buffer.setSample(0, n, monoSample);
+            buffer.setSample(1, n, monoSample);
+            scopeSample[0] = monoSample;
+            scopeSample[1] = monoSample;
         }
 
         scope.push(numCh, scopeSample);

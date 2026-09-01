@@ -128,6 +128,10 @@ juce::String FilePlayer::load(const juce::Array<juce::File>& files, double targe
                   + juce::String(target.getNumSamples() / targetSampleRate, 1) + " s  ("
                   + names.joinIntoString(", ") + ")";
 
+    buildOverview(target);
+
+    generation.fetch_add(1);
+
     // Публикация последней: до этого момента читатели видят прежний материал.
     activeSlot.store(slot);
 
@@ -147,6 +151,8 @@ void FilePlayer::clear()
     description = {};
     channelNames.clear();
     loadedFiles.clear();
+    overviewBins = 0;
+    generation.fetch_add(1);
 
     // Память слотов не освобождаем: её может читать аудиопоток, который зашёл
     // в fill() до сброса. Освободится при следующей загрузке.
@@ -225,7 +231,52 @@ int FilePlayer::displayOrigin(int count) const
     return playing.load() ? position.load() : onset.load() + count;
 }
 
-int FilePlayer::readDisplayWindow(int channel, float* dest, int count, int shiftSamples) const
+void FilePlayer::buildOverview(const juce::AudioBuffer<float>& clip)
+{
+    overviewBins = 0;
+    overview.fill(0.0f);
+
+    const int available = clip.getNumSamples();
+    const int channels = clip.getNumChannels();
+    if (available <= 0 || channels <= 0)
+        return;
+
+    const int bins = std::min(kOverviewBins, available);
+    for (int bin = 0; bin < bins; ++bin)
+    {
+        const int from = static_cast<int>((static_cast<long long>(bin) * available) / bins);
+        const int to = std::max(from + 1,
+                                static_cast<int>((static_cast<long long>(bin + 1) * available) / bins));
+
+        float peak = 0.0f;
+        for (int ch = 0; ch < channels; ++ch)
+        {
+            const float* source = clip.getReadPointer(ch);
+            for (int i = from; i < to && i < available; ++i)
+                peak = std::max(peak, std::abs(source[i]));
+        }
+
+        overview[static_cast<size_t>(bin)] = peak;
+    }
+
+    overviewBins = bins;
+}
+
+int FilePlayer::readOverview(float* dest, int count) const
+{
+    if (dest == nullptr || count <= 0 || overviewBins <= 0)
+        return 0;
+
+    const int n = std::min(count, overviewBins);
+    std::copy(overview.begin(), overview.begin() + n, dest);
+    return n;
+}
+
+int FilePlayer::readDisplayWindow(int channel,
+                                  float* dest,
+                                  int count,
+                                  int shiftSamples,
+                                  int decimation) const
 {
     const auto* clip = activeClip();
     if (dest == nullptr || count <= 0 || clip == nullptr)
@@ -235,16 +286,32 @@ int FilePlayer::readDisplayWindow(int channel, float* dest, int count, int shift
     if (channel < 0 || channel >= clip->getNumChannels() || available <= 0)
         return 0;
 
-    const long long start = static_cast<long long>(displayOrigin(count)) - count - shiftSamples;
+    const int step = std::max(1, decimation);
+    const int span = count * step;
+    const long long begin = static_cast<long long>(displayOrigin(span)) - span - shiftSamples;
+
+    long long index = begin % available;
+    if (index < 0)
+        index += available;
+
     const float* source = clip->getReadPointer(channel);
 
     for (int i = 0; i < count; ++i)
     {
-        long long index = (start + i) % available;
-        if (index < 0)
-            index += available;
+        // Точка — отсчёт с наибольшим модулем в группе: прореживание «через
+        // один» потеряло бы удар, а на длинном окне групп сотни отсчётов.
+        float peak = 0.0f;
+        for (int k = 0; k < step; ++k)
+        {
+            const float sample = source[index];
+            if (std::abs(sample) > std::abs(peak))
+                peak = sample;
 
-        dest[i] = source[index];
+            if (++index >= available)
+                index = 0;
+        }
+
+        dest[i] = peak;
     }
 
     return count;

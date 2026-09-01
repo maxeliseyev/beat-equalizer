@@ -15,6 +15,8 @@ struct ChannelColumns
     juce::Rectangle<int> mute;
     juce::Rectangle<int> name;
     juce::Rectangle<int> role;
+    juce::Rectangle<int> level;
+    juce::Rectangle<int> pan;
     juce::Rectangle<int> delay;
     juce::Rectangle<int> rotator;
     juce::Rectangle<int> polarity;
@@ -22,7 +24,9 @@ struct ChannelColumns
     juce::Rectangle<int> phase;
     juce::Rectangle<int> scope;
 
-    static ChannelColumns from(juce::Rectangle<int> row);
+    // Монитор-микс есть только у стенда: внутри хоста уровень и панорама ничего
+    // не делают (инвариант 3), поэтому их колонки не занимают места вовсе.
+    static ChannelColumns from(juce::Rectangle<int> row, bool withMonitor = true);
 };
 
 class ChannelRow final : public juce::Component
@@ -38,14 +42,17 @@ public:
     static constexpr int kMuteWidth = 28;
     static constexpr int kNameWidth = 126;
     static constexpr int kRoleWidth = 84;
+    static constexpr int kLevelWidth = 150;
+    static constexpr int kPanWidth = 132;
     static constexpr int kDelayWidth = 210;
     static constexpr int kRotatorWidth = 132;
     static constexpr int kPolarityWidth = 92;
     static constexpr int kCorrWidth = 56;
     static constexpr int kPhaseWidth = 92;
     static constexpr int kControlsWidth = kEnableWidth + kSoloWidth + kMuteWidth + kNameWidth
-                                          + kRoleWidth + kDelayWidth + kRotatorWidth
-                                          + kPolarityWidth + kCorrWidth + kPhaseWidth;
+                                          + kRoleWidth + kLevelWidth + kPanWidth + kDelayWidth
+                                          + kRotatorWidth + kPolarityWidth + kCorrWidth
+                                          + kPhaseWidth;
     static constexpr int kMinScopeWidth = 280;
 
     ChannelRow(juce::AudioProcessorValueTreeState& state, int channelIndex);
@@ -62,6 +69,8 @@ public:
     void setPhaseMatch(float before, float after, bool measured);
     // Пусто — в строке остаётся один номер: в хосте имён дорожек нет.
     void setChannelName(const juce::String& name);
+    // Уровень и панорама показываются только когда в стенде есть материал.
+    void setMonitorVisible(bool shouldBeVisible);
 
     juce::Rectangle<int> getScopeBounds() const { return scope.getBounds(); }
     juce::String getLabelText() const { return nameLabel.getText(); }
@@ -70,12 +79,15 @@ public:
 private:
     int index = 0;
     bool active = false;
+    bool monitorVisible = false;
 
     juce::ToggleButton enabledButton;
     juce::TextButton soloButton { "S" };
     juce::TextButton muteButton { "M" };
     juce::Label nameLabel;
     juce::ComboBox roleBox;
+    juce::Slider levelSlider;
+    juce::Slider panSlider;
     juce::Slider delaySlider;
     juce::Slider rotatorSlider;
     juce::ComboBox polarityBox;
@@ -87,6 +99,8 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> soloAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> muteAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> roleAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> levelAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> panAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> delayAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> rotatorAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> polarityAttachment;

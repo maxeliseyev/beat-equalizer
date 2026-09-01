@@ -16,6 +16,7 @@
 | Решение, которое всплывёт снова | `decisions/<slug>.md` | session note без ADR |
 | Как устроен этап 1 / порядок PR | `plan.md` | копипаста в STATUS |
 | Рамка продукта, этапы 2–4 | `drum-editor-plan.md` | код «на вырост» |
+| Как строить детектор и сегментацию | `detector-design-recommendations.md`, `hit-segmentation-recommendations.md` | plan.md |
 | Инварианты, которые нельзя «улучшить» | корневой `AGENTS.md` | README |
 | Ветки, squash, когда `develop` | `git-workflow.md` | STATUS |
 | Неочевидное в одном месте кода | короткий комментарий рядом | эссе в docs |
