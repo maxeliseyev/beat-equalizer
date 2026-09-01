@@ -133,8 +133,11 @@ void BeatEqualizerAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
     juce::AudioBuffer<float> benchView(benchBuffer.getArrayOfWritePointers(),
                                        bench ? benchChannels : 0,
                                        bench ? numSamples : 0);
-    if (bench)
-        filePlayer.fill(benchView, benchChannels);
+    // На паузе fill() возвращает false и буфер не трогает — там остаётся
+    // прошлый блок. Без очистки монитор гонял бы его по кругу: один и тот же
+    // кусок в сорок миллисекунд бесконечно.
+    if (bench && !filePlayer.fill(benchView, benchChannels))
+        benchView.clear();
 
     const int numCh = bench ? benchChannels : juce::jmin(numInput, beat::kMaxChannels);
     auto& source = bench ? benchView : buffer;

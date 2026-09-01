@@ -426,6 +426,47 @@ TEST_CASE("the bench monitor sums the whole kit into the stereo output")
     file.deleteFile();
 }
 
+TEST_CASE("pause silences the monitor instead of looping the last block")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+
+    juce::AudioProcessor::setTypeOfNextNewPlugin(juce::AudioProcessor::wrapperType_Standalone);
+    BeatEqualizerAudioProcessor processor;
+    juce::AudioProcessor::setTypeOfNextNewPlugin(juce::AudioProcessor::wrapperType_Undefined);
+    processor.enableAllBuses();
+    processor.prepareToPlay(kSampleRate, 128);
+
+    juce::AudioBuffer<float> kit(4, 4096);
+    for (int ch = 0; ch < 4; ++ch)
+        for (int i = 0; i < kit.getNumSamples(); ++i)
+            kit.setSample(ch, i, 0.5f);
+
+    const auto file = writeTempWav(kit);
+    auto& player = processor.getFilePlayer();
+    REQUIRE(player.load({ file }, kSampleRate).isEmpty());
+    player.setPlaying(true);
+
+    juce::AudioBuffer<float> block(2, 128);
+    juce::MidiBuffer midi;
+    block.clear();
+    processor.processBlock(block, midi);
+    REQUIRE(block.getMagnitude(0, 0, block.getNumSamples()) > 0.1f);
+
+    // Буфер стенда не переписывается на паузе: без очистки монитор гонял бы
+    // по кругу тот же блок, и это слышно как зависший кусок.
+    player.setPlaying(false);
+    processor.processBlock(block, midi);
+    REQUIRE_THAT(block.getSample(0, 100), WithinAbs(0.0f, 1.0e-5f));
+    REQUIRE_THAT(block.getSample(1, 100), WithinAbs(0.0f, 1.0e-5f));
+
+    // И продолжает с того же места, когда сняли паузу.
+    player.setPlaying(true);
+    processor.processBlock(block, midi);
+    REQUIRE(block.getMagnitude(0, 0, block.getNumSamples()) > 0.1f);
+
+    file.deleteFile();
+}
+
 TEST_CASE("panning hard left keeps a bench channel out of the right output")
 {
     juce::ScopedJuceInitialiser_GUI gui;
