@@ -4,7 +4,7 @@ Updated: 2026-09-01
 Stage: 1 (static alignment)
 Plan step: PR 9 — стенд: монитор-микс, длинное окно, обзор партии
 Branch: `docs/hit-segmentation`
-PR: —
+PR: https://github.com/maxeliseyev/beat-equalizer/pull/21
 Blockers: none
 
 ## Done
