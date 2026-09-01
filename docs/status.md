@@ -4,7 +4,7 @@ Updated: 2026-09-01
 Stage: 1 (static alignment), рамка этапов 2–4 пересмотрена
 Plan step: PR 8 пройден на реальном ките; следующий — PR 9, монитор-микс стенда
 Branch: `docs/editor-in-standalone`
-PR: —
+PR: https://github.com/maxeliseyev/beat-equalizer/pull/17
 Blockers: none
 
 ## Done
