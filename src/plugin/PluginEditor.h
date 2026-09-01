@@ -40,6 +40,8 @@ private:
     void updateBench();
     void updateTransportRow();
     void syncChannelCount();
+    // Колонки монитора появляются вместе с материалом стенда и исчезают с ним.
+    void setMonitorColumns(bool visible);
     void updateChannelNames();
     void updateTransportInfo();
     // Линии сетки внутри показанного окна; count = 0, когда темпа или позиции нет.
@@ -66,6 +68,7 @@ private:
     std::unique_ptr<juce::FileChooser> chooser;
     bool standalone = false;
     bool benchLoaded = false;
+    bool monitorColumns = false;
     int lastActiveChannels = 0;
 
     juce::TextButton analyzeButton { "Analyze" };
@@ -88,6 +91,8 @@ private:
     juce::Label headerDelay;
     juce::Label headerRotator;
     juce::Label headerPolarity;
+    juce::Label headerLevel;
+    juce::Label headerPan;
     juce::Label headerCorr;
     juce::Label headerPhase;
 

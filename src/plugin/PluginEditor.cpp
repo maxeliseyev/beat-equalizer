@@ -205,6 +205,8 @@ BeatEqualizerAudioProcessorEditor::BeatEqualizerAudioProcessorEditor(BeatEqualiz
     setupHeader(headerMute, "M");
     setupHeader(headerName, "Ch / file");
     setupHeader(headerRole, "Role");
+    setupHeader(headerLevel, "Level");
+    setupHeader(headerPan, "Pan");
     setupHeader(headerDelay, "Delay (ms)");
     setupHeader(headerRotator, "Rotator");
     setupHeader(headerPolarity, "Polarity");
@@ -216,6 +218,11 @@ BeatEqualizerAudioProcessorEditor::BeatEqualizerAudioProcessorEditor(BeatEqualiz
                           &headerDelay, &headerRotator, &headerPolarity, &headerCorr,
                           &headerPhase })
         addAndMakeVisible(*header);
+
+    // Level и Pan прячутся вместе со своими колонками: без материала стенда
+    // монитор-микса нет, а в хосте его нет вовсе.
+    addChildComponent(headerLevel);
+    addChildComponent(headerPan);
 
     addAndMakeVisible(correlometer);
 
@@ -321,7 +328,7 @@ BeatEqualizerAudioProcessorEditor::BeatEqualizerAudioProcessorEditor(BeatEqualiz
                     chromeHeight() + ChannelRow::kHeight,
                     2400,
                     chromeHeight() + beat::kMaxChannels * ChannelRow::kHeight);
-    setSize(juce::jmax(minWidth, 1400), chromeHeight() + lastActiveChannels * ChannelRow::kHeight);
+    setSize(juce::jmax(minWidth, 1560), chromeHeight() + lastActiveChannels * ChannelRow::kHeight);
     startTimerHz(25);
 }
 
@@ -437,12 +444,15 @@ void BeatEqualizerAudioProcessorEditor::resized()
     area.removeFromTop(kGapS);
 
     const int active = juce::jmax(1, activeChannelCount());
-    const auto headerColumns = ChannelColumns::from(area.removeFromTop(kTableHeaderHeight));
+    const auto headerColumns =
+        ChannelColumns::from(area.removeFromTop(kTableHeaderHeight), monitorColumns);
     headerOn.setBounds(headerColumns.enable);
     headerSolo.setBounds(headerColumns.solo);
     headerMute.setBounds(headerColumns.mute);
     headerName.setBounds(headerColumns.name);
     headerRole.setBounds(headerColumns.role);
+    headerLevel.setBounds(headerColumns.level);
+    headerPan.setBounds(headerColumns.pan);
     headerDelay.setBounds(headerColumns.delay);
     headerRotator.setBounds(headerColumns.rotator);
     headerPolarity.setBounds(headerColumns.polarity);
@@ -507,6 +517,7 @@ void BeatEqualizerAudioProcessorEditor::updateBench()
         benchLabel.setText(loaded ? player.getDescription() : "No files loaded",
                            juce::dontSendNotification);
         updateChannelNames();
+        setMonitorColumns(loaded);
     }
 
     syncChannelCount();
@@ -667,6 +678,21 @@ void BeatEqualizerAudioProcessorEditor::updateChannelNames()
     auto& player = audioProcessor.getFilePlayer();
     for (int ch = 0; ch < beat::kMaxChannels; ++ch)
         rows[static_cast<size_t>(ch)]->setChannelName(player.getChannelName(ch));
+}
+
+void BeatEqualizerAudioProcessorEditor::setMonitorColumns(bool visible)
+{
+    if (monitorColumns == visible)
+        return;
+
+    monitorColumns = visible;
+    headerLevel.setVisible(visible);
+    headerPan.setVisible(visible);
+
+    for (auto& row : rows)
+        row->setMonitorVisible(visible);
+
+    resized();
 }
 
 void BeatEqualizerAudioProcessorEditor::syncChannelCount()

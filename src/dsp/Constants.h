@@ -29,6 +29,11 @@ inline constexpr float kMinScopeTimeMs = 5.0f;
 inline constexpr float kMaxScopeTimeMs = 1000.0f;
 inline constexpr float kDefaultScopeTimeMs = 40.0f;
 
+// Монитор-микс стенда: уровень и панорама на канал. Мониторинг, в экспорт и в
+// N-out passthrough не попадают.
+inline constexpr float kMinMonitorLevelDb = -60.0f;
+inline constexpr float kMaxMonitorLevelDb = 12.0f;
+
 // Темп для сетки. Верх и низ — просто здравые границы ввода, алгоритм от них
 // не зависит.
 inline constexpr float kMinTempoBpm = 40.0f;
