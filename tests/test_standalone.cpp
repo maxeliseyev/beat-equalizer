@@ -390,6 +390,116 @@ TEST_CASE("mute does not reach the offline render")
     exported.deleteFile();
 }
 
+TEST_CASE("the bench monitor sums the whole kit into the stereo output")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+
+    juce::AudioProcessor::setTypeOfNextNewPlugin(juce::AudioProcessor::wrapperType_Standalone);
+    BeatEqualizerAudioProcessor processor;
+    juce::AudioProcessor::setTypeOfNextNewPlugin(juce::AudioProcessor::wrapperType_Undefined);
+    processor.enableAllBuses();
+    processor.prepareToPlay(kSampleRate, 128);
+
+    // Устройство отдаёт два выхода, на стенде шесть дорожек с разными уровнями.
+    REQUIRE(processor.getTotalNumOutputChannels() == 2);
+
+    juce::AudioBuffer<float> kit(6, 4096);
+    for (int ch = 0; ch < 6; ++ch)
+        for (int i = 0; i < kit.getNumSamples(); ++i)
+            kit.setSample(ch, i, 0.1f * static_cast<float>(ch + 1));
+
+    const auto file = writeTempWav(kit);
+    REQUIRE(processor.getFilePlayer().load({ file }, kSampleRate).isEmpty());
+    processor.getFilePlayer().setPlaying(true);
+
+    juce::AudioBuffer<float> block(2, 128);
+    juce::MidiBuffer midi;
+    block.clear();
+    processor.processBlock(block, midi);
+
+    // Все шесть каналов слышны в обоих выходах: 2.1 на шесть каналов, центр
+    // равной мощности. Без монитор-микса на выходах лежали бы 0.1 и 0.2.
+    const float expected = (2.1f / 6.0f) * std::cos(0.25f * juce::MathConstants<float>::pi);
+    REQUIRE_THAT(block.getSample(0, 100), WithinAbs(expected, 1.0e-3f));
+    REQUIRE_THAT(block.getSample(1, 100), WithinAbs(expected, 1.0e-3f));
+
+    file.deleteFile();
+}
+
+TEST_CASE("panning hard left keeps a bench channel out of the right output")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+
+    juce::AudioProcessor::setTypeOfNextNewPlugin(juce::AudioProcessor::wrapperType_Standalone);
+    BeatEqualizerAudioProcessor processor;
+    juce::AudioProcessor::setTypeOfNextNewPlugin(juce::AudioProcessor::wrapperType_Undefined);
+    processor.enableAllBuses();
+    processor.prepareToPlay(kSampleRate, 128);
+
+    juce::AudioBuffer<float> kit(4, 4096);
+    for (int ch = 0; ch < 4; ++ch)
+        for (int i = 0; i < kit.getNumSamples(); ++i)
+            kit.setSample(ch, i, 0.4f);
+
+    const auto file = writeTempWav(kit);
+    REQUIRE(processor.getFilePlayer().load({ file }, kSampleRate).isEmpty());
+    processor.getFilePlayer().setPlaying(true);
+
+    auto& state = processor.getParameters();
+    // 0.0 нормализованного — это -1, крайнее левое.
+    state.getParameter(beat::channelParamId(0, "pan"))->setValueNotifyingHost(0.0f);
+    for (int ch = 1; ch < 4; ++ch)
+        state.getParameter(beat::channelParamId(ch, "mute"))->setValueNotifyingHost(1.0f);
+
+    juce::AudioBuffer<float> block(2, 128);
+    juce::MidiBuffer midi;
+    block.clear();
+    processor.processBlock(block, midi);
+
+    REQUIRE_THAT(block.getSample(0, 100), WithinAbs(0.4f, 1.0e-3f));
+    REQUIRE_THAT(block.getSample(1, 100), WithinAbs(0.0f, 1.0e-4f));
+
+    file.deleteFile();
+}
+
+TEST_CASE("monitor level and pan do not reach the offline render")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+
+    juce::AudioProcessor::setTypeOfNextNewPlugin(juce::AudioProcessor::wrapperType_Standalone);
+    BeatEqualizerAudioProcessor processor;
+    juce::AudioProcessor::setTypeOfNextNewPlugin(juce::AudioProcessor::wrapperType_Undefined);
+    processor.enableAllBuses();
+    processor.prepareToPlay(kSampleRate, 128);
+
+    const auto source = impulsePair(4096, 100, 124);
+    const auto input = writeTempWav(source);
+    REQUIRE(processor.getFilePlayer().load({ input }, kSampleRate).isEmpty());
+
+    auto& state = processor.getParameters();
+    state.getParameter(beat::channelParamId(0, "pan"))->setValueNotifyingHost(0.0f);
+    state.getParameter(beat::channelParamId(0, "levelDb"))->setValueNotifyingHost(0.0f);
+
+    const auto exported = juce::File::createTempFile("wav");
+    REQUIRE(processor.exportAligned(exported).isEmpty());
+
+    juce::AudioFormatManager formats;
+    formats.registerBasicFormats();
+    std::unique_ptr<juce::AudioFormatReader> reader(formats.createReaderFor(exported));
+    REQUIRE(reader != nullptr);
+
+    juce::AudioBuffer<float> rendered((int) reader->numChannels, (int) reader->lengthInSamples);
+    reader->read(&rendered, 0, rendered.getNumSamples(), 0, true, true);
+
+    // Уровень -60 дБ и крайняя панорама — это мониторинг: стем обязан выйти
+    // нетронутым, иначе экспорт зависел бы от того, что сейчас слушают.
+    REQUIRE(rendered.getNumChannels() == 2);
+    REQUIRE(rendered.getMagnitude(0, 0, rendered.getNumSamples()) > 0.5f);
+
+    input.deleteFile();
+    exported.deleteFile();
+}
+
 TEST_CASE("the display window lines a delayed mic up with the reference")
 {
     juce::AudioBuffer<float> source(2, 4096);

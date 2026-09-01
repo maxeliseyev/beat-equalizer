@@ -2,6 +2,8 @@
 
 #include "dsp/Constants.h"
 
+#include <cmath>
+
 namespace beat
 {
 
@@ -122,6 +124,38 @@ juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout()
             namePrefix + "Role",
             roleLabels,
             0));
+
+        // Панорама и уровень — монитор-микс стенда: в офлайн-рендер и в
+        // passthrough внутри хоста они не попадают, как Solo/Mute.
+        params.push_back(std::make_unique<juce::AudioParameterFloat>(
+            juce::ParameterID { channelParamId(i, "pan"), 1 },
+            namePrefix + "Pan",
+            juce::NormalisableRange<float>(-1.0f, 1.0f, 0.01f),
+            0.0f,
+            juce::AudioParameterFloatAttributes().withStringFromValueFunction(
+                [](float value, int)
+                {
+                    const int percent = juce::roundToInt(100.0f * std::abs(value));
+                    if (percent == 0)
+                        return juce::String("C");
+
+                    return (value < 0.0f ? juce::String("L ") : juce::String("R "))
+                           + juce::String(percent);
+                })));
+
+        // Скос под -6 дБ: подстройка монитора живёт около единицы, там и нужен
+        // мелкий шаг, а не в дальнем конце к тишине.
+        auto levelRange =
+            juce::NormalisableRange<float>(kMinMonitorLevelDb, kMaxMonitorLevelDb, 0.1f);
+        levelRange.setSkewForCentre(-6.0f);
+
+        params.push_back(std::make_unique<juce::AudioParameterFloat>(
+            juce::ParameterID { channelParamId(i, "levelDb"), 1 },
+            namePrefix + "Level",
+            levelRange,
+            0.0f,
+            juce::AudioParameterFloatAttributes().withStringFromValueFunction(
+                [](float value, int) { return juce::String(value, 1) + " dB"; })));
 
         params.push_back(std::make_unique<juce::AudioParameterFloat>(
             juce::ParameterID { channelParamId(i, "rotatorHz"), 1 },

@@ -1,6 +1,6 @@
 #include "ChannelRow.h"
 
-ChannelColumns ChannelColumns::from(juce::Rectangle<int> row)
+ChannelColumns ChannelColumns::from(juce::Rectangle<int> row, bool withMonitor)
 {
     ChannelColumns columns;
     columns.enable = row.removeFromLeft(ChannelRow::kEnableWidth);
@@ -8,6 +8,13 @@ ChannelColumns ChannelColumns::from(juce::Rectangle<int> row)
     columns.mute = row.removeFromLeft(ChannelRow::kMuteWidth);
     columns.name = row.removeFromLeft(ChannelRow::kNameWidth);
     columns.role = row.removeFromLeft(ChannelRow::kRoleWidth);
+
+    if (withMonitor)
+    {
+        columns.level = row.removeFromLeft(ChannelRow::kLevelWidth);
+        columns.pan = row.removeFromLeft(ChannelRow::kPanWidth);
+    }
+
     columns.delay = row.removeFromLeft(ChannelRow::kDelayWidth);
     columns.rotator = row.removeFromLeft(ChannelRow::kRotatorWidth);
     columns.polarity = row.removeFromLeft(ChannelRow::kPolarityWidth);
@@ -49,6 +56,16 @@ ChannelRow::ChannelRow(juce::AudioProcessorValueTreeState& state, int channelInd
     roleBox.addItem("Hats", 5);
     addAndMakeVisible(roleBox);
 
+    levelSlider.setSliderStyle(juce::Slider::LinearHorizontal);
+    levelSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 54, 20);
+    addChildComponent(levelSlider);
+
+    // Ползунок посередине читается как центр панорамы; подпись рядом говорит,
+    // насколько и куда уведён канал.
+    panSlider.setSliderStyle(juce::Slider::LinearHorizontal);
+    panSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 48, 20);
+    addChildComponent(panSlider);
+
     delaySlider.setSliderStyle(juce::Slider::LinearHorizontal);
     delaySlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 64, 20);
     delaySlider.setNumDecimalPlacesToDisplay(2);
@@ -86,6 +103,10 @@ ChannelRow::ChannelRow(juce::AudioProcessorValueTreeState& state, int channelInd
         state, beat::channelParamId(index, "mute"), muteButton);
     roleAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
         state, beat::channelParamId(index, "role"), roleBox);
+    levelAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
+        state, beat::channelParamId(index, "levelDb"), levelSlider);
+    panAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
+        state, beat::channelParamId(index, "pan"), panSlider);
     delayAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
         state, beat::channelParamId(index, "delayMs"), delaySlider);
     rotatorAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
@@ -99,7 +120,7 @@ ChannelRow::ChannelRow(juce::AudioProcessorValueTreeState& state, int channelInd
 
 void ChannelRow::resized()
 {
-    const auto columns = ChannelColumns::from(getLocalBounds());
+    const auto columns = ChannelColumns::from(getLocalBounds(), monitorVisible);
 
     // Строка выше ручек: их держим по центру, а высоту отдаём осциллограмме.
     const auto centred = [](juce::Rectangle<int> cell, int trimX)
@@ -112,6 +133,13 @@ void ChannelRow::resized()
     muteButton.setBounds(centred(columns.mute, 2));
     nameLabel.setBounds(centred(columns.name, 4));
     roleBox.setBounds(centred(columns.role, 2));
+
+    if (monitorVisible)
+    {
+        levelSlider.setBounds(centred(columns.level, 4));
+        panSlider.setBounds(centred(columns.pan, 4));
+    }
+
     delaySlider.setBounds(centred(columns.delay, 4));
     rotatorSlider.setBounds(centred(columns.rotator, 4));
     polarityBox.setBounds(centred(columns.polarity, 2));
@@ -134,6 +162,17 @@ void ChannelRow::setActive(bool shouldBeActive)
     scope.setActive(shouldBeActive);
     nameLabel.setColour(juce::Label::textColourId,
                         shouldBeActive ? juce::Colours::white : juce::Colour(0xff6b7280));
+}
+
+void ChannelRow::setMonitorVisible(bool shouldBeVisible)
+{
+    if (monitorVisible == shouldBeVisible)
+        return;
+
+    monitorVisible = shouldBeVisible;
+    levelSlider.setVisible(shouldBeVisible);
+    panSlider.setVisible(shouldBeVisible);
+    resized();
 }
 
 void ChannelRow::setGrid(const beat::grid::Line* lines, int count)

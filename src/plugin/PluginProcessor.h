@@ -98,6 +98,8 @@ private:
         std::atomic<float>* solo = nullptr;
         std::atomic<float>* rotatorAmount = nullptr;
         std::atomic<float>* rotatorHz = nullptr;
+        std::atomic<float>* pan = nullptr;
+        std::atomic<float>* levelDb = nullptr;
     };
 
     static BusesProperties createBusesProperties();
@@ -114,6 +116,9 @@ private:
     std::array<ChannelParams, beat::kMaxChannels> channelParams {};
     std::atomic<float>* abBypassParam = nullptr;
     std::array<std::atomic<float>, beat::kMaxChannels> inputPeak {};
+    // Стенд обрабатывается здесь, а не в буфере хоста: каналов кита больше,
+    // чем выходов устройства, и в монитор они складываются уже выровненными.
+    juce::AudioBuffer<float> benchBuffer;
     beat::ScopeRing scope;
     std::atomic<float>* referenceParam = nullptr;
     std::atomic<float>* maxDistanceParam = nullptr;
