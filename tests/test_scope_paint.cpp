@@ -169,3 +169,31 @@ TEST_CASE("scope time parameter sets the visible window")
     scoped->refreshWaveforms();
     REQUIRE(scoped->getScopeWindowSamples() == 48000);
 }
+
+TEST_CASE("a long window is decimated instead of drawn sample by sample")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+
+    BeatEqualizerAudioProcessor proc;
+    proc.enableAllBuses();
+    proc.prepareToPlay(48000.0, 128);
+
+    auto* param = proc.getParameters().getParameter("global.scopeTimeMs");
+    REQUIRE(param != nullptr);
+
+    std::unique_ptr<juce::AudioProcessorEditor> editor(proc.createEditor());
+    auto* scoped = dynamic_cast<BeatEqualizerAudioProcessorEditor*>(editor.get());
+    REQUIRE(scoped != nullptr);
+
+    // Короткое окно рисуется как есть: там каждый отсчёт виден.
+    param->setValueNotifyingHost(param->convertTo0to1(40.0f));
+    scoped->refreshWaveforms();
+    REQUIRE(scoped->getScopeDisplayPoints() == scoped->getScopeWindowSamples());
+
+    // Секунда живого входа — потолок кольца, дальше окно уже прорежено.
+    param->setValueNotifyingHost(param->convertTo0to1(beat::kMaxScopeTimeMs));
+    scoped->refreshWaveforms();
+    REQUIRE(scoped->getScopeWindowSamples() == 48000);
+    REQUIRE(scoped->getScopeDisplayPoints() <= beat::kMaxDisplayPoints);
+    REQUIRE(scoped->getScopeDisplayPoints() > beat::kMaxDisplayPoints / 2);
+}

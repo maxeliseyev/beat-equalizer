@@ -93,7 +93,7 @@ public:
 
     static int capacityForSampleRate(double sampleRate)
     {
-        return windowSamples(kMaxScopeTimeMs, sampleRate);
+        return windowSamples(kMaxRingTimeMs, sampleRate);
     }
 
     static int findRisingTrigger(const float* samples, int count, float threshold)

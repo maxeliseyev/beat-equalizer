@@ -22,6 +22,7 @@ target_sources(BeatEqualizer
         Correlometer.cpp
         Exporter.cpp
         FilePlayer.cpp
+        OverviewStrip.cpp
         Parameters.cpp
         PluginProcessor.cpp
         PluginEditor.cpp
