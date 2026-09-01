@@ -13,6 +13,7 @@
 | Продукт, этапы 1–4, алгоритмы | `docs/drum-editor-plan.md` |
 | MVP (этап 1), порядок PR, DSP/UI | `docs/plan.md` |
 | Детекция ударов, лестница без сетей | `docs/detector-design-recommendations.md` |
+| Границы удара по микрофонам, что двигать | `docs/hit-segmentation-recommendations.md` |
 | Сборка, форматы, лицензия JUCE | `README.md` |
 | Ветки и PR | `docs/git-workflow.md` |
 
@@ -235,6 +236,7 @@ Definition of done:
 - повторно всплывёт → `decisions/`;
 - как делать этап 1 → `plan.md`;
 - как строить детектор ударов → `detector-design-recommendations.md`;
+- где у удара границы и что защищать → `hit-segmentation-recommendations.md`;
 - что за продукт → `drum-editor-plan.md`;
 - нельзя нарушить → этот файл.
 
