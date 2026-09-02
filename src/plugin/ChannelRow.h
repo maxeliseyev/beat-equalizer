@@ -14,7 +14,6 @@ struct ChannelColumns
     juce::Rectangle<int> solo;
     juce::Rectangle<int> mute;
     juce::Rectangle<int> name;
-    juce::Rectangle<int> role;
     juce::Rectangle<int> level;
     juce::Rectangle<int> pan;
     juce::Rectangle<int> delay;
@@ -35,25 +34,23 @@ public:
     // Осциллограмма канала живёт в его же строке, справа от ручек. Поэтому
     // ширина колонок фиксированная (иначе на широком окне разъезжается delay),
     // а окно растёт вниз ровно на kHeight за канал.
-    static constexpr int kHeight = 64;
-    static constexpr int kControlHeight = 26;
-    static constexpr int kEnableWidth = 44;
-    static constexpr int kSoloWidth = 28;
-    static constexpr int kMuteWidth = 28;
-    static constexpr int kNameWidth = 126;
-    static constexpr int kRoleWidth = 84;
-    static constexpr int kLevelWidth = 150;
-    static constexpr int kPanWidth = 132;
-    static constexpr int kDelayWidth = 210;
-    static constexpr int kRotatorWidth = 132;
-    static constexpr int kPolarityWidth = 92;
-    static constexpr int kCorrWidth = 56;
-    static constexpr int kPhaseWidth = 92;
+    static constexpr int kHeight = 56;
+    static constexpr int kControlHeight = 22;
+    static constexpr int kEnableWidth = 30;
+    static constexpr int kSoloWidth = 26;
+    static constexpr int kMuteWidth = 26;
+    static constexpr int kNameWidth = 118;
+    static constexpr int kLevelWidth = 62;
+    static constexpr int kPanWidth = 56;
+    static constexpr int kDelayWidth = 84;
+    static constexpr int kRotatorWidth = 56;
+    static constexpr int kPolarityWidth = 74;
+    static constexpr int kCorrWidth = 48;
+    static constexpr int kPhaseWidth = 78;
     static constexpr int kControlsWidth = kEnableWidth + kSoloWidth + kMuteWidth + kNameWidth
-                                          + kRoleWidth + kLevelWidth + kPanWidth + kDelayWidth
-                                          + kRotatorWidth + kPolarityWidth + kCorrWidth
-                                          + kPhaseWidth;
-    static constexpr int kMinScopeWidth = 280;
+                                          + kLevelWidth + kPanWidth + kDelayWidth + kRotatorWidth
+                                          + kPolarityWidth + kCorrWidth + kPhaseWidth;
+    static constexpr int kMinScopeWidth = 240;
 
     ChannelRow(juce::AudioProcessorValueTreeState& state, int channelIndex);
 
@@ -85,7 +82,6 @@ private:
     juce::TextButton soloButton { "S" };
     juce::TextButton muteButton { "M" };
     juce::Label nameLabel;
-    juce::ComboBox roleBox;
     juce::Slider levelSlider;
     juce::Slider panSlider;
     juce::Slider delaySlider;
@@ -98,7 +94,6 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> enabledAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> soloAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> muteAttachment;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> roleAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> levelAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> panAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> delayAttachment;

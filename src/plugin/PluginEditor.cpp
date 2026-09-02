@@ -199,19 +199,22 @@ BeatEqualizerAudioProcessorEditor::BeatEqualizerAudioProcessorEditor(BeatEqualiz
     setupHeader(headerSolo, "S");
     setupHeader(headerMute, "M");
     setupHeader(headerName, "Ch / file");
-    setupHeader(headerRole, "Role");
     setupHeader(headerLevel, "Level");
     setupHeader(headerPan, "Pan");
-    setupHeader(headerDelay, "Delay (ms)");
-    setupHeader(headerRotator, "Rotator");
-    setupHeader(headerPolarity, "Polarity");
+    setupHeader(headerDelay, "Delay ms");
+    setupHeader(headerRotator, "Rot");
+    setupHeader(headerPolarity, "Pol");
     setupHeader(headerCorr, "Corr");
-    setupHeader(headerPhase, "Phase %");
+    setupHeader(headerPhase, "Phase");
     headerCorr.setJustificationType(juce::Justification::centredRight);
     headerPhase.setJustificationType(juce::Justification::centredRight);
-    for (auto* header : { &headerOn, &headerSolo, &headerMute, &headerName, &headerRole,
-                          &headerDelay, &headerRotator, &headerPolarity, &headerCorr,
-                          &headerPhase })
+
+    // Подписи узких колонок стоят над своими полями, а не левее их.
+    for (auto* header : { &headerOn, &headerSolo, &headerMute, &headerLevel, &headerPan,
+                          &headerDelay, &headerRotator, &headerPolarity })
+        header->setJustificationType(juce::Justification::centred);
+    for (auto* header : { &headerOn, &headerSolo, &headerMute, &headerName, &headerDelay,
+                          &headerRotator, &headerPolarity, &headerCorr, &headerPhase })
         addAndMakeVisible(*header);
 
     // Level и Pan прячутся вместе со своими колонками: без материала стенда
@@ -323,7 +326,7 @@ BeatEqualizerAudioProcessorEditor::BeatEqualizerAudioProcessorEditor(BeatEqualiz
                     chromeHeight() + ChannelRow::kHeight,
                     2400,
                     chromeHeight() + beat::kMaxChannels * ChannelRow::kHeight);
-    setSize(juce::jmax(minWidth, 1560), chromeHeight() + lastActiveChannels * ChannelRow::kHeight);
+    setSize(juce::jmax(minWidth, 1180), chromeHeight() + lastActiveChannels * ChannelRow::kHeight);
     startTimerHz(25);
 }
 
@@ -445,7 +448,6 @@ void BeatEqualizerAudioProcessorEditor::resized()
     headerSolo.setBounds(headerColumns.solo);
     headerMute.setBounds(headerColumns.mute);
     headerName.setBounds(headerColumns.name);
-    headerRole.setBounds(headerColumns.role);
     headerLevel.setBounds(headerColumns.level);
     headerPan.setBounds(headerColumns.pan);
     headerDelay.setBounds(headerColumns.delay);
