@@ -1,18 +1,18 @@
 # Status
 
-Updated: 2026-09-01
+Updated: 2026-09-02
 Stage: 1 (static alignment)
 Plan step: PR 9 — стенд: монитор-микс, длинное окно, обзор, компактная строка
-Branch: `feat/compact-channel-row`
-PR: https://github.com/maxeliseyev/beat-equalizer/pull/23
+Branch: `fix/compact-row-into-main`
+PR: (открывается)
 Blockers: none
 
 ## Done
 
 - PR 1–8 плана: последний — прогон реального кита через стенд.
-- Репо-PR 1–16 в `main`. Ветка замыкает стопку #17 → #18 → #19.
-- На ветке: то же плюс компактная строка канала — окно 1180 вместо 1560,
-  колонка Role убрана. 0.11.0. Лежит поверх #22.
+- Репо-PR 1–22 в `main`: последний привёз содержимое стопки #17–#21.
+- PR #23 (компактная строка канала) был влит в `fix/monitor-solo-level`, а не в
+  `main`, и в `main` не доехал. Ветка переносит его коммит на `main`. 0.11.0.
 
 ## Now
 
