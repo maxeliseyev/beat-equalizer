@@ -4,7 +4,7 @@ Updated: 2026-09-02
 Stage: 1 (static alignment)
 Plan step: PR 9 — стенд: монитор-микс, длинное окно, обзор, компактная строка
 Branch: `fix/compact-row-into-main`
-PR: (открывается)
+PR: https://github.com/maxeliseyev/beat-equalizer/pull/24
 Blockers: none
 
 ## Done
