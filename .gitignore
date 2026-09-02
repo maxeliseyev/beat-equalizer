@@ -10,3 +10,11 @@ CLAUDE.local.md
 .idea/
 .vscode/
 cmake-build-*/
+
+# Реальный материал в репозиторий не попадает никогда: стенд берёт кит по
+# BEAT_REAL_KIT_DIR, а сюда кладутся только числа (docs/real-kit-protocol.md).
+*.wav
+*.aif
+*.aiff
+*.flac
+*.reapeaks
