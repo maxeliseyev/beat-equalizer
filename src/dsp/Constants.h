@@ -22,6 +22,12 @@ inline constexpr float kCoherenceLowHz = 200.0f;
 inline constexpr float kCoherenceHighHz = 8000.0f;
 inline constexpr int kDefaultFftOrder = 13;
 inline constexpr float kPhatEps = 1.0e-12f;
+// Показатель отбеливания кросс-спектра: 1 — это PHAT, 0 — обычная взаимная
+// корреляция. PHAT резок там, где когерентность высокая; на просачивании
+// реального кита она низкая, и отбеливание топит переходный участок в
+// некогерентном хвосте (docs/real-kit-protocol.md).
+inline constexpr float kPhatWeighting = 1.0f;
+inline constexpr float kPlainWeighting = 0.0f;
 inline constexpr int kLagrangeOrder = 5;
 inline constexpr int kInterpolatorLatencySamples = 2;
 inline constexpr float kDelaySmoothMs = 5.0f;
@@ -59,7 +65,14 @@ inline constexpr float kOnsetEnergyWindowMs = 30.0f;
 
 // Сверка по микрофонам. Кусок под GCC-PHAT берётся длиннее удара: короткий
 // кусок ловит шум, длинный тянет соседний удар.
-inline constexpr float kMatchFrameMs = 85.0f;
+// Кадр сверки короткий не из экономии: прямой путь между микрофонами
+// когерентен первые единицы миллисекунд, дальше два микрофона слышат разные
+// поля. На 40 мс и длиннее оценка начинает уезжать на период инструмента.
+inline constexpr float kMatchFrameMs = 20.0f;
+// Окно уточнения вокруг предсказанного прихода. Широкий поиск на реальном
+// просачивании даёт устойчивый и неверный ответ при любом отбеливании —
+// поэтому корреляция здесь только уточняет, а не ищет (инвариант 5).
+inline constexpr float kMatchRefineMs = 2.0f;
 inline constexpr float kMatchPreRollMs = 5.0f;
 // Корреляция логарифмов огибающих: прямой звук и его просачивание похожи по
 // форме затухания, случайное совпадение — нет.
@@ -143,6 +156,22 @@ inline int maxLagSamples(float distanceM, double sampleRate, float speedOfSound 
         return 0;
 
     return static_cast<int>(std::ceil(static_cast<double>(maxLagSeconds(distanceM, speedOfSound)) * sampleRate));
+}
+
+// Наименьший порядок БПФ, в который влезает столько отсчётов.
+//
+// Порядок нельзя держать константой в сэмплах, когда кадр задан в
+// миллисекундах: на 96 кГц тот же кадр вдвое длиннее, и вместе с окном поиска
+// перестаёт помещаться — свёртка заворачивается, оценка приходит из другого
+// конца кадра. На 48 кГц это не проявлялось, поэтому синтетика молчала
+// (инвариант 4, docs/real-kit-protocol.md).
+inline int fftOrderFor(int samples)
+{
+    int order = 1;
+    while ((1 << order) < samples)
+        ++order;
+
+    return order;
 }
 
 } // namespace beat
