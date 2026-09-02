@@ -25,6 +25,7 @@ endif()
 include(cmake/Dependencies.cmake)
 
 add_subdirectory(src/dsp)
+add_subdirectory(src/doc)
 add_subdirectory(src/plugin)
 
 enable_testing()

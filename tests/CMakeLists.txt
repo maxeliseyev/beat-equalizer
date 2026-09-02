@@ -11,11 +11,16 @@ add_executable(beat_tests
     test_correlation.cpp
     test_grid.cpp
     test_analysis_state.cpp
-    test_scope_ring.cpp)
+    test_scope_ring.cpp
+    test_document.cpp
+    test_delay_field.cpp
+    test_protected_zone.cpp
+    test_synthetic_kit.cpp)
 
+# beat_doc публично тянет beat_dsp: повторять его здесь — дубликат на линковке.
 target_link_libraries(beat_tests
     PRIVATE
-        beat_dsp
+        beat_doc
         Catch2::Catch2WithMain)
 
 target_compile_features(beat_tests PRIVATE cxx_std_20)
