@@ -18,7 +18,8 @@ add_executable(beat_tests
     test_synthetic_kit.cpp
     test_onset_analysis.cpp
     test_spectral_flux_detector.cpp
-    test_cross_mic_match.cpp)
+    test_cross_mic_match.cpp
+    test_real_kit.cpp)
 
 # beat_doc публично тянет beat_dsp: повторять его здесь — дубликат на линковке.
 target_link_libraries(beat_tests
