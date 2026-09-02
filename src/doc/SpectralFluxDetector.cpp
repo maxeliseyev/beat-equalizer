@@ -1,6 +1,7 @@
 #include "doc/SpectralFluxDetector.h"
 
 #include "dsp/Envelope.h"
+#include "dsp/HitSegment.h"
 #include "dsp/OnsetAnalysis.h"
 #include "dsp/PeakPicker.h"
 
@@ -13,106 +14,9 @@ namespace beat::doc
 
 namespace
 {
-struct Segment
-{
-    int arrival = 0;
-    int attackEnd = 0;
-    int usefulEnd = 0;
-    float peak = 0.0f;
-};
-
 int msToSamples(float ms, double sampleRate)
 {
     return std::max(1, static_cast<int>(std::lround(0.001 * static_cast<double>(ms) * sampleRate)));
-}
-
-// Границы удара по огибающей: пик — конец атаки, приход — последняя точка
-// перед подъёмом, конец полезного — там, где вклад ушёл под пол плюс запас.
-Segment measure(const std::vector<float>& envelope,
-                int from,
-                int to,
-                int limit,
-                float floorLevel,
-                float marginDb)
-{
-    Segment segment;
-    const int n = static_cast<int>(envelope.size());
-    from = std::clamp(from, 0, std::max(0, n - 1));
-    to = std::clamp(to, from, std::max(0, n - 1));
-
-    segment.attackEnd = from;
-    for (int i = from; i <= to; ++i)
-        if (envelope[static_cast<size_t>(i)] > segment.peak)
-        {
-            segment.peak = envelope[static_cast<size_t>(i)];
-            segment.attackEnd = i;
-        }
-
-    // Приход — последняя точка перед подъёмом. Если огибающая до края окна так
-    // и не опустилась под порог (тихий удар на хвосте соседнего), берём самую
-    // тихую точку: это лучшее, что известно, и оно всегда определено.
-    const float onsetLevel = floorLevel + 0.1f * std::max(0.0f, segment.peak - floorLevel);
-    int crossing = -1;
-    int quietest = segment.attackEnd;
-    float lowest = envelope[static_cast<size_t>(segment.attackEnd)];
-
-    for (int i = segment.attackEnd; i >= from; --i)
-    {
-        const float value = envelope[static_cast<size_t>(i)];
-        if (value <= onsetLevel)
-        {
-            crossing = i;
-            break;
-        }
-
-        if (value < lowest)
-        {
-            lowest = value;
-            quietest = i;
-        }
-    }
-
-    segment.arrival = crossing >= 0 ? crossing : quietest;
-
-    const float usefulLevel = floorLevel * std::pow(10.0f, marginDb / 20.0f);
-    segment.usefulEnd = std::min(limit, n - 1);
-    for (int i = segment.attackEnd; i <= std::min(limit, n - 1); ++i)
-        if (envelope[static_cast<size_t>(i)] <= usefulLevel)
-        {
-            segment.usefulEnd = i;
-            break;
-        }
-
-    segment.usefulEnd = std::max(segment.usefulEnd, segment.attackEnd);
-    return segment;
-}
-
-// Спад: прямая по логарифму огибающей от пика до 20 дБ ниже него. Наклон в
-// дБ за секунду — число, сравнимое между каналами и между сессиями.
-float decaySlope(const std::vector<float>& envelope,
-                 const Segment& segment,
-                 double sampleRate)
-{
-    if (segment.peak <= 0.0f || segment.usefulEnd <= segment.attackEnd)
-        return 0.0f;
-
-    const float target = segment.peak * 0.1f;
-    int end = segment.attackEnd;
-    for (int i = segment.attackEnd; i <= segment.usefulEnd; ++i)
-    {
-        end = i;
-        if (envelope[static_cast<size_t>(i)] <= target)
-            break;
-    }
-
-    if (end <= segment.attackEnd)
-        return 0.0f;
-
-    const float level = std::max(envelope[static_cast<size_t>(end)], 1.0e-9f);
-    const double drop = 20.0 * std::log10(static_cast<double>(segment.peak / level));
-    const double seconds = static_cast<double>(end - segment.attackEnd) / sampleRate;
-
-    return seconds > 0.0 ? static_cast<float>(drop / seconds) : 0.0f;
 }
 
 // Перцептивная атака: момент, где громкость растёт быстрее всего. Считается по
@@ -283,12 +187,12 @@ std::vector<Event> SpectralFluxDetector::analyze(const float* const* channels,
 
         // Кадр шире удара: искать границы надо по огибающей вокруг него, а не
         // считать центр кадра приходом.
-        const auto segment = measure(envelope,
-                                     centre - window,
-                                     centre + window,
-                                     std::max(centre, nextCentre - window),
-                                     floorLevel,
-                                     config.usefulEndMarginDb);
+        const auto segment = segmentHit(envelope,
+                                        centre - window,
+                                        centre + window,
+                                        std::max(centre, nextCentre - window),
+                                        floorLevel,
+                                        config.usefulEndMarginDb);
 
         Event event;
         event.referenceChannel = reference;
