@@ -4,7 +4,7 @@ Updated: 2026-09-02
 Stage: 2 (редактор в standalone)
 Plan step: этап 2, шаг 3 — сверка по всем микрофонам, проверка на реальном ките
 Branch: `feat/real-kit-bench` (поверх `feat/cross-mic-match`, PR #27)
-PR: —
+PR: https://github.com/maxeliseyev/beat-equalizer/pull/28
 Blockers: none
 
 ## Done
