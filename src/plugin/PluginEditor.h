@@ -95,7 +95,6 @@ private:
     juce::Label headerSolo;
     juce::Label headerMute;
     juce::Label headerName;
-    juce::Label headerRole;
     juce::Label headerDelay;
     juce::Label headerRotator;
     juce::Label headerPolarity;
