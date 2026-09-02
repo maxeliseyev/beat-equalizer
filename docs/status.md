@@ -4,7 +4,7 @@ Updated: 2026-09-02
 Stage: 2 (редактор в standalone)
 Plan step: этап 2, шаг 2 — детектор онсетов, ступени 1–2
 Branch: `feat/onset-detector`
-PR: (открывается)
+PR: https://github.com/maxeliseyev/beat-equalizer/pull/26
 Blockers: none
 
 ## Done
