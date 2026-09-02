@@ -4,9 +4,12 @@ add_library(beat_dsp STATIC
     AllpassRotator.cpp
     AnalysisState.cpp
     Coherence.cpp
+    Envelope.cpp
     Fft.cpp
     FractionalDelay.cpp
-    GccPhat.cpp)
+    GccPhat.cpp
+    OnsetAnalysis.cpp
+    PeakPicker.cpp)
 
 target_include_directories(beat_dsp
     PUBLIC

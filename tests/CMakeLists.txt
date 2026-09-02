@@ -15,7 +15,9 @@ add_executable(beat_tests
     test_document.cpp
     test_delay_field.cpp
     test_protected_zone.cpp
-    test_synthetic_kit.cpp)
+    test_synthetic_kit.cpp
+    test_onset_analysis.cpp
+    test_spectral_flux_detector.cpp)
 
 # beat_doc публично тянет beat_dsp: повторять его здесь — дубликат на линковке.
 target_link_libraries(beat_tests
