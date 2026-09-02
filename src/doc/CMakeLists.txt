@@ -1,4 +1,5 @@
 add_library(beat_doc STATIC
+    CrossMicMatcher.cpp
     DelayField.cpp
     Document.cpp
     EditLog.cpp
