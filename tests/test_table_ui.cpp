@@ -66,8 +66,9 @@ TEST_CASE("table columns never overlap and the waveform takes the right edge")
 
     REQUIRE(columns.delay.getWidth() == ChannelRow::kDelayWidth);
     REQUIRE_FALSE(overlaps(columns.enable, columns.name));
-    REQUIRE_FALSE(overlaps(columns.name, columns.role));
-    REQUIRE_FALSE(overlaps(columns.role, columns.delay));
+    REQUIRE_FALSE(overlaps(columns.name, columns.level));
+    REQUIRE_FALSE(overlaps(columns.level, columns.pan));
+    REQUIRE_FALSE(overlaps(columns.pan, columns.delay));
     REQUIRE_FALSE(overlaps(columns.delay, columns.rotator));
     REQUIRE_FALSE(overlaps(columns.rotator, columns.polarity));
     REQUIRE_FALSE(overlaps(columns.polarity, columns.corr));
