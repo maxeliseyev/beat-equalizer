@@ -3,7 +3,7 @@
 Updated: 2026-09-02
 Stage: 2 (редактор в standalone)
 Plan step: этап 2, шаг 3 — сверка по всем микрофонам, проверка на реальном ките
-Branch: `feat/real-kit-bench` (поверх `feat/cross-mic-match`, PR #27)
+Branch: `fix/real-kit-bench-into-main`
 PR: —
 Blockers: none
 
@@ -11,8 +11,9 @@ Blockers: none
 
 - Этап 1 закрыт: PR 1–8 плана, последний — прогон реального кита через стенд.
 - Репо-PR 1–26 в `main`. Этап 2: шаг 1 — `beat_doc` и стенд, шаг 2 — детектор.
-- PR #27 (не смержен): `CrossMicMatcher` и общий `HitSegment`.
-- На этой ветке: реальный кит на стенде и протокол его задержек. 0.15.0.
+- PR #27 в `main`: `CrossMicMatcher` и общий `HitSegment`.
+- PR #28 смержен в свою базу, а не в `main`: содержимое переносится этой
+  веткой. Реальный кит на стенде и протокол его задержек. 0.15.0.
 
 ## Now
 
@@ -51,7 +52,7 @@ Blockers: none
 
 ## Resume
 
-1. `git fetch && git checkout feat/real-kit-bench && git pull`
+1. `git fetch && git checkout fix/real-kit-bench-into-main && git pull`
 2. `BEAT_REAL_KIT_DIR=/path/to/kit make test` — 125 кейсов, 3 ожидаемых
    падения. Без переменной тоже зелено.
 3. Читать `docs/real-kit-protocol.md`: там числами записано, что кит меряется,
