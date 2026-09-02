@@ -4,7 +4,7 @@ Updated: 2026-09-02
 Stage: 2 (редактор в standalone)
 Plan step: этап 2, шаг 1 — модель документа и синтетический стенд
 Branch: `feat/document-model`
-PR: (открывается)
+PR: https://github.com/maxeliseyev/beat-equalizer/pull/25
 Blockers: PR #24 — компактная строка канала, которая не доехала до `main`
 
 ## Done
