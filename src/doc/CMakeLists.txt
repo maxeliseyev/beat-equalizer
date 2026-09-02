@@ -4,7 +4,8 @@ add_library(beat_doc STATIC
     EditLog.cpp
     Event.cpp
     FeatureCache.cpp
-    ProtectedZone.cpp)
+    ProtectedZone.cpp
+    SpectralFluxDetector.cpp)
 
 # Документ стоит над ядром и знает про его константы; обратной зависимости
 # нет и быть не должно. JUCE здесь не появляется ни в каком виде.

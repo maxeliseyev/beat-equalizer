@@ -28,6 +28,34 @@ inline constexpr float kDelaySmoothMs = 5.0f;
 // Запас по краям защищённой зоны варпа: край зоны — не обрыв, а склейка,
 // и кроссфейду нужно место вне атаки (инвариант 17).
 inline constexpr float kProtectedMarginMs = 3.0f;
+
+// Детекция онсетов. Окно и шаг заданы в миллисекундах, а не в сэмплах: на
+// 96 кГц кадр обязан остаться тем же по времени, иначе поток спектра меняет
+// масштаб вместе с частотой дискретизации (инвариант 4).
+inline constexpr float kOnsetWindowMs = 20.0f;
+inline constexpr float kOnsetHopMs = 2.5f;
+inline constexpr int kOnsetBands = 8;
+// Порог: медиана окрестности умножается, к ней добавляется доля от среднего по
+// всему потоку. Медиана одна ловит шум в тихих местах, среднее одно глохнет на
+// громких — нужны оба.
+inline constexpr float kOnsetMedianWindowMs = 100.0f;
+inline constexpr float kOnsetThresholdFactor = 1.7f;
+inline constexpr float kOnsetThresholdBias = 0.10f;
+// Флэм — это два удара, а не один: разводить их надо, а не склеивать.
+inline constexpr float kOnsetMinIntervalMs = 12.0f;
+// Пик впритык к порогу — не событие. Ложное срабатывание хуже пропуска
+// (инвариант 13), поэтому запас несимметричный: 0.2 по уверенности это
+// требование быть на четверть выше адаптивного порога.
+inline constexpr float kOnsetMinConfidence = 0.2f;
+// Огибающая ступени 1: быстрый подъём, чтобы не съесть атаку, медленный спад,
+// чтобы не считать каждый период низкой частоты отдельным ударом.
+inline constexpr float kEnvelopeAttackMs = 2.0f;
+inline constexpr float kEnvelopeReleaseMs = 20.0f;
+// Конец полезного: вклад ушёл под пол дорожки плюс запас.
+inline constexpr float kUsefulEndMarginDb = 6.0f;
+// Окно, в котором меряется энергия удара по каналам для энергетического
+// вектора: короче — ловит только атаку, длиннее — тянет соседний удар.
+inline constexpr float kOnsetEnergyWindowMs = 30.0f;
 inline constexpr float kMinScopeTimeMs = 10.0f;
 inline constexpr float kMaxScopeTimeMs = 2000.0f;
 inline constexpr float kDefaultScopeTimeMs = 40.0f;
