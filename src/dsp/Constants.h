@@ -25,6 +25,9 @@ inline constexpr float kPhatEps = 1.0e-12f;
 inline constexpr int kLagrangeOrder = 5;
 inline constexpr int kInterpolatorLatencySamples = 2;
 inline constexpr float kDelaySmoothMs = 5.0f;
+// Запас по краям защищённой зоны варпа: край зоны — не обрыв, а склейка,
+// и кроссфейду нужно место вне атаки (инвариант 17).
+inline constexpr float kProtectedMarginMs = 3.0f;
 inline constexpr float kMinScopeTimeMs = 10.0f;
 inline constexpr float kMaxScopeTimeMs = 2000.0f;
 inline constexpr float kDefaultScopeTimeMs = 40.0f;
