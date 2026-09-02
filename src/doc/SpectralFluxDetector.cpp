@@ -172,6 +172,7 @@ std::vector<Event> SpectralFluxDetector::analyze(const float* const* channels,
     const auto& envelope = envelopes[static_cast<size_t>(reference)];
     const float floorLevel = floors[static_cast<size_t>(reference)];
     const int energyWindow = msToSamples(config.energyWindowMs, context.sampleRate);
+    const int minInterval = msToSamples(config.minIntervalMs, context.sampleRate);
 
     std::vector<Event> events;
     events.reserve(peaks.size());
@@ -248,6 +249,23 @@ std::vector<Event> SpectralFluxDetector::analyze(const float* const* channels,
         // порогу, чаще оказывается просачиванием соседнего инструмента.
         if (event.confidence < config.minConfidence)
             continue;
+
+        // Минимальный интервал держится и на приходах, а не только на кадрах
+        // потока: два пика в 12–15 мс друг от друга откатываются по огибающей
+        // в одно и то же место, и в документ попадали два события с одним
+        // временем. На синтетике удары стоят редко, поэтому видно это было
+        // только на реальной игре (docs/real-kit-protocol.md).
+        if (!events.empty()
+            && event.timeSamples - events.back().timeSamples
+                   < static_cast<double>(minInterval))
+        {
+            // Из двух пиков, севших в один приход, остаётся уверенный: слабый
+            // — это чаще всего второй фронт того же удара.
+            if (event.confidence > events.back().confidence)
+                events.back() = event;
+
+            continue;
+        }
 
         events.push_back(event);
     }
