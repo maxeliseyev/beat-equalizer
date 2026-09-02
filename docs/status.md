@@ -4,7 +4,7 @@ Updated: 2026-09-02
 Stage: 2 (редактор в standalone)
 Plan step: этап 2, шаг 3 — сверка по всем микрофонам, починка по реальному киту
 Branch: `fix/real-kit-defects` (поверх `fix/real-kit-bench-into-main`, PR #29)
-PR: —
+PR: https://github.com/maxeliseyev/beat-equalizer/pull/30
 Blockers: none
 
 ## Done
