@@ -56,6 +56,21 @@ inline constexpr float kUsefulEndMarginDb = 6.0f;
 // Окно, в котором меряется энергия удара по каналам для энергетического
 // вектора: короче — ловит только атаку, длиннее — тянет соседний удар.
 inline constexpr float kOnsetEnergyWindowMs = 30.0f;
+
+// Сверка по микрофонам. Кусок под GCC-PHAT берётся длиннее удара: короткий
+// кусок ловит шум, длинный тянет соседний удар.
+inline constexpr float kMatchFrameMs = 85.0f;
+inline constexpr float kMatchPreRollMs = 5.0f;
+// Корреляция логарифмов огибающих: прямой звук и его просачивание похожи по
+// форме затухания, случайное совпадение — нет.
+inline constexpr float kMatchEnvelopeWindowMs = 60.0f;
+inline constexpr float kMatchMinCorrelation = 0.5f;
+// Насколько удар обязан быть выше собственного пола канала, чтобы считаться
+// услышанным, а не додуманным.
+inline constexpr float kMatchMinAudibleDb = 6.0f;
+// Владелец удара: канал, где он и раньше, и энергичнее относительно своего же
+// среднего. Множитель — насколько энергичнее.
+inline constexpr float kMatchOwnerMargin = 2.0f;
 inline constexpr float kMinScopeTimeMs = 10.0f;
 inline constexpr float kMaxScopeTimeMs = 2000.0f;
 inline constexpr float kDefaultScopeTimeMs = 40.0f;
