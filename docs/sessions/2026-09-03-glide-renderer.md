@@ -135,3 +135,50 @@ status.md обновлён: да. Ветка: `feat/glide-export`. PR #35.
   strength отдельно.
 - Preview-метрика описывает delay glide; polarity/rotator применяются после
   renderer-а, как в export path.
+
+---
+
+## YAN9 real-kit smoke
+
+## Context
+
+PR #35 смёржен в `main`. Нужно проверить новый Standalone export path на
+реальном ките YAN9 из `/Users/maximeliseyev/Sound/YAN9`.
+
+## What
+
+Добавлен скрытый GUI-тест `[.real-kit-export]`: он берёт 20 секунд YAN9
+(10…30 с), пишет временный 8-канальный WAV в системный `/tmp`, запускает
+workflow Load → Analyze → Detect → static/glide export и печатает статусы.
+Обычный `ctest` этот тест не запускает.
+
+Результат: `BEAT_REAL_KIT_DIR=/Users/maximeliseyev/Sound/YAN9 make test`
+зелёный, около 24 с. Export smoke тоже зелёный. На 10…30 с: Analyze 79 % → 92 %,
+Detect 59 hits / 218 obs / 4 delays, Glide 50 % 83 % → 83 % с 29 limited,
+Glide 100 % 83 % → 82 % с 47 limited.
+
+## Why
+
+Текущий Detect в Standalone намеренно ограничен `kDetectSeconds` = 20 с.
+Если грузить полный четырёхминутный дубль и экспортировать его целиком после
+одного Detect, поле событий будет частичным: до первого события renderer
+держит первую цель, после последнего — последнюю. Для проверки PR #35 нужен
+именно export path, а не спор о full-document детекции, поэтому прогон сделан
+на 20-секундном временном WAV той же длины, что окно Detect.
+
+## Status
+
+status.md обновлён: да. Ветка: `test/real-kit-glide-export`.
+
+## Next
+
+Прослушать временные `yan9-static.wav`, `yan9-glide-50.wav` и
+`yan9-glide-100.wav`; если числа подтвердятся на слух, разбирать per-channel
+strength/карту событий до шага 7.
+
+## Open
+
+- Агент не оценивает звук на слух; временные WAV оставлены для ручного
+  прослушивания.
+- Full-file glide export после 20-секундного Detect остаётся продуктовым
+  ограничением, не дефектом теста.
