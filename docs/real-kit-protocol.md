@@ -207,6 +207,46 @@ snare bottom 0.021 мс до сверки и 5.5 мс после.
 
 ---
 
+## Glide export smoke, 10…30 с
+
+После PR #35 прогнан Standalone export path на отрезке 10…30 с этого же кита.
+Отрезок выбран под текущий лимит Detect: стенд считает события окном
+`kDetectSeconds` = 20 с, поэтому сравнение делается на материале той же длины,
+а не на полном четырёхминутном дубле с частичным полем событий.
+
+Workflow: Load 8-канального временного WAV → Reference Ch 2 (snare top) →
+Analyze → Detect → `Export static...` → `Export glide...` при strength 50 % и
+100 %. Аудио-артефакты пишутся в системный `/tmp` и в git не попадают.
+
+| режим | статус |
+|---|---|
+| Analyze | 8 ch aligned, ref Ch 2, 123 frames, sum coherence 79 % → 92 % |
+| Detect | 59 hits, 218 obs, 4 delays |
+| Glide 50 % preview/export | 59 hits, event coherence 83 % → 83 %, 29 limited |
+| Glide 100 % preview/export | 59 hits, event coherence 83 % → 82 %, 47 limited |
+
+Static Analyze выставил такие задержки:
+
+| микрофон | delay, мс |
+|---|---:|
+| kick | 0.538 |
+| snare top | 0.913 |
+| snare bottom | 1.024 |
+| hat | 0.000 |
+| ride | 2.737 |
+| tom 1 | 0.796 |
+| tom 2 | 2.007 |
+| room | 0.913 |
+
+Вывод по числам: на этом отрезке static alignment улучшает суммарную
+когерентность, а per-hit glide пока не даёт выигрыша по event coherence.
+На 100 % strength метрика даже падает на 1 процентный пункт, и 47 из 59
+событий упираются в slew-limit. Это аргумент сначала слушать результат и
+разобраться с картой событий/по-канальным strength, а не переходить сразу к
+нарезке.
+
+---
+
 ## Что осталось открытым
 
 **Априорную задержку теперь считает калибровка** — но только для тех пар
@@ -235,3 +275,10 @@ BEAT_REAL_KIT_DIR=/path/to/kit make test
 
 Без переменной шесть тестов `[real-kit]` пропускаются, седьмой (арифметика
 кадра и БПФ) считается всегда — материал ему не нужен.
+
+Glide/export smoke скрыт от обычного `ctest`, потому что пишет временные WAV:
+
+```sh
+make test-gui
+BEAT_REAL_KIT_DIR=/path/to/kit build/release/tests/beat_gui_tests "[.real-kit-export]" -s
+```

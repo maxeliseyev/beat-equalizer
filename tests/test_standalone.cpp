@@ -1,6 +1,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 
+#include "RealKit.h"
 #include "SyntheticKit.h"
 #include "doc/Event.h"
 #include "dsp/AlignmentEngine.h"
@@ -13,6 +14,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <iostream>
 #include <memory>
 #include <vector>
 
@@ -21,6 +23,7 @@ using Catch::Matchers::WithinAbs;
 namespace
 {
 constexpr double kSampleRate = 48000.0;
+constexpr double kRealKitRate = 96000.0;
 
 juce::AudioBuffer<float> impulsePair(int length, int firstAt, int secondAt)
 {
@@ -81,6 +84,72 @@ juce::AudioBuffer<float> readWav(const juce::File& file)
                                       (int) reader->lengthInSamples);
     reader->read(&rendered, 0, rendered.getNumSamples(), 0, true, true);
     return rendered;
+}
+
+void setParameter(BeatEqualizerAudioProcessor& processor, const juce::String& id, float value)
+{
+    auto* parameter = processor.getParameters().getParameter(id);
+    REQUIRE(parameter != nullptr);
+    parameter->setValueNotifyingHost(parameter->convertTo0to1(value));
+}
+
+juce::AudioBuffer<float> readRealKitWindow(const std::string& dir,
+                                           double startSec,
+                                           double lengthSec)
+{
+    const int samples = static_cast<int>(std::lround(lengthSec * kRealKitRate));
+    juce::AudioBuffer<float> buffer(beat::test::kKitMicCount, samples);
+    buffer.clear();
+
+    for (int mic = 0; mic < beat::test::kKitMicCount; ++mic)
+    {
+        const auto data = beat::test::wavRead(
+            beat::test::kitPath(dir, mic),
+            static_cast<std::int64_t>(std::lround(startSec * kRealKitRate)),
+            samples);
+        REQUIRE(static_cast<int>(data.size()) == samples);
+        buffer.copyFrom(mic, 0, data.data(), samples);
+    }
+
+    return buffer;
+}
+
+beat::AlignmentEngine::Result analyzeBench(BeatEqualizerAudioProcessor& processor,
+                                           int reference)
+{
+    auto& player = processor.getFilePlayer();
+    const int channels = juce::jmin(player.numChannels(), beat::kMaxChannels);
+    const int window = beat::AnalysisRing::capacityForSampleRate(kRealKitRate);
+    std::vector<float> scratch(static_cast<size_t>(channels) * static_cast<size_t>(window),
+                               0.0f);
+    const int available = player.readAnalysisWindow(scratch.data(), channels, window);
+
+    std::vector<const float*> pointers(static_cast<size_t>(channels));
+    for (int ch = 0; ch < channels; ++ch)
+        pointers[static_cast<size_t>(ch)] =
+            scratch.data() + static_cast<std::ptrdiff_t>(ch) * window;
+
+    beat::AlignmentEngine engine;
+    beat::AnalysisRequest request;
+    request.sampleRate = kRealKitRate;
+    request.reference = reference;
+    return engine.analyze(pointers.data(), channels, available, request);
+}
+
+void printExport(const char* label, const juce::File& file)
+{
+    std::cout << label << ": " << file.getFullPathName() << " ("
+              << juce::String(static_cast<double>(file.getSize()) / 1000000.0, 1).toStdString()
+              << " MB)\n";
+}
+
+void checkRealKitExport(const juce::File& file, int minimumSamples)
+{
+    beat::test::WavInfo info {};
+    REQUIRE(beat::test::wavInfoOf(file.getFullPathName().toStdString(), info));
+    CHECK_THAT(info.sampleRate, WithinAbs(kRealKitRate, 1.0e-6));
+    CHECK(info.numChannels == beat::test::kKitMicCount);
+    CHECK(info.numFrames >= minimumSamples);
 }
 } // namespace
 
@@ -385,6 +454,115 @@ TEST_CASE("glide export uses fresh per-hit delays and reports coherence")
     input.deleteFile();
     bypassed.deleteFile();
     output.deleteFile();
+}
+
+TEST_CASE("real kit glide export writes comparable static and strength renders",
+          "[.real-kit-export][real-kit]")
+{
+    const auto dir = beat::test::realKitDir();
+    if (dir.empty())
+        SKIP("BEAT_REAL_KIT_DIR не задан: реальный кит не лежит в репозитории");
+
+    juce::ScopedJuceInitialiser_GUI gui;
+
+    juce::AudioProcessor::setTypeOfNextNewPlugin(
+        juce::AudioProcessor::wrapperType_Standalone);
+    BeatEqualizerAudioProcessor processor;
+    juce::AudioProcessor::setTypeOfNextNewPlugin(juce::AudioProcessor::wrapperType_Undefined);
+    processor.enableAllBuses();
+    processor.prepareToPlay(kRealKitRate, 512);
+
+    constexpr double startSec = 10.0;
+    constexpr double lengthSec = 20.0;
+    auto window = readRealKitWindow(dir, startSec, lengthSec);
+
+    auto outputDir = juce::File::getSpecialLocation(juce::File::tempDirectory)
+                         .getChildFile("beat-equalizer-real-kit");
+    REQUIRE(outputDir.createDirectory());
+
+    const auto input = outputDir.getChildFile("yan9-10s-30s.wav");
+    REQUIRE(beat::exporter::writeWav(input, window, kRealKitRate));
+
+    juce::Array<juce::File> files;
+    files.add(input);
+    REQUIRE(processor.getFilePlayer().load(files, kRealKitRate).isEmpty());
+
+    setParameter(processor, "global.reference", 2.0f); // snare top, 1-based APVTS
+
+    const int reference = beat::test::kSnareTop;
+    const auto analysis = analyzeBench(processor, reference);
+    REQUIRE(analysis.status == beat::AnalysisStatus::ok);
+    processor.applyAnalysisResult(analysis);
+
+    DetectWorker::Request request;
+    request.clip = &processor.getFilePlayer().getBuffer();
+    request.generation = processor.getFilePlayer().getGeneration();
+    request.sampleRate = kRealKitRate;
+    request.reference = reference;
+    request.from = 0;
+    request.length = processor.getFilePlayer().numSamples();
+
+    DetectWorker::Result detection;
+    DetectWorker::detect(request, detection);
+    REQUIRE(detection.valid);
+    processor.applyDetection(std::move(detection));
+    REQUIRE(processor.canExportGlide());
+
+    const auto staticFile = outputDir.getChildFile("yan9-static.wav");
+    const auto glide50File = outputDir.getChildFile("yan9-glide-50.wav");
+    const auto glide100File = outputDir.getChildFile("yan9-glide-100.wav");
+
+    REQUIRE(processor.exportAligned(staticFile).isEmpty());
+
+    auto* strength = processor.getParameters().getParameter("global.glideStrength");
+    REQUIRE(strength != nullptr);
+
+    strength->setValueNotifyingHost(strength->convertTo0to1(0.5f));
+    REQUIRE(processor.refreshGlidePreview().isEmpty());
+    const auto preview50 = processor.getGlideStatus();
+    REQUIRE(processor.exportGlide(glide50File).isEmpty());
+    const auto export50 = processor.getGlideStatus();
+
+    strength->setValueNotifyingHost(strength->convertTo0to1(1.0f));
+    REQUIRE(processor.refreshGlidePreview().isEmpty());
+    const auto preview100 = processor.getGlideStatus();
+    REQUIRE(processor.exportGlide(glide100File).isEmpty());
+    const auto export100 = processor.getGlideStatus();
+
+    checkRealKitExport(staticFile, window.getNumSamples());
+    checkRealKitExport(glide50File, window.getNumSamples());
+    checkRealKitExport(glide100File, window.getNumSamples());
+
+    std::cout << "\nYAN9 glide export smoke\n";
+    std::cout << "source: " << input.getFullPathName().toStdString() << "\n";
+    std::cout << "window: " << juce::String(startSec, 1).toStdString() << "-"
+              << juce::String(startSec + lengthSec, 1).toStdString() << " s, "
+              << beat::test::kKitMicCount << " ch @ 96 kHz\n";
+    std::cout << "analyze: " << processor.getAnalysisStatus().toStdString()
+              << ", sum coherence "
+              << juce::String(juce::roundToInt(100.0f * processor.getCoherenceBefore()))
+                     .toStdString()
+              << "% -> "
+              << juce::String(juce::roundToInt(100.0f * processor.getCoherenceAfter()))
+                     .toStdString()
+              << "%\n";
+    std::cout << "detect: " << processor.getDetectStatus().toStdString() << "\n";
+    std::cout << "preview 50: " << preview50.toStdString() << "\n";
+    std::cout << "export  50: " << export50.toStdString() << "\n";
+    std::cout << "preview100: " << preview100.toStdString() << "\n";
+    std::cout << "export 100: " << export100.toStdString() << "\n";
+
+    for (int ch = 0; ch < beat::test::kKitMicCount; ++ch)
+    {
+        const auto id = beat::channelParamId(ch, "delayMs");
+        const auto delayMs = processor.getParameters().getRawParameterValue(id)->load();
+        std::cout << beat::test::kitNames()[ch] << ": static delay "
+                  << juce::String(delayMs, 3).toStdString() << " ms\n";
+    }
+
+    printExport("static", staticFile);
+    printExport("glide 50", glide50File);
+    printExport("glide100", glide100File);
 }
 
 TEST_CASE("export without material says so instead of writing an empty file")
