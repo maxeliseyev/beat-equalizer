@@ -73,10 +73,11 @@ TEST_CASE("table columns never overlap and the waveform takes the right edge")
     REQUIRE_FALSE(overlaps(columns.rotator, columns.polarity));
     REQUIRE_FALSE(overlaps(columns.polarity, columns.corr));
     REQUIRE_FALSE(overlaps(columns.corr, columns.phase));
-    REQUIRE_FALSE(overlaps(columns.phase, columns.scope));
+    REQUIRE_FALSE(overlaps(columns.phase, columns.perHit));
+    REQUIRE_FALSE(overlaps(columns.perHit, columns.scope));
 
     // Ручки фиксированной ширины, вся лишняя ширина уходит осциллограмме.
-    REQUIRE(columns.phase.getRight() == ChannelRow::kControlsWidth);
+    REQUIRE(columns.perHit.getRight() == ChannelRow::kControlsWidth);
     REQUIRE(columns.scope.getRight() == 1200);
     REQUIRE(columns.scope.getWidth() == 1200 - ChannelRow::kControlsWidth);
 }

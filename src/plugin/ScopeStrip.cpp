@@ -65,9 +65,36 @@ void ScopeStrip::paint(juce::Graphics& g)
         g.drawText("play to see waveform", bounds, juce::Justification::centred, false);
     };
 
+    // Маркеры рисуются последними, поверх волны: удар надо видеть, а не
+    // угадывать под ней. Хозяин события ярче и с засечкой сверху — событие
+    // слышно во многих микрофонах, но принадлежит одному.
+    const auto drawMarkers = [this, &g, bounds]()
+    {
+        for (int i = 0; i < markerCount; ++i)
+        {
+            const auto& marker = markers[static_cast<size_t>(i)];
+            const int x = bounds.getX()
+                          + juce::roundToInt(marker.position * (float) (bounds.getWidth() - 1));
+
+            g.setColour(marker.owned ? juce::Colour(0xffe8c547)
+                                     : juce::Colour(0x66e8c547));
+            g.drawVerticalLine(x, (float) bounds.getY() + 1.0f, (float) bounds.getBottom() - 1.0f);
+
+            if (!marker.owned)
+                continue;
+
+            juce::Path tick;
+            tick.addTriangle((float) x - 4.0f, (float) bounds.getY() + 1.0f,
+                             (float) x + 4.0f, (float) bounds.getY() + 1.0f,
+                             (float) x, (float) bounds.getY() + 6.0f);
+            g.fillPath(tick);
+        }
+    };
+
     if (waveform.size() < 2 || bounds.getWidth() < 2)
     {
         drawPlaceholder();
+        drawMarkers();
         return;
     }
 
@@ -82,6 +109,7 @@ void ScopeStrip::paint(juce::Graphics& g)
     if (peak < 0.002f)
     {
         drawPlaceholder();
+        drawMarkers();
         return;
     }
 
@@ -110,6 +138,8 @@ void ScopeStrip::paint(juce::Graphics& g)
         const int bottom = (int) std::ceil(std::max(y0, y1));
         g.fillRect(bounds.getX() + x, top, 1, std::max(2, bottom - top + 1));
     }
+
+    drawMarkers();
 }
 
 void ScopeStrip::setActive(bool shouldBeActive)
@@ -146,6 +176,15 @@ void ScopeStrip::setGrid(const beat::grid::Line* lines, int count)
         grid[static_cast<size_t>(i)] = lines[i];
 
     repaint(waveBounds());
+}
+
+void ScopeStrip::setMarkers(const ScopeMarker* newMarkers, int count)
+{
+    markerCount = juce::jlimit(0, kMaxMarkers, count);
+    for (int i = 0; i < markerCount; ++i)
+        markers[static_cast<size_t>(i)] = newMarkers[i];
+
+    repaint();
 }
 
 void ScopeStrip::setWaveform(const float* samples, int count)

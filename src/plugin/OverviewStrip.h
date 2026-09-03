@@ -20,6 +20,10 @@ public:
     void mouseDrag(const juce::MouseEvent&) override;
 
     void setOverview(const float* peaks, int count);
+    // Найденные удары на всей партии: по ним видно, какой кусок уже посчитан.
+    // Положение — 0…1 от длины материала.
+    void setMarkers(const float* positions, int count);
+    int getMarkerCount() const { return (int) markers.size(); }
     void setPlayhead(double normalised);
     // Границы окна осциллограмм, 0…1 от длины партии.
     void setWindow(double startNormalised, double endNormalised);
@@ -35,6 +39,7 @@ private:
     void seekFromMouse(const juce::MouseEvent& event);
 
     std::vector<float> peaks;
+    std::vector<float> markers;
     double playhead = 0.0;
     double windowStart = 0.0;
     double windowEnd = 0.0;

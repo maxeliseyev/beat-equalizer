@@ -1,6 +1,7 @@
 #pragma once
 
 #include "AnalysisWorker.h"
+#include "DetectWorker.h"
 #include "Exporter.h"
 #include "FilePlayer.h"
 #include "Parameters.h"
@@ -73,6 +74,26 @@ public:
     const beat::AlignmentEngine::Result& getLastResult() const { return lastResult; }
 
     void requestAnalyze();
+
+    // Detect на стенде: события, поле задержек и профиль сессии. Считается в
+    // своём потоке по окну вокруг позиции воспроизведения — весь клип по всем
+    // каналам не влезает в память (план, секция 8).
+    void requestDetect();
+    const DetectWorker::Result& getDetection() const { return detection; }
+    // Публично по той же причине, что и applyAnalysisResult: путь «результат ->
+    // строки таблицы и маркеры» проверяется тестом без message loop.
+    void applyDetection(DetectWorker::Result result);
+    bool isDetectBusy() const { return detectWorker.isBusy(); }
+    juce::String getDetectStatus() const { return detectStatus; }
+    // Медиана и разброс по-ударной задержки канала, сэмплы. observations = 0 —
+    // событий с этим каналом нет, показывать нечего.
+    struct DelaySpread
+    {
+        double medianSamples = 0.0;
+        double spreadSamples = 0.0;
+        int observations = 0;
+    };
+    DelaySpread getDelaySpread(int channel) const;
     FilePlayer& getFilePlayer() { return filePlayer; }
     // Устройство сменило частоту: материал стенда пересчитывается под неё,
     // иначе он играет с чужой скоростью. true — перезагрузили.
@@ -136,6 +157,9 @@ private:
     FilePlayer filePlayer;
     beat::AlignmentEngine::Result lastResult;
     AnalysisWorker analysisWorker { analysisRing };
+    DetectWorker detectWorker;
+    DetectWorker::Result detection;
+    juce::String detectStatus { "Load bench material, then Detect" };
     juce::String analysisStatus { "Press Analyze after playing a few bars" };
     float coherenceBefore = 0.0f;
     float coherenceAfter = 0.0f;

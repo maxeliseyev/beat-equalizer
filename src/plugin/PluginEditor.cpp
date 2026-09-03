@@ -149,11 +149,20 @@ BeatEqualizerAudioProcessorEditor::BeatEqualizerAudioProcessorEditor(BeatEqualiz
             holder->showAudioSettingsDialog();
     };
 
-    for (auto* button : { &loadButton, &rewindButton, &playButton, &exportButton, &audioButton })
+    detectButton.onClick = [this] { audioProcessor.requestDetect(); };
+
+    for (auto* button : { &loadButton, &rewindButton, &playButton, &detectButton,
+                          &exportButton, &audioButton })
     {
         addChildComponent(*button);
         button->setVisible(standalone);
     }
+
+    detectStatus.setJustificationType(juce::Justification::centredRight);
+    detectStatus.setFont(juce::FontOptions(13.0f));
+    detectStatus.setColour(juce::Label::textColourId, juce::Colour(0xffc5cad3));
+    addChildComponent(detectStatus);
+    detectStatus.setVisible(standalone);
 
     benchLabel.setJustificationType(juce::Justification::centredLeft);
     benchLabel.setFont(juce::FontOptions(13.0f));
@@ -206,15 +215,18 @@ BeatEqualizerAudioProcessorEditor::BeatEqualizerAudioProcessorEditor(BeatEqualiz
     setupHeader(headerPolarity, "Pol");
     setupHeader(headerCorr, "Corr");
     setupHeader(headerPhase, "Phase");
+    setupHeader(headerPerHit, "d/hit ms");
     headerCorr.setJustificationType(juce::Justification::centredRight);
     headerPhase.setJustificationType(juce::Justification::centredRight);
+    headerPerHit.setJustificationType(juce::Justification::centredRight);
 
     // Подписи узких колонок стоят над своими полями, а не левее их.
     for (auto* header : { &headerOn, &headerSolo, &headerMute, &headerLevel, &headerPan,
                           &headerDelay, &headerRotator, &headerPolarity })
         header->setJustificationType(juce::Justification::centred);
     for (auto* header : { &headerOn, &headerSolo, &headerMute, &headerName, &headerDelay,
-                          &headerRotator, &headerPolarity, &headerCorr, &headerPhase })
+                          &headerRotator, &headerPolarity, &headerCorr, &headerPhase,
+                          &headerPerHit })
         addAndMakeVisible(*header);
 
     // Level и Pan прячутся вместе со своими колонками: без материала стенда
@@ -397,6 +409,8 @@ void BeatEqualizerAudioProcessorEditor::resized()
     freezeButton.setBounds(analysisRow.removeFromLeft(90));
     analysisRow.removeFromLeft(12);
     coherenceLabel.setBounds(analysisRow.removeFromRight(240));
+    if (standalone)
+        detectStatus.setBounds(analysisRow.removeFromRight(300));
     analysisStatus.setBounds(analysisRow);
 
     if (standalone)
@@ -408,6 +422,8 @@ void BeatEqualizerAudioProcessorEditor::resized()
         rewindButton.setBounds(bench.removeFromLeft(44));
         bench.removeFromLeft(4);
         playButton.setBounds(bench.removeFromLeft(80));
+        bench.removeFromLeft(8);
+        detectButton.setBounds(bench.removeFromLeft(80));
         bench.removeFromLeft(8);
         exportButton.setBounds(bench.removeFromLeft(160));
         bench.removeFromLeft(8);
@@ -455,6 +471,7 @@ void BeatEqualizerAudioProcessorEditor::resized()
     headerPolarity.setBounds(headerColumns.polarity);
     headerCorr.setBounds(headerColumns.corr);
     headerPhase.setBounds(headerColumns.phase);
+    headerPerHit.setBounds(headerColumns.perHit);
 
     // Шкала времени стоит над колонкой осциллограмм, а не под всей таблицей:
     // так подписи остаются напротив того, что они размечают.
@@ -490,6 +507,92 @@ void BeatEqualizerAudioProcessorEditor::timerCallback()
     updateTransportRow();
     updateTransportInfo();
     updateWaveforms();
+    updateDetection();
+}
+
+void BeatEqualizerAudioProcessorEditor::updateDetection()
+{
+    if (!standalone)
+        return;
+
+    auto& player = audioProcessor.getFilePlayer();
+    detectButton.setEnabled(player.hasMaterial() && !audioProcessor.isDetectBusy());
+    detectStatus.setText(audioProcessor.getDetectStatus(), juce::dontSendNotification);
+
+    const auto& detection = audioProcessor.getDetection();
+    const double rate = detection.sampleRate;
+
+    // Материал сменили после Detect: числа относятся к другому клипу.
+    const bool fresh = detection.valid && detection.generation == player.getGeneration();
+
+    for (int ch = 0; ch < static_cast<int>(rows.size()); ++ch)
+    {
+        auto& row = *rows[static_cast<size_t>(ch)];
+
+        if (!fresh || rate <= 0.0)
+        {
+            row.setPerHitDelay(0.0, 0.0, 0);
+            row.getScope().setMarkers(nullptr, 0);
+            continue;
+        }
+
+        const auto spread = audioProcessor.getDelaySpread(ch);
+        row.setPerHitDelay(1000.0 * spread.medianSamples / rate,
+                           1000.0 * spread.spreadSamples / rate,
+                           spread.observations);
+
+        // Окно строки кончается на позиции воспроизведения и сдвинуто назад на
+        // задержку канала — ровно так же, как читается сама волна. Маркер
+        // поэтому кладётся по приходу удара именно в этом канале.
+        const int points = getScopeDisplayPoints();
+        const int span = getScopeWindowSamples();
+        if (points <= 1 || span <= 1)
+            continue;
+
+        const int shift = displayShift[static_cast<size_t>(ch)];
+        const long long begin = static_cast<long long>(player.displayOrigin(span)) - span - shift;
+
+        std::array<ScopeMarker, ScopeStrip::kMaxMarkers> markers {};
+        int count = 0;
+
+        for (const auto& event : detection.document.events())
+        {
+            if (count >= ScopeStrip::kMaxMarkers)
+                break;
+
+            const auto& observation = event.channels[static_cast<size_t>(ch)];
+            if (!observation.present)
+                continue;
+
+            const double position = (observation.arrivalSamples - static_cast<double>(begin))
+                                    / static_cast<double>(span);
+            if (position < 0.0 || position > 1.0)
+                continue;
+
+            auto& marker = markers[static_cast<size_t>(count++)];
+            marker.position = static_cast<float>(position);
+            marker.owned = event.referenceChannel == ch;
+            marker.confidence = observation.confidence;
+        }
+
+        row.getScope().setMarkers(markers.data(), count);
+    }
+
+    // Полоса обзора: удары на всей партии, чтобы было видно, какой кусок
+    // посчитан.
+    const int total = player.numSamples();
+    if (!fresh || total <= 0)
+    {
+        overview.setMarkers(nullptr, 0);
+        return;
+    }
+
+    std::vector<float> positions;
+    positions.reserve(detection.document.events().size());
+    for (const auto& event : detection.document.events())
+        positions.push_back(static_cast<float>(event.timeSamples / static_cast<double>(total)));
+
+    overview.setMarkers(positions.data(), static_cast<int>(positions.size()));
 }
 
 void BeatEqualizerAudioProcessorEditor::updateBench()
@@ -620,7 +723,10 @@ void BeatEqualizerAudioProcessorEditor::updateAnalysisStatus()
 
 void BeatEqualizerAudioProcessorEditor::refreshWaveforms()
 {
+    // Маркеры считаются от того же окна, что и волна, поэтому обновляются
+    // следом за ней и никогда отдельно.
     updateWaveforms();
+    updateDetection();
 }
 
 int BeatEqualizerAudioProcessorEditor::getScopeDisplayPoints() const
@@ -813,6 +919,7 @@ void BeatEqualizerAudioProcessorEditor::updateWaveforms()
         if (fromFiles)
         {
             const float shift = (bypass || !enabled[ch]) ? maxApplied : applied[ch];
+            displayShift[static_cast<size_t>(ch)] = juce::roundToInt(shift);
             player.readDisplayWindow(ch, dest.data(), points, juce::roundToInt(shift), decimation);
 
             auto* polarity = polarityParams[static_cast<size_t>(ch)];

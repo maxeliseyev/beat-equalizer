@@ -35,6 +35,7 @@ add_test(NAME beat_tests COMMAND beat_tests)
 add_executable(beat_gui_tests
     test_scope_paint.cpp
     test_analyze_flow.cpp
+    test_detect_flow.cpp
     test_table_ui.cpp
     test_standalone.cpp
     test_transport.cpp)
