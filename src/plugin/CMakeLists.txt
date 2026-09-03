@@ -1,5 +1,22 @@
+# Иконка подхватывается, если она положена: JUCE собирает из PNG весь набор
+# размеров и прописывает CFBundleIconFile. Нет файла — сборка идёт без иконки,
+# а не падает. Готовится скриптом scripts/make-icon.sh.
+set(BEAT_ICON "${CMAKE_SOURCE_DIR}/packaging/macos/icon.png")
+if(EXISTS "${BEAT_ICON}")
+    set(BEAT_ICON_ARGS ICON_BIG "${BEAT_ICON}")
+else()
+    set(BEAT_ICON_ARGS)
+endif()
+
 juce_add_plugin(BeatEqualizer
     VERSION ${PROJECT_VERSION}
+    ${BEAT_ICON_ARGS}
+    # Стенд открывает вход звуковой карты. Без этого ключа в Info.plist macOS
+    # убивает процесс в момент открытия устройства — и падение выглядит как
+    # баг в аудио, а не как незаполненный plist.
+    MICROPHONE_PERMISSION_ENABLED TRUE
+    MICROPHONE_PERMISSION_TEXT "Beat Equalizer слушает вход звуковой карты, чтобы показывать осциллограммы и мерить задержки между микрофонами."
+    HARDENED_RUNTIME_ENABLED TRUE
     COMPANY_NAME "Beat Equalizer"
     BUNDLE_ID com.beatequalizer.align
     IS_SYNTH FALSE

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Стенд открывает вход звуковой карты: под hardened runtime без этого
+         права macOS убивает процесс в момент открытия устройства, а не при
+         старте, — то есть падение выглядит как баг в аудио, а не в подписи. -->
+    <key>com.apple.security.device.audio-input</key>
+    <true/>
+</dict>
+</plist>
