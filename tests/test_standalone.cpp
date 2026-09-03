@@ -69,6 +69,19 @@ juce::File writeTempWav(const juce::AudioBuffer<float>& buffer)
     REQUIRE(beat::exporter::writeWav(file, buffer, kSampleRate));
     return file;
 }
+
+juce::AudioBuffer<float> readWav(const juce::File& file)
+{
+    juce::AudioFormatManager formats;
+    formats.registerBasicFormats();
+    std::unique_ptr<juce::AudioFormatReader> reader(formats.createReaderFor(file));
+    REQUIRE(reader != nullptr);
+
+    juce::AudioBuffer<float> rendered((int) reader->numChannels,
+                                      (int) reader->lengthInSamples);
+    reader->read(&rendered, 0, rendered.getNumSamples(), 0, true, true);
+    return rendered;
+}
 } // namespace
 
 TEST_CASE("offline render lines up two mics from the first sample")
@@ -313,6 +326,8 @@ TEST_CASE("glide export uses fresh per-hit delays and reports coherence")
     DetectWorker::Result detection;
     detection.generation = processor.getFilePlayer().getGeneration();
     detection.sampleRate = kSampleRate;
+    detection.from = 0;
+    detection.length = source.getNumSamples();
     detection.valid = true;
 
     const auto addEvent = [&detection](int referenceSample, int otherSample)
@@ -341,24 +356,34 @@ TEST_CASE("glide export uses fresh per-hit delays and reports coherence")
     addEvent(12000, 12030);
     processor.applyDetection(std::move(detection));
     REQUIRE(processor.canExportGlide());
+    CHECK(processor.getGlideStatus().contains("Glide preview @ 100%"));
+
+    auto* strength = processor.getParameters().getParameter("global.glideStrength");
+    REQUIRE(strength != nullptr);
+    strength->setValueNotifyingHost(strength->convertTo0to1(0.0f));
+    REQUIRE(processor.refreshGlidePreview().isEmpty());
+    CHECK(processor.getGlideStatus().contains("Glide preview @ 0%"));
+
+    const auto bypassed = juce::File::createTempFile("wav");
+    REQUIRE(processor.exportGlide(bypassed).isEmpty());
+    const auto dry = readWav(bypassed);
+    CHECK(peakIndex(dry, 0, 950, 1100) != peakIndex(dry, 1, 950, 1100));
+
+    strength->setValueNotifyingHost(strength->convertTo0to1(1.0f));
+    REQUIRE(processor.refreshGlidePreview().isEmpty());
 
     const auto output = juce::File::createTempFile("wav");
     REQUIRE(processor.exportGlide(output).isEmpty());
+    CHECK(processor.getGlideStatus().contains("Glide exported"));
     CHECK(processor.getGlideStatus().contains("event coherence"));
 
-    juce::AudioFormatManager formats;
-    formats.registerBasicFormats();
-    std::unique_ptr<juce::AudioFormatReader> reader(formats.createReaderFor(output));
-    REQUIRE(reader != nullptr);
-
-    juce::AudioBuffer<float> rendered((int) reader->numChannels, (int) reader->lengthInSamples);
-    reader->read(&rendered, 0, rendered.getNumSamples(), 0, true, true);
+    const auto rendered = readWav(output);
 
     CHECK(peakIndex(rendered, 0, 950, 1100) == peakIndex(rendered, 1, 950, 1100));
     CHECK(peakIndex(rendered, 0, 11950, 12100) == peakIndex(rendered, 1, 11950, 12100));
 
-    reader.reset();
     input.deleteFile();
+    bypassed.deleteFile();
     output.deleteFile();
 }
 

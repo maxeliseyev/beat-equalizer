@@ -89,3 +89,49 @@ status.md обновлён: да. Ветка: `feat/glide-export`.
 
 - Strength glide всё ещё не настраивается.
 - Detect остаётся ручным; export не запускает анализ автоматически.
+
+---
+
+## Strength and preview
+
+## Context
+
+PR #35 уже открыл отдельный `Export glide...`, но strength оставался
+захардкоженным на 100 %, а event coherence появлялась только после записи WAV.
+
+## What
+
+Добавлен APVTS-параметр `global.glideStrength` и slider `Glide` в Standalone.
+Он управляет `GlideRenderer::Options::strength` для preview и для export.
+
+Preview считает тот же renderer, но только по окну последнего Detect, а не по
+всему файлу. Статус `Glide preview @ N%: ...` появляется сразу после свежего
+Detect и обновляется после изменения strength. `Export glide...` использует тот
+же расчёт, но рендерит весь материал и пишет WAV.
+
+## Why
+
+Preview не считается в таймере редактора: на длинном ките это превратило бы
+линейный offline render в 25 пересчётов в секунду. Окно Detect ограничено
+`kDetectSeconds`, поэтому метрика появляется быстро и относится к тем же
+событиям, которые пользователь видит маркерами.
+
+Strength хранится в APVTS, а не локально в editor-е, чтобы значение переживало
+сохранение проекта и было доступно для automation/host state без отдельной
+миграции позже.
+
+## Status
+
+status.md обновлён: да. Ветка: `feat/glide-export`. PR #35.
+
+## Next
+
+Прогнать PR на реальном ките в Standalone: сравнить `Export static...`,
+`Glide Strength` 50 % и 100 %, записать числа и слуховые заметки в протокол.
+
+## Open
+
+- Strength общий на все каналы; комнату пока нельзя оставить на меньшем
+  strength отдельно.
+- Preview-метрика описывает delay glide; polarity/rotator применяются после
+  renderer-а, как в export path.

@@ -18,12 +18,13 @@ juce::String percent(float value)
 
 void copyIntoPadded(const juce::AudioBuffer<float>& source,
                     int channels,
+                    int sourceStart,
                     int samples,
                     juce::AudioBuffer<float>& padded)
 {
     padded.clear();
     for (int ch = 0; ch < channels; ++ch)
-        padded.copyFrom(ch, 0, source, ch, 0, samples);
+        padded.copyFrom(ch, 0, source, ch, sourceStart, samples);
 }
 } // namespace
 
@@ -62,6 +63,7 @@ BeatEqualizerAudioProcessor::BeatEqualizerAudioProcessor()
     tempoSourceParam = parameters.getRawParameterValue("global.tempoSource");
     tempoBpmParam = parameters.getRawParameterValue("global.tempoBpm");
     gridDivisionParam = parameters.getRawParameterValue("global.gridDivision");
+    glideStrengthParam = parameters.getRawParameterValue("global.glideStrength");
 
     analysisWorker.onResult = [this] { applyAnalysisResult(analysisWorker.result()); };
     analysisWorker.readWindow = [this](float* dest, int channels, int count)
@@ -490,6 +492,7 @@ void BeatEqualizerAudioProcessor::requestDetect()
     if (!filePlayer.hasMaterial())
     {
         detectStatus = "Detect works on bench material - load files first";
+        glideStatus = "Load files before exporting";
         sendChangeMessage();
         return;
     }
@@ -515,6 +518,7 @@ void BeatEqualizerAudioProcessor::requestDetect()
     if (detectWorker.request(request))
     {
         detectStatus = "Detecting...";
+        glideStatus = "Detecting...";
         sendChangeMessage();
     }
 }
@@ -526,6 +530,7 @@ void BeatEqualizerAudioProcessor::applyDetection(DetectWorker::Result result)
     if (!detection.valid)
     {
         detectStatus = "Detect found nothing to measure";
+        glideStatus = "Run Detect before Export glide";
     }
     else
     {
@@ -535,6 +540,7 @@ void BeatEqualizerAudioProcessor::applyDetection(DetectWorker::Result result)
         detectStatus = juce::String(detection.document.events().size()) + " hits, "
                        + juce::String(detection.match.observations) + " obs, "
                        + juce::String(detection.calibration.known) + " delays";
+        refreshGlidePreview(false);
     }
 
     sendChangeMessage();
@@ -695,8 +701,19 @@ bool BeatEqualizerAudioProcessor::canExportGlide() const
            && !detection.document.events().empty();
 }
 
-juce::String BeatEqualizerAudioProcessor::exportGlide(const juce::File& file)
+float BeatEqualizerAudioProcessor::getGlideStrength() const
 {
+    return juce::jlimit(0.0f,
+                        1.0f,
+                        glideStrengthParam != nullptr ? glideStrengthParam->load() : 1.0f);
+}
+
+juce::String BeatEqualizerAudioProcessor::renderGlide(GlideRun& run, bool previewOnly) const
+{
+    run.result = {};
+    run.rendered.setSize(0, 0);
+    run.sampleRate = 0.0;
+
     if (!filePlayer.hasMaterial())
         return "Load files before exporting";
 
@@ -709,6 +726,14 @@ juce::String BeatEqualizerAudioProcessor::exportGlide(const juce::File& file)
                                                          : currentSampleRate;
     if (channels <= 0 || sourceSamples <= 0 || rate <= 0.0)
         return "Loaded material is not exportable";
+
+    const int sourceStart = previewOnly
+                                ? juce::jlimit(0, sourceSamples - 1, detection.from)
+                                : 0;
+    const int requestedSamples = previewOnly ? detection.length : sourceSamples;
+    const int sourceCount = juce::jlimit(0, sourceSamples - sourceStart, requestedSamples);
+    if (sourceCount <= 0)
+        return "Detect window is not exportable";
 
     const float samplesPerMs = static_cast<float>(rate) * 0.001f;
     std::vector<beat::exporter::ChannelSettings> settings;
@@ -745,18 +770,23 @@ juce::String BeatEqualizerAudioProcessor::exportGlide(const juce::File& file)
     std::vector<beat::GlideRenderer::EventDelay> events;
     events.reserve(detection.document.events().size());
 
+    const double firstSample = static_cast<double>(sourceStart);
+    const double lastSample = firstSample + static_cast<double>(sourceCount);
     for (const auto& event : detection.document.events())
     {
         if (!std::isfinite(event.timeSamples) || event.timeSamples < 0.0
             || event.timeSamples >= static_cast<double>(sourceSamples))
             continue;
 
+        if (event.timeSamples < firstSample || event.timeSamples >= lastSample)
+            continue;
+
         beat::GlideRenderer::EventDelay glide;
-        glide.timeSamples = event.timeSamples;
+        glide.timeSamples = event.timeSamples - firstSample;
         glide.referenceChannel = juce::jlimit(0, channels - 1, event.referenceChannel);
 
         const auto zone = beat::doc::protectedZone(event, rate);
-        glide.protectUntilSamples = zone.empty() ? event.timeSamples : zone.end;
+        glide.protectUntilSamples = zone.empty() ? glide.timeSamples : zone.end - firstSample;
 
         bool anyDelay = false;
         for (int ch = 0; ch < channels; ++ch)
@@ -779,33 +809,42 @@ juce::String BeatEqualizerAudioProcessor::exportGlide(const juce::File& file)
     if (events.empty())
         return "Detect found no per-hit delays to export";
 
-    const int tail = static_cast<int>(std::ceil(maxDelay)) + beat::kInterpolatorLatencySamples;
-    const int renderSamples = sourceSamples + tail;
+    const float strength = getGlideStrength();
+    const int tail = strength > 0.0f
+                         ? static_cast<int>(std::ceil(maxDelay * strength))
+                               + beat::kInterpolatorLatencySamples
+                         : 0;
+    const int renderSamples = sourceCount + tail;
 
     juce::AudioBuffer<float> padded(channels, renderSamples);
-    copyIntoPadded(filePlayer.getBuffer(), channels, sourceSamples, padded);
+    copyIntoPadded(filePlayer.getBuffer(), channels, sourceStart, sourceCount, padded);
 
-    juce::AudioBuffer<float> rendered(channels, renderSamples);
-    rendered.clear();
+    run.rendered.setSize(channels, renderSamples);
+    run.rendered.clear();
 
     std::vector<const float*> input(static_cast<size_t>(channels));
     std::vector<float*> output(static_cast<size_t>(channels));
     for (int ch = 0; ch < channels; ++ch)
     {
         input[static_cast<size_t>(ch)] = padded.getReadPointer(ch);
-        output[static_cast<size_t>(ch)] = rendered.getWritePointer(ch);
+        output[static_cast<size_t>(ch)] = run.rendered.getWritePointer(ch);
     }
 
     beat::GlideRenderer::Options options;
     options.sampleRate = rate;
     options.numChannels = channels;
     options.numSamples = renderSamples;
+    options.strength = strength;
     for (int ch = 0; ch < channels; ++ch)
         options.baseDelaySamples[static_cast<size_t>(ch)] =
             settings[static_cast<size_t>(ch)].delaySamples;
 
     beat::GlideRenderer renderer;
-    const auto result = renderer.render(input.data(), output.data(), options, events);
+    run.result = renderer.render(input.data(), output.data(), options, events);
+    run.sampleRate = rate;
+
+    if (previewOnly)
+        return {};
 
     beat::AllpassRotator exportRotator;
     exportRotator.prepare(rate, channels);
@@ -819,7 +858,7 @@ juce::String BeatEqualizerAudioProcessor::exportGlide(const juce::File& file)
     for (int ch = 0; ch < channels; ++ch)
     {
         const auto& channelSettings = settings[static_cast<size_t>(ch)];
-        float* samples = rendered.getWritePointer(ch);
+        float* samples = run.rendered.getWritePointer(ch);
         for (int i = 0; i < renderSamples; ++i)
         {
             const float x = channelSettings.invert ? -samples[i] : samples[i];
@@ -827,9 +866,13 @@ juce::String BeatEqualizerAudioProcessor::exportGlide(const juce::File& file)
         }
     }
 
-    if (!beat::exporter::writeWav(file, rendered, rate))
-        return "Could not write " + file.getFileName();
+    return {};
+}
 
+juce::String BeatEqualizerAudioProcessor::formatGlideStatus(
+    const juce::String& action,
+    const beat::GlideRenderer::Result& result) const
+{
     double before = 0.0;
     double after = 0.0;
     int measured = 0;
@@ -843,18 +886,48 @@ juce::String BeatEqualizerAudioProcessor::exportGlide(const juce::File& file)
         ++measured;
     }
 
-    glideStatus = "Glide exported " + file.getFileName() + ": "
-                  + juce::String(result.eventsMeasured) + " hits";
+    juce::String status = action + " @ " + percent(getGlideStrength()) + ": "
+                          + juce::String(result.eventsMeasured) + " hits";
     if (measured > 0)
     {
         const float beforeMean = static_cast<float>(before / static_cast<double>(measured));
         const float afterMean = static_cast<float>(after / static_cast<double>(measured));
-        glideStatus += ", event coherence " + percent(beforeMean) + " -> "
-                       + percent(afterMean);
+        status += ", event coherence " + percent(beforeMean) + " -> " + percent(afterMean);
     }
     if (result.limitedEvents > 0)
-        glideStatus += ", " + juce::String(result.limitedEvents) + " limited";
+        status += ", " + juce::String(result.limitedEvents) + " limited";
 
+    return status;
+}
+
+juce::String BeatEqualizerAudioProcessor::refreshGlidePreview()
+{
+    return refreshGlidePreview(true);
+}
+
+juce::String BeatEqualizerAudioProcessor::refreshGlidePreview(bool notify)
+{
+    GlideRun run;
+    const auto error = renderGlide(run, true);
+    glideStatus = error.isEmpty() ? formatGlideStatus("Glide preview", run.result) : error;
+
+    if (notify)
+        sendChangeMessage();
+
+    return error;
+}
+
+juce::String BeatEqualizerAudioProcessor::exportGlide(const juce::File& file)
+{
+    GlideRun run;
+    const auto error = renderGlide(run, false);
+    if (error.isNotEmpty())
+        return error;
+
+    if (!beat::exporter::writeWav(file, run.rendered, run.sampleRate))
+        return "Could not write " + file.getFileName();
+
+    glideStatus = formatGlideStatus("Glide exported " + file.getFileName(), run.result);
     sendChangeMessage();
     return {};
 }

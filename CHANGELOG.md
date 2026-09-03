@@ -12,6 +12,10 @@
   материале: старое поле задержек после перезагрузки файлов не экспортируется.
 - **Статус glide export** после записи WAV показывает число событий, среднюю
   event coherence до/после и число событий, где renderer упёрся в slew-limit.
+- **Glide preview до экспорта**: после свежего Detect Standalone показывает
+  event coherence для текущего strength без записи WAV.
+- **`Glide Strength`** в Standalone регулирует силу по-событийной задержки от
+  0 % до 100 % и сохраняется как `global.glideStrength`.
 
 ### Changed
 

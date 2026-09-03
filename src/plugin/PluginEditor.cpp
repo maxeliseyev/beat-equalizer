@@ -192,6 +192,27 @@ BeatEqualizerAudioProcessorEditor::BeatEqualizerAudioProcessorEditor(BeatEqualiz
     addChildComponent(detectStatus);
     detectStatus.setVisible(standalone);
 
+    glideStrengthLabel.setText("Glide", juce::dontSendNotification);
+    glideStrengthLabel.setFont(juce::FontOptions(13.0f));
+    addChildComponent(glideStrengthLabel);
+    glideStrengthLabel.setVisible(standalone);
+
+    glideStrengthSlider.setSliderStyle(juce::Slider::LinearHorizontal);
+    glideStrengthSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 58, 22);
+    glideStrengthSlider.onValueChange = [this]
+    {
+        if (standalone && audioProcessor.canExportGlide()
+            && !glideStrengthSlider.isMouseButtonDown())
+            audioProcessor.refreshGlidePreview();
+    };
+    glideStrengthSlider.onDragEnd = [this]
+    {
+        if (standalone && audioProcessor.canExportGlide())
+            audioProcessor.refreshGlidePreview();
+    };
+    addChildComponent(glideStrengthSlider);
+    glideStrengthSlider.setVisible(standalone);
+
     benchLabel.setJustificationType(juce::Justification::centredLeft);
     benchLabel.setFont(juce::FontOptions(13.0f));
     benchLabel.setText("No files loaded", juce::dontSendNotification);
@@ -349,6 +370,11 @@ BeatEqualizerAudioProcessorEditor::BeatEqualizerAudioProcessorEditor(BeatEqualiz
         state, "global.tempoBpm", tempoSlider);
     gridAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
         state, "global.gridDivision", gridBox);
+    glideStrengthAttachment =
+        std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
+            state,
+            "global.glideStrength",
+            glideStrengthSlider);
     scopeTimeParam = state.getRawParameterValue("global.scopeTimeMs");
 
     audioProcessor.addChangeListener(this);
@@ -388,6 +414,7 @@ void BeatEqualizerAudioProcessorEditor::paint(juce::Graphics& g)
     benchLabel.setColour(juce::Label::textColourId, juce::Colour(0xff8b919c));
     positionLabel.setColour(juce::Label::textColourId, juce::Colour(0xffc5cad3));
     deviceLabel.setColour(juce::Label::textColourId, juce::Colour(0xff8b919c));
+    glideStrengthLabel.setColour(juce::Label::textColourId, juce::Colours::white);
     coherenceLabel.setColour(juce::Label::textColourId, juce::Colour(0xff7ddc9a));
     referenceLabel.setColour(juce::Label::textColourId, juce::Colours::white);
     distanceLabel.setColour(juce::Label::textColourId, juce::Colours::white);
@@ -436,6 +463,12 @@ void BeatEqualizerAudioProcessorEditor::resized()
     analysisRow.removeFromLeft(12);
     freezeButton.setBounds(analysisRow.removeFromLeft(90));
     analysisRow.removeFromLeft(12);
+    if (standalone)
+    {
+        glideStrengthLabel.setBounds(analysisRow.removeFromLeft(42));
+        glideStrengthSlider.setBounds(analysisRow.removeFromLeft(150));
+        analysisRow.removeFromLeft(12);
+    }
     coherenceLabel.setBounds(analysisRow.removeFromRight(240));
     if (standalone)
         detectStatus.setBounds(analysisRow.removeFromRight(300));
@@ -647,12 +680,23 @@ void BeatEqualizerAudioProcessorEditor::updateBench()
         benchLoaded = loaded;
         benchLabel.setText(loaded ? player.getDescription() : "No files loaded",
                            juce::dontSendNotification);
+        lastGlideStatus = audioProcessor.getGlideStatus();
         updateChannelNames();
         setMonitorColumns(loaded);
 
         // Полоса обзора и время не ждут следующего тика таймера: после Load
         // они должны показывать материал сразу.
         updateTransportRow();
+    }
+
+    if (loaded)
+    {
+        const auto status = audioProcessor.getGlideStatus();
+        if (status.isNotEmpty() && status != lastGlideStatus)
+        {
+            lastGlideStatus = status;
+            benchLabel.setText(status, juce::dontSendNotification);
+        }
     }
 
     syncChannelCount();
