@@ -4,7 +4,7 @@ Updated: 2026-09-03
 Stage: 2 (редактор в standalone)
 Plan step: этап 2, шаг 6 — `GlideRenderer` в standalone export
 Branch: `feat/glide-export`
-PR: none
+PR: https://github.com/maxeliseyev/beat-equalizer/pull/35
 Blockers: none
 
 ## Done
@@ -22,6 +22,7 @@ Blockers: none
 - `Export static...` оставлен на старом статическом пути.
 - `Export glide...` требует свежий Detect и пишет WAV через `GlideRenderer`;
   после экспорта статус показывает hits, event coherence до/после и limited.
+- Ветка запушена, открыт draft PR #35.
 - `make test` зелёный; `make test-gui` зелёный. Без `BEAT_REAL_KIT_DIR`
   реальные тесты пропущены.
 
