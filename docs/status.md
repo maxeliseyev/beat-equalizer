@@ -4,7 +4,7 @@ Updated: 2026-09-03
 Stage: 2 (редактор в standalone)
 Plan step: этап 2, шаг 5 — `beat_doc` в плагине
 Branch: `feat/doc-in-plugin`
-PR: —
+PR: https://github.com/maxeliseyev/beat-equalizer/pull/33
 Blockers: none
 
 ## Done
