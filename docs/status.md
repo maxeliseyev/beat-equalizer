@@ -4,7 +4,7 @@ Updated: 2026-09-03
 Stage: 2 (редактор в standalone)
 Plan step: этап 2, шаг 3 закрыт; параллельно — сборка и раздача под macOS
 Branch: `feat/macos-packaging`
-PR: —
+PR: https://github.com/maxeliseyev/beat-equalizer/pull/32
 Blockers: none
 
 ## Done
