@@ -41,7 +41,8 @@ diagnostics смешается с перестройкой всего экран
 
 ## Status
 
-status.md обновлён: да. Ветка: `feat/source-centric-ui`. PR: none.
+status.md обновлён: да. Ветка: `feat/source-centric-ui`.
+PR: #39 — https://github.com/maxeliseyev/beat-equalizer/pull/39.
 Проверено: `BEAT_REAL_KIT_DIR=/Users/maximeliseyev/Sound/YAN9 make test`,
 `make test-gui`, hidden YAN9 `[.real-kit-export]` и `[.real-kit-source]`.
 
