@@ -35,6 +35,7 @@ juce_add_plugin(BeatEqualizer
 target_sources(BeatEqualizer
     PRIVATE
         AnalysisWorker.cpp
+        DetectWorker.cpp
         ChannelRow.cpp
         Correlometer.cpp
         Exporter.cpp
@@ -54,7 +55,7 @@ target_compile_definitions(BeatEqualizer
 
 target_link_libraries(BeatEqualizer
     PRIVATE
-        beat_dsp
+        beat_doc
         juce::juce_audio_formats
         juce::juce_audio_utils
         juce::juce_dsp
