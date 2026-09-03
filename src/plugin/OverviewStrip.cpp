@@ -82,7 +82,7 @@ void OverviewStrip::seekFromMouse(const juce::MouseEvent& event)
     if (bounds.getWidth() <= 1 || !onSeek)
         return;
 
-    const double x = static_cast<double>(event.position.x - bounds.getX());
+    const double x = static_cast<double>(event.position.x) - static_cast<double>(bounds.getX());
     onSeek(juce::jlimit(0.0, 1.0, x / static_cast<double>(bounds.getWidth() - 1)));
 }
 

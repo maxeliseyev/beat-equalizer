@@ -3,6 +3,28 @@
 Формат: [Keep a Changelog](https://keepachangelog.com/). Версия — semver
 `major.minor.patch`. Источник правды: файл `VERSION`. Как бампать: `docs/versioning.md`.
 
+## 0.19.0 — 2026-09-03
+
+### Added
+
+- **`GlideRenderer` в `beat_dsp`** — offline renderer по-событийной задержки.
+  События задают целевую applied delay по каналам, renderer держит задержку
+  неизменной в защищённой атаке и двигает её между событиями с лимитом
+  `kGlideMaxSlew` из `timing-design-recommendations.md`.
+- **Метрика на событие для glide**: фактическая задержка в момент удара, флаг
+  «не успели дойти до цели» и когерентность пары до/после предполагаемого
+  выравнивания.
+
+### Changed
+
+- `FractionalDelay` получил явный `processSampleAtDelay`: offline renderer
+  может задавать задержку на каждый сэмпл без realtime smoothing.
+
+### Fixed
+
+- Убран warning `int -> float` в `OverviewStrip::seekFromMouse`, найденный
+  локальным `make test-gui` после merge #33.
+
 ## 0.18.0 — 2026-09-03
 
 ### Added

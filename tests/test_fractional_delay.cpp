@@ -106,6 +106,24 @@ TEST_CASE("zero applied delay still pays interpolator latency")
     REQUIRE_THAT(peakIndex(out), WithinAbs(static_cast<float>(beat::kInterpolatorLatencySamples), 0.15f));
 }
 
+TEST_CASE("explicit sample delay bypasses realtime smoothing")
+{
+    beat::FractionalDelay delay;
+    delay.prepare(48000.0, 1);
+    delay.setAppliedDelaySamples(0, 0.0f);
+    delay.snapToTargets();
+
+    std::vector<float> out(64, 0.0f);
+    for (int i = 0; i < static_cast<int>(out.size()); ++i)
+    {
+        const float x = (i == 0) ? 1.0f : 0.0f;
+        out[static_cast<size_t>(i)] = delay.processSampleAtDelay(0, x, 8.0f);
+    }
+
+    const float expected = 8.0f + static_cast<float>(beat::kInterpolatorLatencySamples);
+    REQUIRE_THAT(peakIndex(out), WithinAbs(expected, 0.15f));
+}
+
 TEST_CASE("dry path delayed by reported latency matches wet max-applied channel")
 {
     constexpr float applied = 11.3f;

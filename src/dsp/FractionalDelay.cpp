@@ -81,6 +81,20 @@ float FractionalDelay::processSample(int channel, float input)
     return output;
 }
 
+float FractionalDelay::processSampleAtDelay(int channel, float input, float delaySamples)
+{
+    if (channel < 0 || channel >= numChannels || bufferLength <= 0)
+        return input;
+
+    const auto ch = static_cast<size_t>(channel);
+    const float maxApplied = static_cast<float>(bufferLength - kInterpolatorLatencySamples - 4);
+    const float clamped = std::clamp(delaySamples, 0.0f, maxApplied);
+    targetDelay[ch] = clamped;
+    currentDelay[ch] = clamped;
+
+    return processSample(channel, input);
+}
+
 float FractionalDelay::readLagrange(int channel, float delaySamples) const
 {
     const auto ch = static_cast<size_t>(channel);
