@@ -45,12 +45,12 @@ parameters; параметр добавлен после существующи�
 ## Status
 
 status.md обновлён: да. Ветка: `feat/basic-advanced-ui`.
+PR: #40 — https://github.com/maxeliseyev/beat-equalizer/pull/40.
 Проверено: `make test`, `make test-gui`, `git diff --check`.
 
 ## Next
 
-Открыть draft PR в `main`; после merge продолжить PR 41 — mode-aware таблица
-каналов.
+После merge PR #40 продолжить PR 41 — mode-aware таблица каналов.
 
 ## Open
 
