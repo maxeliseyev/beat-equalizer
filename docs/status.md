@@ -4,7 +4,7 @@ Updated: 2026-09-03
 Stage: 2 (редактор в standalone)
 Plan step: этап 2, шаг 6 — real-kit прогон `GlideRenderer` в standalone export
 Branch: `test/real-kit-glide-export`
-PR: none
+PR: #36 — https://github.com/maxeliseyev/beat-equalizer/pull/36
 Blockers: none
 
 ## Done
