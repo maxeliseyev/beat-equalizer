@@ -53,6 +53,9 @@ BeatEqualizerAudioProcessor::BeatEqualizerAudioProcessor()
 
         return analysisRing.readLast(dest, channels, count);
     };
+
+    detectWorker.currentGeneration = [this] { return filePlayer.getGeneration(); };
+    detectWorker.onResult = [this] { applyDetection(detectWorker.result()); };
 }
 
 juce::AudioProcessor::BusesProperties BeatEqualizerAudioProcessor::createBusesProperties()
@@ -460,6 +463,95 @@ void BeatEqualizerAudioProcessor::requestAnalyze()
         analysisStatus = "Analyzing...";
         sendChangeMessage();
     }
+}
+
+void BeatEqualizerAudioProcessor::requestDetect()
+{
+    if (!filePlayer.hasMaterial())
+    {
+        detectStatus = "Detect works on bench material - load files first";
+        sendChangeMessage();
+        return;
+    }
+
+    const double rate = filePlayer.getSampleRate() > 0.0 ? filePlayer.getSampleRate()
+                                                         : currentSampleRate;
+    const int span = juce::jmin(filePlayer.numSamples(),
+                                juce::roundToInt(beat::kDetectSeconds * rate));
+
+    // Окно кончается на позиции воспроизведения: смотрят обычно то, что только
+    // что услышали.
+    const int end = juce::jlimit(span, filePlayer.numSamples(),
+                                 juce::jmax(span, filePlayer.getPosition()));
+
+    DetectWorker::Request request;
+    request.clip = &filePlayer.getBuffer();
+    request.generation = filePlayer.getGeneration();
+    request.sampleRate = rate;
+    request.reference = getReferenceChannelIndex();
+    request.from = end - span;
+    request.length = span;
+
+    if (detectWorker.request(request))
+    {
+        detectStatus = "Detecting...";
+        sendChangeMessage();
+    }
+}
+
+void BeatEqualizerAudioProcessor::applyDetection(DetectWorker::Result result)
+{
+    detection = std::move(result);
+
+    if (!detection.valid)
+    {
+        detectStatus = "Detect found nothing to measure";
+    }
+    else
+    {
+        // Строка отчёта короткая, но каждое число в ней отвечает на свой
+        // вопрос: сколько ударов нашли, в скольких микрофонах их подтвердили и
+        // сколько задержек калибровка согласилась знать.
+        detectStatus = juce::String(detection.document.events().size()) + " hits, "
+                       + juce::String(detection.match.observations) + " obs, "
+                       + juce::String(detection.calibration.known) + " delays";
+    }
+
+    sendChangeMessage();
+}
+
+BeatEqualizerAudioProcessor::DelaySpread
+BeatEqualizerAudioProcessor::getDelaySpread(int channel) const
+{
+    DelaySpread spread;
+
+    if (!detection.valid || channel < 0 || channel >= beat::kMaxChannels)
+        return spread;
+
+    std::vector<double> delays;
+    delays.reserve(detection.document.events().size());
+    for (const auto& event : detection.document.events())
+        if (event.channels[static_cast<size_t>(channel)].present
+            && detection.document.delays().has(event.id, channel))
+            delays.push_back(detection.document.delays().raw(event.id, channel));
+
+    if (delays.empty())
+        return spread;
+
+    std::sort(delays.begin(), delays.end());
+    spread.medianSamples = delays[delays.size() / 2];
+
+    // Разброс — медиана отклонений: по нему и видно, отличается ли по-ударная
+    // задержка от статической или это одно и то же число с шумом.
+    std::vector<double> deviations;
+    deviations.reserve(delays.size());
+    for (double value : delays)
+        deviations.push_back(std::abs(value - spread.medianSamples));
+
+    std::sort(deviations.begin(), deviations.end());
+    spread.spreadSamples = deviations[deviations.size() / 2];
+    spread.observations = static_cast<int>(delays.size());
+    return spread;
 }
 
 void BeatEqualizerAudioProcessor::applyAnalysisResult(const beat::AlignmentEngine::Result& result)
