@@ -18,6 +18,7 @@ ChannelColumns ChannelColumns::from(juce::Rectangle<int> row, bool withMonitor)
     columns.polarity = row.removeFromLeft(ChannelRow::kPolarityWidth);
     columns.corr = row.removeFromLeft(ChannelRow::kCorrWidth);
     columns.phase = row.removeFromLeft(ChannelRow::kPhaseWidth);
+    columns.perHit = row.removeFromLeft(ChannelRow::kPerHitWidth);
     // Осциллограмма забирает весь остаток: она одна тянется по ширине окна.
     columns.scope = row;
     return columns;
@@ -84,6 +85,12 @@ ChannelRow::ChannelRow(juce::AudioProcessorValueTreeState& state, int channelInd
     phaseLabel.setJustificationType(juce::Justification::centredRight);
     phaseLabel.setFont(juce::FontOptions(12.0f));
     addAndMakeVisible(phaseLabel);
+
+    perHitLabel.setJustificationType(juce::Justification::centredRight);
+    perHitLabel.setFont(juce::FontOptions(12.0f));
+    perHitLabel.setText("-", juce::dontSendNotification);
+    perHitLabel.setColour(juce::Label::textColourId, juce::Colour(0xff6b7280));
+    addAndMakeVisible(perHitLabel);
     setPhaseMatch(0.0f, 0.0f, false);
 
     // Номер канала уже стоит в колонке Ch, второй раз внутри осциллограммы не нужен.
@@ -136,6 +143,7 @@ void ChannelRow::resized()
     polarityBox.setBounds(centred(columns.polarity, 2));
     corrLabel.setBounds(centred(columns.corr, 0));
     phaseLabel.setBounds(centred(columns.phase, 4));
+    perHitLabel.setBounds(centred(columns.perHit, 4));
     scope.setBounds(columns.scope);
 }
 
@@ -192,6 +200,28 @@ void ChannelRow::setPhaseMatch(float before, float after, bool measured)
                         : (delta < -0.02f) ? juce::Colour(0xffe06c75)
                                            : juce::Colour(0xffc5cad3);
     phaseLabel.setColour(juce::Label::textColourId, colour);
+}
+
+void ChannelRow::setPerHitDelay(double medianMs, double spreadMs, int observations)
+{
+    if (observations <= 0)
+    {
+        perHitLabel.setText("-", juce::dontSendNotification);
+        perHitLabel.setColour(juce::Label::textColourId, juce::Colour(0xff6b7280));
+        return;
+    }
+
+    perHitLabel.setText(juce::String(medianMs, 2) + " ±" + juce::String(spreadMs, 2),
+                        juce::dontSendNotification);
+
+    // Разброс в десятую миллиметра звука — задержка от удара к удару не
+    // гуляет, и статического выравнивания хватает. Крупный разброс значит либо
+    // что двигать надо по каждому удару, либо что сверка мерила разные удары;
+    // отличить одно от другого можно только глазами по маркерам.
+    const auto colour = (spreadMs < 0.10) ? juce::Colour(0xff7ddc9a)
+                        : (spreadMs < 0.50) ? juce::Colour(0xffc5cad3)
+                                            : juce::Colour(0xffe0a45d);
+    perHitLabel.setColour(juce::Label::textColourId, colour);
 }
 
 void ChannelRow::setChannelName(const juce::String& name)

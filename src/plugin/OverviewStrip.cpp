@@ -29,6 +29,22 @@ void OverviewStrip::setOverview(const float* newPeaks, int count)
     repaint();
 }
 
+void OverviewStrip::setMarkers(const float* positions, int count)
+{
+    if (positions == nullptr || count <= 0)
+    {
+        if (!markers.empty())
+        {
+            markers.clear();
+            repaint();
+        }
+        return;
+    }
+
+    markers.assign(positions, positions + count);
+    repaint();
+}
+
 void OverviewStrip::setPlayhead(double normalised)
 {
     const double clamped = juce::jlimit(0.0, 1.0, normalised);
@@ -160,6 +176,21 @@ void OverviewStrip::paint(juce::Graphics& g)
 
         const float height = std::max(1.0f, peak * scale);
         g.fillRect((float) (bounds.getX() + x), midY - height, 1.0f, 2.0f * height);
+    }
+
+    // Удары — короткими штрихами сверху: на полной партии их сотни, и во всю
+    // высоту они закрыли бы волну.
+    if (!markers.empty())
+    {
+        g.setColour(juce::Colour(0x99e8c547));
+        const float tickBottom = (float) bounds.getY() + (float) bounds.getHeight() * 0.28f;
+        for (float marker : markers)
+        {
+            const int x = bounds.getX()
+                          + juce::roundToInt(juce::jlimit(0.0f, 1.0f, marker)
+                                             * (float) (width - 1));
+            g.drawVerticalLine(x, (float) bounds.getY() + 1.0f, tickBottom);
+        }
     }
 
     g.setColour(juce::Colour(0xffe8c547));

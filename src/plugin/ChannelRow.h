@@ -21,6 +21,7 @@ struct ChannelColumns
     juce::Rectangle<int> polarity;
     juce::Rectangle<int> corr;
     juce::Rectangle<int> phase;
+    juce::Rectangle<int> perHit;
     juce::Rectangle<int> scope;
 
     // Монитор-микс есть только у стенда: внутри хоста уровень и панорама ничего
@@ -47,9 +48,14 @@ public:
     static constexpr int kPolarityWidth = 74;
     static constexpr int kCorrWidth = 48;
     static constexpr int kPhaseWidth = 78;
+    // По-ударная задержка: медиана и разброс. Ради этой колонки и затевался
+    // Detect — по ней видно, отличается ли задержка от удара к удару или это
+    // одно и то же число, и статического выравнивания достаточно.
+    static constexpr int kPerHitWidth = 92;
     static constexpr int kControlsWidth = kEnableWidth + kSoloWidth + kMuteWidth + kNameWidth
                                           + kLevelWidth + kPanWidth + kDelayWidth + kRotatorWidth
-                                          + kPolarityWidth + kCorrWidth + kPhaseWidth;
+                                          + kPolarityWidth + kCorrWidth + kPhaseWidth
+                                          + kPerHitWidth;
     static constexpr int kMinScopeWidth = 240;
 
     ChannelRow(juce::AudioProcessorValueTreeState& state, int channelIndex);
@@ -64,6 +70,9 @@ public:
     void setGrid(const beat::grid::Line* lines, int count);
     // Когерентность пары «канал + опора» из последнего Analyze, до и после.
     void setPhaseMatch(float before, float after, bool measured);
+    // Задержка канала по найденным ударам: медиана и разброс в миллисекундах.
+    // observations = 0 — Detect не видел этот канал, в колонке прочерк.
+    void setPerHitDelay(double medianMs, double spreadMs, int observations);
     // Пусто — в строке остаётся один номер: в хосте имён дорожек нет.
     void setChannelName(const juce::String& name);
     // Уровень и панорама показываются только когда в стенде есть материал.
@@ -72,6 +81,8 @@ public:
     juce::Rectangle<int> getScopeBounds() const { return scope.getBounds(); }
     juce::String getLabelText() const { return nameLabel.getText(); }
     juce::String getPhaseText() const { return phaseLabel.getText(); }
+    juce::String getPerHitText() const { return perHitLabel.getText(); }
+    ScopeStrip& getScope() { return scope; }
 
 private:
     int index = 0;
@@ -89,6 +100,7 @@ private:
     juce::ComboBox polarityBox;
     juce::Label corrLabel;
     juce::Label phaseLabel;
+    juce::Label perHitLabel;
     ScopeStrip scope;
 
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> enabledAttachment;
