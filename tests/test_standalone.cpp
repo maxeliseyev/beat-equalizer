@@ -903,8 +903,8 @@ TEST_CASE("the bench row only exists in Standalone")
             if (button->isVisible())
                 ++visibleButtons;
 
-    // Analyze плюс пять кнопок стенда: Load, |<, Play, Export, Audio.
-    REQUIRE(visibleButtons == 6);
+    // Analyze плюс шесть кнопок стенда: Load, |<, Play, Detect, Export, Audio.
+    REQUIRE(visibleButtons == 7);
 
     input.deleteFile();
 }
