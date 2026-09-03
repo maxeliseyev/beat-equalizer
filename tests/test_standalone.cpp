@@ -1079,6 +1079,48 @@ TEST_CASE("bench rows follow the loaded files, not the audio device")
     file.deleteFile();
 }
 
+TEST_CASE("the editor defaults to Basic and expands Advanced blocks on demand")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+
+    juce::AudioProcessor::setTypeOfNextNewPlugin(juce::AudioProcessor::wrapperType_Standalone);
+    BeatEqualizerAudioProcessor processor;
+    juce::AudioProcessor::setTypeOfNextNewPlugin(juce::AudioProcessor::wrapperType_Undefined);
+    processor.enableAllBuses();
+    processor.prepareToPlay(kSampleRate, 128);
+
+    auto* mode = processor.getParameters().getParameter("global.uiMode");
+    auto* rawMode = processor.getParameters().getRawParameterValue("global.uiMode");
+    REQUIRE(mode != nullptr);
+    REQUIRE(rawMode != nullptr);
+    REQUIRE(rawMode->load() < 0.5f);
+
+    std::unique_ptr<juce::AudioProcessorEditor> editor(processor.createEditor());
+    auto* scoped = dynamic_cast<BeatEqualizerAudioProcessorEditor*>(editor.get());
+    REQUIRE(scoped != nullptr);
+
+    const int basicChrome = scoped->chromeHeight();
+    CHECK(scoped->getUiMode() == BeatEqualizerAudioProcessorEditor::UiMode::basic);
+    CHECK_FALSE(scoped->isSourceStatusVisible());
+    CHECK_FALSE(scoped->isGlideStrengthVisible());
+    CHECK_FALSE(scoped->isAdvancedChromeVisible());
+    CHECK_FALSE(scoped->isScopeGridVisible());
+    CHECK_FALSE(scoped->isDistanceControlVisible());
+
+    mode->setValueNotifyingHost(mode->convertTo0to1(1.0f));
+    scoped->refreshUiMode();
+
+    CHECK(scoped->getUiMode() == BeatEqualizerAudioProcessorEditor::UiMode::advanced);
+    CHECK(scoped->isSourceStatusVisible());
+    CHECK(scoped->isGlideStrengthVisible());
+    CHECK(scoped->isAdvancedChromeVisible());
+    CHECK(scoped->isScopeGridVisible());
+    CHECK(scoped->isDistanceControlVisible());
+    CHECK(scoped->chromeHeight() > basicChrome);
+    CHECK(editor->getHeight() == scoped->chromeHeight()
+                                     + scoped->activeChannelCount() * ChannelRow::kHeight);
+}
+
 TEST_CASE("the transport shows the whole take with the playhead on it")
 {
     juce::ScopedJuceInitialiser_GUI gui;
@@ -1206,9 +1248,9 @@ TEST_CASE("the bench row only exists in Standalone")
             if (button->isVisible())
                 ++visibleButtons;
 
-    // Analyze плюс семь кнопок стенда: Load, |<, Play, Detect,
-    // static/glide Export, Audio.
-    REQUIRE(visibleButtons == 8);
+    // Basic/Advanced toggle, Analyze плюс семь кнопок стенда: Load, |<, Play,
+    // Detect, static/glide Export, Audio.
+    REQUIRE(visibleButtons == 10);
 
     input.deleteFile();
 }

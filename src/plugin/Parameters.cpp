@@ -173,6 +173,12 @@ juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout()
             kDefaultRotatorHz));
     }
 
+    params.push_back(std::make_unique<juce::AudioParameterChoice>(
+        juce::ParameterID { "global.uiMode", 1 },
+        "UI Mode",
+        juce::StringArray { "Basic", "Advanced" },
+        0));
+
     return { params.begin(), params.end() };
 }
 

@@ -2,9 +2,9 @@
 
 Updated: 2026-09-03
 Stage: 2 (редактор в standalone)
-Plan step: этап 2, шаг 6 — source-centric gate перед нарезкой
-Branch: `feat/source-centric-ui`
-PR: #39 — https://github.com/maxeliseyev/beat-equalizer/pull/39
+Plan step: этап 2, шаг 6 — Basic/Advanced foundation перед source-centric gate UI
+Branch: `feat/basic-advanced-ui`
+PR: none
 Blockers: none
 
 ## Done
@@ -18,33 +18,35 @@ Blockers: none
   gate перед нарезкой.
 - PR #38 смёржен в `main` squash-коммитом `4c5356f` 2026-09-03:
   matcher доверяет калиброванным priors и держит snare close-пару на протоколе.
+- PR #39 смёржен в `main` squash-коммитом `ad45b3b` 2026-09-03:
+  Standalone показывает compact source-centric status, а `d/hit ms` после
+  Detect берёт source-owned задержки.
 
 ## Now
 
-- `SourceDiagnostic` вынесен в `beat_doc`: source-owned raw/MAD, residual к
-  калибровке, full-align offset, natural offset, close/late каналы.
-- `DetectWorker` публикует source-centric сводку, `BeatEqualizerAudioProcessor`
-  форматирует компактный status `src / close / late / bleed`.
-- Standalone показывает source status под Analyze/Detect; `d/hit ms` после
-  свежего Detect показывает source-owned задержки, а не общую смесь событий
-  канала.
-- Basic/Advanced UI зафиксирован ADR `decisions/basic-advanced-ui-modes.md`.
-- Проверено: `BEAT_REAL_KIT_DIR=/Users/maximeliseyev/Sound/YAN9 make test`,
-  `make test-gui`, hidden YAN9 `[.real-kit-export]` и `[.real-kit-source]`.
+- Basic/Advanced rollout фиксируется в продуктовых документах как серия PR:
+  каркас режима, таблица каналов, Basic outcome/status, Advanced diagnostics v2.
+- Первый PR этой серии реализован на ветке: добавлен `global.uiMode`, header
+  toggle и видимость существующих top-level advanced-блоков.
+- Basic выбран по умолчанию и скрывает `max distance`/`freeze`, `glide strength`,
+  source status, correlometer и grid/time/tempo controls. Advanced возвращает
+  текущий инженерный экран.
+- DSP, glide, source matching и export не менялись.
+- Версия поднята до `0.22.0`; changelog обновлён.
+- Проверено: `make test`, `make test-gui`, `git diff --check`.
 
 ## Next
 
-Открыть PR. После merge сделать реальный Basic/Advanced toggle и разложить
-существующие контролы по visible-блокам.
+Открыть draft PR в `main`; после merge продолжить PR 41 — mode-aware таблица
+каналов.
 
 ## Resume
 
-1. `git fetch && git checkout feat/source-centric-ui && git pull`
-2. `BEAT_REAL_KIT_DIR=/Users/maximeliseyev/Sound/YAN9 make test && make test-gui`
-3. `BEAT_REAL_KIT_DIR=/Users/maximeliseyev/Sound/YAN9 build/release/tests/beat_gui_tests "[.real-kit-export]" -s`
-4. `BEAT_REAL_KIT_DIR=/Users/maximeliseyev/Sound/YAN9 build/release/tests/beat_tests "[.real-kit-source]" -s`
-5. Читать `docs/sessions/2026-09-03-source-centric-ui.md`; открыть PR или
-   продолжить с Basic/Advanced toggle после merge.
+1. `git fetch && git checkout feat/basic-advanced-ui && git pull`
+2. Читать `docs/sessions/2026-09-03-basic-advanced-ui.md`
+3. `make test`
+4. `make test-gui`
+5. Открыть или проверить draft PR в `main`.
 
 ## Open
 
@@ -52,7 +54,8 @@ Blockers: none
 - Ownership/классификация источника всё ещё грубая: trusted prior держит
   геометрию известных пар, но не доказывает, что каждый snare-owned marker
   действительно снейр.
-- Basic/Advanced пока ADR, не переключатель в UI.
+- Basic/Advanced имеет первый пользовательский переключатель, но таблица
+  каналов пока остаётся Advanced-таблицей даже в Basic.
 - Ролей каналов в UI нет, поэтому compact status пишет `late Ch`, а не
   `room/OH return`.
 - Реальный кит один; пороги не подгонять под него.
