@@ -10,6 +10,7 @@
 #include "dsp/AllpassRotator.h"
 #include "dsp/AnalysisRing.h"
 #include "dsp/FractionalDelay.h"
+#include "dsp/GlideRenderer.h"
 #include "dsp/Grid.h"
 
 #include <array>
@@ -99,6 +100,10 @@ public:
     // иначе он играет с чужой скоростью. true — перезагрузили.
     bool reloadBenchForSampleRate();
     juce::String exportAligned(const juce::File& file);
+    bool canExportGlide() const;
+    juce::String refreshGlidePreview();
+    juce::String exportGlide(const juce::File& file);
+    juce::String getGlideStatus() const { return glideStatus; }
     // Публично, потому что путь «результат -> параметры» проверяется тестом
     // без message loop; worker зовёт то же самое из handleAsyncUpdate.
     void applyAnalysisResult(const beat::AlignmentEngine::Result& result);
@@ -123,12 +128,24 @@ private:
         std::atomic<float>* levelDb = nullptr;
     };
 
+    struct GlideRun
+    {
+        beat::GlideRenderer::Result result;
+        juce::AudioBuffer<float> rendered;
+        double sampleRate = 0.0;
+    };
+
     static BusesProperties createBusesProperties();
 
     void updateTransport(int numSamples);
     void handleAsyncUpdate() override;
 
     void setParameterValue(const juce::String& parameterId, float value);
+    float getGlideStrength() const;
+    juce::String renderGlide(GlideRun& run, bool previewOnly) const;
+    juce::String formatGlideStatus(const juce::String& action,
+                                   const beat::GlideRenderer::Result& result) const;
+    juce::String refreshGlidePreview(bool notify);
 
     juce::AudioProcessorValueTreeState parameters;
     beat::AlignmentSnapshot snapshot;
@@ -148,6 +165,7 @@ private:
     std::atomic<float>* tempoSourceParam = nullptr;
     std::atomic<float>* tempoBpmParam = nullptr;
     std::atomic<float>* gridDivisionParam = nullptr;
+    std::atomic<float>* glideStrengthParam = nullptr;
     std::atomic<double> hostBpm { 0.0 };
     std::atomic<double> quartersAtWrite { 0.0 };
     std::atomic<int> hostNumerator { 4 };
@@ -160,6 +178,7 @@ private:
     DetectWorker detectWorker;
     DetectWorker::Result detection;
     juce::String detectStatus { "Load bench material, then Detect" };
+    juce::String glideStatus { "Run Detect, then Export glide" };
     juce::String analysisStatus { "Press Analyze after playing a few bars" };
     float coherenceBefore = 0.0f;
     float coherenceAfter = 0.0f;

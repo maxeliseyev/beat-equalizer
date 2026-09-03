@@ -2,6 +2,7 @@
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 
 #include "SyntheticKit.h"
+#include "doc/Event.h"
 #include "dsp/AlignmentEngine.h"
 #include "plugin/ChannelRow.h"
 #include "plugin/Exporter.h"
@@ -46,11 +47,40 @@ int peakIndex(const juce::AudioBuffer<float>& buffer, int channel)
     return best;
 }
 
+int peakIndex(const juce::AudioBuffer<float>& buffer, int channel, int from, int to)
+{
+    int best = from;
+    float peak = 0.0f;
+    for (int i = from; i < to && i < buffer.getNumSamples(); ++i)
+    {
+        const float value = std::abs(buffer.getSample(channel, i));
+        if (value > peak)
+        {
+            peak = value;
+            best = i;
+        }
+    }
+    return best;
+}
+
 juce::File writeTempWav(const juce::AudioBuffer<float>& buffer)
 {
     auto file = juce::File::createTempFile("wav");
     REQUIRE(beat::exporter::writeWav(file, buffer, kSampleRate));
     return file;
+}
+
+juce::AudioBuffer<float> readWav(const juce::File& file)
+{
+    juce::AudioFormatManager formats;
+    formats.registerBasicFormats();
+    std::unique_ptr<juce::AudioFormatReader> reader(formats.createReaderFor(file));
+    REQUIRE(reader != nullptr);
+
+    juce::AudioBuffer<float> rendered((int) reader->numChannels,
+                                      (int) reader->lengthInSamples);
+    reader->read(&rendered, 0, rendered.getNumSamples(), 0, true, true);
+    return rendered;
 }
 } // namespace
 
@@ -269,6 +299,94 @@ TEST_CASE("export writes the aligned kit as a readable wav")
     output.deleteFile();
 }
 
+TEST_CASE("glide export uses fresh per-hit delays and reports coherence")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+
+    juce::AudioBuffer<float> source(2, 16000);
+    source.clear();
+    source.setSample(0, 1000, 1.0f);
+    source.setSample(1, 1010, 1.0f);
+    source.setSample(0, 12000, 1.0f);
+    source.setSample(1, 12030, 1.0f);
+
+    const auto input = writeTempWav(source);
+
+    juce::AudioProcessor::setTypeOfNextNewPlugin(juce::AudioProcessor::wrapperType_Standalone);
+    BeatEqualizerAudioProcessor processor;
+    juce::AudioProcessor::setTypeOfNextNewPlugin(juce::AudioProcessor::wrapperType_Undefined);
+    processor.enableAllBuses();
+    processor.prepareToPlay(kSampleRate, 128);
+    REQUIRE(processor.getFilePlayer().load({ input }, kSampleRate).isEmpty());
+
+    const auto rejected = juce::File::createTempFile("wav");
+    REQUIRE(processor.exportGlide(rejected).isNotEmpty());
+    REQUIRE_FALSE(rejected.existsAsFile());
+
+    DetectWorker::Result detection;
+    detection.generation = processor.getFilePlayer().getGeneration();
+    detection.sampleRate = kSampleRate;
+    detection.from = 0;
+    detection.length = source.getNumSamples();
+    detection.valid = true;
+
+    const auto addEvent = [&detection](int referenceSample, int otherSample)
+    {
+        beat::doc::Event event;
+        event.referenceChannel = 0;
+        event.timeSamples = static_cast<double>(referenceSample);
+
+        auto& reference = event.channels[0];
+        reference.present = true;
+        reference.arrivalSamples = static_cast<double>(referenceSample);
+        reference.attackEndSamples = static_cast<double>(referenceSample + 8);
+
+        auto& other = event.channels[1];
+        other.present = true;
+        other.arrivalSamples = static_cast<double>(otherSample);
+        other.attackEndSamples = static_cast<double>(otherSample + 8);
+
+        const auto id = detection.document.addEvent(event);
+        detection.document.delays().setRaw(id, 0, 0.0);
+        detection.document.delays().setRaw(id, 1,
+                                           static_cast<double>(otherSample - referenceSample));
+    };
+
+    addEvent(1000, 1010);
+    addEvent(12000, 12030);
+    processor.applyDetection(std::move(detection));
+    REQUIRE(processor.canExportGlide());
+    CHECK(processor.getGlideStatus().contains("Glide preview @ 100%"));
+
+    auto* strength = processor.getParameters().getParameter("global.glideStrength");
+    REQUIRE(strength != nullptr);
+    strength->setValueNotifyingHost(strength->convertTo0to1(0.0f));
+    REQUIRE(processor.refreshGlidePreview().isEmpty());
+    CHECK(processor.getGlideStatus().contains("Glide preview @ 0%"));
+
+    const auto bypassed = juce::File::createTempFile("wav");
+    REQUIRE(processor.exportGlide(bypassed).isEmpty());
+    const auto dry = readWav(bypassed);
+    CHECK(peakIndex(dry, 0, 950, 1100) != peakIndex(dry, 1, 950, 1100));
+
+    strength->setValueNotifyingHost(strength->convertTo0to1(1.0f));
+    REQUIRE(processor.refreshGlidePreview().isEmpty());
+
+    const auto output = juce::File::createTempFile("wav");
+    REQUIRE(processor.exportGlide(output).isEmpty());
+    CHECK(processor.getGlideStatus().contains("Glide exported"));
+    CHECK(processor.getGlideStatus().contains("event coherence"));
+
+    const auto rendered = readWav(output);
+
+    CHECK(peakIndex(rendered, 0, 950, 1100) == peakIndex(rendered, 1, 950, 1100));
+    CHECK(peakIndex(rendered, 0, 11950, 12100) == peakIndex(rendered, 1, 11950, 12100));
+
+    input.deleteFile();
+    bypassed.deleteFile();
+    output.deleteFile();
+}
+
 TEST_CASE("export without material says so instead of writing an empty file")
 {
     juce::ScopedJuceInitialiser_GUI gui;
@@ -279,6 +397,7 @@ TEST_CASE("export without material says so instead of writing an empty file")
 
     const auto file = juce::File::createTempFile("wav");
     REQUIRE(processor.exportAligned(file).isNotEmpty());
+    REQUIRE(processor.exportGlide(file).isNotEmpty());
     REQUIRE_FALSE(file.existsAsFile());
 }
 
@@ -903,8 +1022,9 @@ TEST_CASE("the bench row only exists in Standalone")
             if (button->isVisible())
                 ++visibleButtons;
 
-    // Analyze плюс шесть кнопок стенда: Load, |<, Play, Detect, Export, Audio.
-    REQUIRE(visibleButtons == 7);
+    // Analyze плюс семь кнопок стенда: Load, |<, Play, Detect,
+    // static/glide Export, Audio.
+    REQUIRE(visibleButtons == 8);
 
     input.deleteFile();
 }

@@ -70,9 +70,12 @@ private:
     juce::TextButton loadButton { "Load files..." };
     juce::TextButton rewindButton { "|<" };
     juce::TextButton playButton { "Play" };
-    juce::TextButton exportButton { "Export aligned..." };
+    juce::TextButton exportButton { "Export static..." };
+    juce::TextButton glideExportButton { "Export glide..." };
     juce::TextButton audioButton { "Audio..." };
     juce::TextButton detectButton { "Detect" };
+    juce::Label glideStrengthLabel;
+    juce::Slider glideStrengthSlider;
     juce::Label benchLabel;
     OverviewStrip overview;
     juce::Label positionLabel;
@@ -152,7 +155,10 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> tempoSourceAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> tempoAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> gridAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>
+        glideStrengthAttachment;
     std::atomic<float>* scopeTimeParam = nullptr;
+    juce::String lastGlideStatus;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(BeatEqualizerAudioProcessorEditor)
 };

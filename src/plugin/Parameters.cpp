@@ -67,6 +67,15 @@ juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout()
         2));
 
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        juce::ParameterID { "global.glideStrength", 1 },
+        "Glide Strength",
+        juce::NormalisableRange<float>(0.0f, 1.0f, 0.001f),
+        1.0f,
+        juce::AudioParameterFloatAttributes().withStringFromValueFunction(
+            [](float value, int)
+            { return juce::String(juce::roundToInt(100.0f * value)) + " %"; })));
+
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
         juce::ParameterID { "global.scopeTimeMs", 1 },
         "Time",
         juce::NormalisableRange<float>(kMinScopeTimeMs, kMaxScopeTimeMs, 0.1f, 0.4f),
