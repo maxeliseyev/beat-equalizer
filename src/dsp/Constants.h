@@ -84,6 +84,25 @@ inline constexpr float kMatchMinAudibleDb = 6.0f;
 // Владелец удара: канал, где он и раньше, и энергичнее относительно своего же
 // среднего. Множитель — насколько энергичнее.
 inline constexpr float kMatchOwnerMargin = 2.0f;
+
+// Калибровка сессии — ступень 2 лестницы детекции. Внутри проекта установка,
+// микрофоны, комната и барабанщик постоянны, поэтому ошибки систематические:
+// первый проход собирает статистику записи, второй пользуется ею как
+// настройкой порогов (detector-design 2.2).
+//
+// В калибровку берутся не все удары, а отобранные: уверенные, одиночные и
+// те, где опорный канал громче остальных. На плотной игре огибающая не
+// успевает вернуться к полу, и приход измерить нечем — брать оттуда числа
+// значит калибровать по шуму.
+inline constexpr float kCalibrationMinConfidence = 0.8f;
+inline constexpr float kCalibrationIsolationMs = 120.0f;
+// Окно калибровки шире окна сверки: она и выясняет, где стоят микрофоны,
+// включая те, что дальше четырёх метров.
+inline constexpr float kCalibrationDistanceM = kMaxDistanceM;
+// Разброс, выше которого строка считается неизвестной. 0.25 мс — это 8.5 см:
+// геометрия, которую не удалось померить точнее, не геометрия, а догадка.
+inline constexpr float kCalibrationMaxSpreadMs = 0.25f;
+inline constexpr int kCalibrationMinHits = 8;
 inline constexpr float kMinScopeTimeMs = 10.0f;
 inline constexpr float kMaxScopeTimeMs = 2000.0f;
 inline constexpr float kDefaultScopeTimeMs = 40.0f;
