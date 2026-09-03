@@ -4,7 +4,7 @@ Updated: 2026-09-03
 Stage: 2 (редактор в standalone)
 Plan step: этап 2, шаг 6 — `GlideRenderer`
 Branch: `feat/glide-renderer`
-PR: none
+PR: https://github.com/maxeliseyev/beat-equalizer/pull/34
 Blockers: none
 
 ## Done
