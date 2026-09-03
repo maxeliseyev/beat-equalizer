@@ -2,59 +2,57 @@
 
 Updated: 2026-09-03
 Stage: 2 (редактор в standalone)
-Plan step: этап 2, шаг 6 — real-kit прогон `GlideRenderer` в standalone export
-Branch: `test/real-kit-glide-export`
-PR: #36 — https://github.com/maxeliseyev/beat-equalizer/pull/36
+Plan step: этап 2, шаг 6 — source-centric gate перед нарезкой
+Branch: `feat/source-centric-diagnostics`
+PR: none
 Blockers: none
 
 ## Done
 
-- Этап 1 закрыт: PR 1–8 плана, последний — прогон реального кита через стенд.
+- Этап 1 закрыт: статическое выравнивание слышно на реальном ките.
 - Этап 2, шаги 1–5 в `main`: `beat_doc`, детектор, сверка по микрофонам,
-  калибровка сессии, `beat_doc` в плагине.
-- PR #33 смёржен в `main` squash-коммитом `70dfb6a` 2026-09-03.
-- PR #34 смёржен в `main` squash-коммитом `04124f2` 2026-09-03.
+  калибровка сессии, события/маркеры в standalone.
 - PR #35 смёржен в `main` squash-коммитом `37aac89` 2026-09-03.
-- На `main`: `Export static...`, `Export glide...`, `Glide preview @ N%`,
-  `global.glideStrength`, `VERSION` 0.20.0.
+- PR #36 смёржен в `main` squash-коммитом `141c24b` 2026-09-03:
+  real-kit smoke показал static 79 % → 92 %, glide 50 % 83 % → 83 %,
+  glide 100 % 83 % → 82 %.
 
 ## Now
 
-- `BEAT_REAL_KIT_DIR=/Users/maximeliseyev/Sound/YAN9 make test` зелёный:
-  real-kit пакет прошёл за 24.39 с.
-- `make test-gui` зелёный: 366 assertions в 61 test case.
-- Скрытый export smoke `[.real-kit-export]` прогнал 10…30 с YAN9 через
-  Load → Analyze → Detect → static/glide export: 33 assertions.
-- Числа: Analyze 79 % → 92 %, Detect 59 hits / 218 obs / 4 delays,
-  Glide 50 % 83 % → 83 % (29 limited), Glide 100 % 83 % → 82 % (47 limited).
-- Временные WAV для прослушивания лежат в системном tmp:
-  `/var/folders/bz/n5yr1q2d45n7126lht5djp2c0000gn/T/beat_gui_tests/beat-equalizer-real-kit/yan9-static.wav`,
-  `yan9-glide-50.wav`, `yan9-glide-100.wav`.
+- На ветке добавлен скрытый real-kit diagnostic `[.real-kit-source]` для YAN9:
+  snare top как источник, snare bottom как close-пара, остальные каналы как
+  bleed-наблюдения.
+- Канон этапа 2 уточнён: gate перед нарезкой source-centric, а не средняя
+  когерентность всей суммы.
+- Диагностика YAN9 10…50 с: 124 hits, 87 snare-owned, 537 obs,
+  7 calibrated delays.
+- Текущая сверка груба для close-пары: snare bottom 0.776 мс вместо
+  протокольных 0.281 мс, MAD 0.540 мс.
+- Room: 16 obs, raw 15.608 мс; full align даёт offset 0.000 мс,
+  `return(room)=1` сохраняет 15.608 мс.
 
 ## Next
 
-Прослушать `yan9-static.wav`, `yan9-glide-50.wav`, `yan9-glide-100.wav`.
-Если числа подтвердятся на слух, до шага 7 разбирать per-channel strength и
-карту событий, а не переходить сразу к нарезке.
+Улучшить source-centric сверку снейра: close-pair residual должен вернуться к
+протоколу до решений о нарезке, кроссфейдах или WSOLA.
 
 ## Resume
 
-1. `git fetch && git checkout test/real-kit-glide-export && git pull`
-2. `BEAT_REAL_KIT_DIR=/Users/maximeliseyev/Sound/YAN9 make test && make test-gui`
-3. `BEAT_REAL_KIT_DIR=/Users/maximeliseyev/Sound/YAN9 build/release/tests/beat_gui_tests "[.real-kit-export]" -s`
-4. Читать `docs/sessions/2026-09-03-glide-renderer.md`; продолжить с ручного
-   прослушивания временных export WAV.
+1. `git fetch && git checkout feat/source-centric-diagnostics && git pull`
+2. `BEAT_REAL_KIT_DIR=/Users/maximeliseyev/Sound/YAN9 make test`
+3. `BEAT_REAL_KIT_DIR=/Users/maximeliseyev/Sound/YAN9 build/release/tests/beat_tests "[.real-kit-source]" -s`
+4. Читать `docs/real-kit-protocol.md` и
+   `docs/sessions/2026-09-03-glide-renderer.md`; продолжить с matcher-а.
 
 ## Open
 
+- Source-centric diagnostic пока скрытый тест, а не видимая таблица в UI.
 - Реальный кит один; пороги не подгонять под него.
 - `beat_doc` пока не сериализуется.
 - Матрицу профиля и просачивания всё ещё негде смотреть.
 - Strength glide общий на все каналы; per-channel strength для комнаты/оверхедов
   ещё нет.
-- Агент не может оценить слуховые артефакты; нужен ручной A/B.
 - Full-file glide export после 20-секундного Detect держит первую/последнюю
   цель за пределами окна Detect.
 - Мониторинг идёт только в выходы 1-2: кит на восемь выходов карты не разводится.
-- Возврат задержки комнаты описан моделью, но рендером не сделан.
 - Developer ID и нотаризация зависят от локальных сертификатов.
