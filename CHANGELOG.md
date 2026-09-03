@@ -3,6 +3,17 @@
 Формат: [Keep a Changelog](https://keepachangelog.com/). Версия — semver
 `major.minor.patch`. Источник правды: файл `VERSION`. Как бампать: `docs/versioning.md`.
 
+## 0.20.1 — 2026-09-03
+
+### Fixed
+
+- **Source-centric matching держится за калиброванные пары.** `MatchContext`
+  передаёт known/spread из `SessionProfile`, а `CrossMicMatcher` для trusted
+  prior сужает coarse search и принимает GCC residual только внутри малого
+  окна. На YAN9 snare bottom вернулся с 0.776 мс / MAD 0.540 мс к
+  протокольным 0.281 мс / MAD 0.000 мс, а room raw delay восстанавливается до
+  задержки помещения; `return(room)=1` сохраняет её вместо выравнивания в ноль.
+
 ## 0.20.0 — 2026-09-03
 
 ### Added

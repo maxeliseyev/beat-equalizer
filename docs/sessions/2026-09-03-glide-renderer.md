@@ -202,10 +202,11 @@ PR #36 смёржен. После обсуждения стало ясно, чт
 residual к протоколу, offset после полного выравнивания и offset при
 `return(room)=1`.
 
-Результат на 10…50 с: 124 hits, 87 snare-owned, 537 obs, 7 calibrated delays.
-Snare bottom сейчас даёт 0.776 мс вместо протокольных 0.281 мс, MAD 0.540 мс.
-Room виден в 16 событиях: full align сводит его в 0.000 мс, а
-`return(room)=1` сохраняет 15.608 мс.
+Результат PR #37 до правки matcher-а: 124 hits, 87 snare-owned, 537 obs,
+7 calibrated delays. Snare bottom давал 0.776 мс вместо протокольных 0.281 мс,
+MAD 0.540 мс. Room был виден в 16 событиях: full align сводил его в 0.000 мс,
+а `return(room)=1` сохранял 15.608 мс. Следующая правка описана в
+`2026-09-03-source-centric-match.md`.
 
 ## Why
 

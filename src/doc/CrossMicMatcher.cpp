@@ -17,6 +17,11 @@ int msToSamples(float ms, double sampleRate)
     return std::max(1, static_cast<int>(std::lround(0.001 * static_cast<double>(ms) * sampleRate)));
 }
 
+double msToDoubleSamples(double ms, double sampleRate)
+{
+    return 0.001 * ms * sampleRate;
+}
+
 double rmsOf(const float* samples, int from, int to)
 {
     if (to <= from)
@@ -153,15 +158,19 @@ MatchReport CrossMicMatcher::match(Document& document,
                 continue;
 
             const auto index = static_cast<size_t>(ch);
+            const bool trustedPrior = context.priorKnown[index];
+            const double prior = context.prior[index];
             const int predicted = refArrival
-                                  + static_cast<int>(std::lround(context.prior[index]));
+                                  + static_cast<int>(std::lround(prior));
+            const int coarseLag = trustedPrior ? refineLag : maxLag;
 
             // Кандидат ищется по огибающей самого канала, в окне, которое
-            // разрешает физика. Корреляцией это место не ищется: на реальном
-            // просачивании широкий поиск устойчиво врёт.
+            // разрешает физика. Если калибровка уже знает пару каналов, окно
+            // сужается до области уточнения: такой prior — геометрия
+            // источника, а не приглашение найти рядом более громкий фронт.
             const auto found = segmentHit(envelopes[index],
-                                          predicted - maxLag,
-                                          predicted + maxLag,
+                                          predicted - coarseLag,
+                                          predicted + coarseLag,
                                           numSamples - 1,
                                           floors[index],
                                           config.usefulEndMarginDb);
@@ -170,16 +179,16 @@ MatchReport CrossMicMatcher::match(Document& document,
             // предсказания: априорная задержка на то и нужна, чтобы вынести
             // дальний микрофон за окно поиска, не расширяя окно.
             const double residual = static_cast<double>(found.arrival - predicted);
-            if (std::abs(residual) > static_cast<double>(maxLag))
+            if (std::abs(residual) > static_cast<double>(coarseLag))
             {
                 ++report.rejected;
                 continue;
             }
 
-            double delay = static_cast<double>(found.arrival - refArrival);
+            double delay = trustedPrior ? prior : static_cast<double>(found.arrival - refArrival);
 
             const int from = refArrival - preRoll;
-            const int to = found.arrival - preRoll;
+            const int to = static_cast<int>(std::lround(refArrival + delay)) - preRoll;
             if (from < 0 || to < 0 || from + frame > numSamples || to + frame > numSamples)
             {
                 ++report.rejected;
@@ -197,7 +206,14 @@ MatchReport CrossMicMatcher::match(Document& document,
 
             if (estimate.valid
                 && std::abs(estimate.lagSamples) < static_cast<float>(refineLag) - 1.0f)
-                delay += static_cast<double>(estimate.lagSamples);
+            {
+                const double refined = delay + static_cast<double>(estimate.lagSamples);
+                const double trustWindow =
+                    std::max(msToDoubleSamples(kMatchTrustedPriorSlackMs, context.sampleRate),
+                             3.0 * std::max(0.0, context.priorSpread[index]));
+                if (!trustedPrior || std::abs(refined - prior) <= trustWindow)
+                    delay = refined;
+            }
 
             const int arrival = static_cast<int>(std::lround(refArrival + delay));
             if (arrival < 0 || arrival >= numSamples)

@@ -81,6 +81,10 @@ inline constexpr float kMatchPreRollMs = 5.0f;
 // форме затухания, случайное совпадение — нет.
 inline constexpr float kMatchEnvelopeWindowMs = 60.0f;
 inline constexpr float kMatchMinCorrelation = 0.5f;
+// Если калибровка уже знает пару каналов, GCC может уточнить её только внутри
+// этого люфта. Больший сдвиг чаще означает, что корреляция нашла другой фронт,
+// а не субсэмплевое положение того же источника.
+inline constexpr float kMatchTrustedPriorSlackMs = 0.25f;
 // Насколько удар обязан быть выше собственного пола канала, чтобы считаться
 // услышанным, а не додуманным.
 inline constexpr float kMatchMinAudibleDb = 6.0f;
