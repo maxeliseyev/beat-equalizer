@@ -23,6 +23,7 @@ namespace
 constexpr double kRate = 48000.0;
 constexpr int kLength = 96000;
 constexpr float kOverheadDelay = 240.0f; // 5 мс
+constexpr float kRoomDelay = 480.0f;     // 10 мс
 const std::vector<int> kHits { 6000, 18000, 30000, 42000, 54000, 66000, 78000, 90000 };
 
 // Тот же кит, что в DSP-тестах: снейр в близком микрофоне, оверхеде и комнате.
@@ -33,7 +34,7 @@ juce::AudioBuffer<float> benchClip()
     snare.decayPerSecond = 25.0f;
     snare.toneHz = 190.0f;
     snare.noiseMix = 0.6f;
-    snare.arrivalSamples = { 0.0f, kOverheadDelay, 960.0f };
+    snare.arrivalSamples = { 0.0f, kOverheadDelay, kRoomDelay };
     snare.gain = { 1.0f, 0.35f, 0.2f };
 
     KitSpec spec;
@@ -116,6 +117,26 @@ TEST_CASE("detect on the bench finds the hits and measures the mics")
     // дальнего микрофона.
     CHECK(result.calibration.selected > 0);
     CHECK(result.profile.knows(0, 1));
+    CHECK(result.profile.knows(0, 2));
+
+    CHECK(result.source.valid);
+    CHECK(result.source.sourceChannel == 0);
+    CHECK(result.source.totalEvents == static_cast<int>(kHits.size()));
+    CHECK(result.source.sourceOwnedEvents == static_cast<int>(kHits.size()));
+    CHECK(result.source.closeChannel == 1);
+    CHECK(result.source.lateChannel == 2);
+
+    const auto& close = result.source.channels[1];
+    CHECK(close.observations == static_cast<int>(kHits.size()));
+    CHECK(close.rawMedianSamples == Approx(static_cast<double>(kOverheadDelay)).margin(4.0));
+    CHECK(close.rawSpreadSamples < 4.0);
+    CHECK(std::abs(close.calibrationResidualSamples) < 4.0);
+
+    const auto& returned = result.source.channels[2];
+    CHECK(returned.observations == static_cast<int>(kHits.size()));
+    CHECK(returned.rawMedianSamples == Approx(static_cast<double>(kRoomDelay)).margin(4.0));
+    CHECK(returned.fullAlignOffsetSamples == Approx(0.0).margin(1.0));
+    CHECK(returned.naturalOffsetSamples == Approx(static_cast<double>(kRoomDelay)).margin(4.0));
 
     for (const auto& event : result.document.events())
     {
@@ -274,6 +295,13 @@ TEST_CASE("the result reaches the table and the scopes")
     CHECK(status.contains(juce::String(events)));
     CHECK(status.contains("hits"));
 
+    const auto sourceStatus = processor.getSourceDiagnosticStatus();
+    CHECK(sourceStatus.contains("src Ch 1"));
+    CHECK(sourceStatus.contains("close Ch 2"));
+    CHECK(sourceStatus.contains("late Ch 3"));
+    CHECK(sourceStatus.contains("5.00"));
+    CHECK(sourceStatus.contains("10.00"));
+
     // Оверхед стоит на пяти миллисекундах и не гуляет: медиана попадает в
     // заложенную задержку, разброс мал. Ради этой пары чисел Detect и сделан —
     // по ним видно, нужен ли по-ударный рендер или хватает статики.
@@ -335,6 +363,12 @@ TEST_CASE("the same hit sits at the same place in every aligned row")
     auto* editor = dynamic_cast<BeatEqualizerAudioProcessorEditor*>(base.get());
     REQUIRE(editor != nullptr);
     editor->refreshWaveforms();
+
+    CHECK(editor->getSourceStatusText().contains("src Ch 1"));
+    CHECK(editor->getSourceStatusText().contains("close Ch 2"));
+    CHECK(editor->getSourceStatusText().contains("late Ch 3"));
+    CHECK(editor->getRow(1).getPerHitText().contains("5.00"));
+    CHECK(editor->getRow(2).getPerHitText().contains("10.00"));
 
     auto& close = editor->getRow(0).getScope();
     auto& overhead = editor->getRow(1).getScope();

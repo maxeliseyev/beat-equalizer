@@ -3,8 +3,8 @@
 Updated: 2026-09-03
 Stage: 2 (редактор в standalone)
 Plan step: этап 2, шаг 6 — source-centric gate перед нарезкой
-Branch: `fix/source-centric-snare-match`
-PR: #38 — https://github.com/maxeliseyev/beat-equalizer/pull/38
+Branch: `feat/source-centric-ui`
+PR: #39 — https://github.com/maxeliseyev/beat-equalizer/pull/39
 Blockers: none
 
 ## Done
@@ -16,42 +16,45 @@ Blockers: none
 - PR #37 смёржен в `main` squash-коммитом `0b4658b` 2026-09-03:
   source-centric diagnostic показал, что aggregate coherence не годится как
   gate перед нарезкой.
+- PR #38 смёржен в `main` squash-коммитом `4c5356f` 2026-09-03:
+  matcher доверяет калиброванным priors и держит snare close-пару на протоколе.
 
 ## Now
 
-- `MatchContext` различает rough prior и trusted prior из `SessionProfile`.
-- `CrossMicMatcher` для trusted prior держится за калиброванную геометрию:
-  coarse search узкий, GCC residual принимается только внутри
-  `kMatchTrustedPriorSlackMs` или трёх разбросов калибровки.
-- YAN9 `[.real-kit-source]` после правки: 124 hits, 91 snare-owned,
-  608 obs, 7 calibrated delays.
-- Snare bottom вернулся к протоколу: 0.281 мс, MAD 0.000 мс,
-  residual 0.000 мс.
-- Room вернулся к протоколу: 14.667 мс, MAD 0.000 мс;
-  `return(room)=1` сохраняет 14.667 мс.
-- Проверено: `BEAT_REAL_KIT_DIR=/Users/maximeliseyev/Sound/YAN9 make test`
-  зелёный, hidden `[.real-kit-source]` зелёный, `make test-gui` зелёный.
+- `SourceDiagnostic` вынесен в `beat_doc`: source-owned raw/MAD, residual к
+  калибровке, full-align offset, natural offset, close/late каналы.
+- `DetectWorker` публикует source-centric сводку, `BeatEqualizerAudioProcessor`
+  форматирует компактный status `src / close / late / bleed`.
+- Standalone показывает source status под Analyze/Detect; `d/hit ms` после
+  свежего Detect показывает source-owned задержки, а не общую смесь событий
+  канала.
+- Basic/Advanced UI зафиксирован ADR `decisions/basic-advanced-ui-modes.md`.
+- Проверено: `BEAT_REAL_KIT_DIR=/Users/maximeliseyev/Sound/YAN9 make test`,
+  `make test-gui`, hidden YAN9 `[.real-kit-export]` и `[.real-kit-source]`.
 
 ## Next
 
-Сделать source-centric diagnostics видимыми в standalone UI: инженер должен
-видеть close-pair, bleed-наблюдения и room/OH return, а не только среднюю
-строку Detect.
+Открыть PR. После merge сделать реальный Basic/Advanced toggle и разложить
+существующие контролы по visible-блокам.
 
 ## Resume
 
-1. `git fetch && git checkout fix/source-centric-snare-match && git pull`
-2. `BEAT_REAL_KIT_DIR=/Users/maximeliseyev/Sound/YAN9 make test`
-3. `BEAT_REAL_KIT_DIR=/Users/maximeliseyev/Sound/YAN9 build/release/tests/beat_tests "[.real-kit-source]" -s`
-4. Читать `docs/sessions/2026-09-03-source-centric-match.md`; продолжить с
-   отображения source-centric diagnostic в standalone.
+1. `git fetch && git checkout feat/source-centric-ui && git pull`
+2. `BEAT_REAL_KIT_DIR=/Users/maximeliseyev/Sound/YAN9 make test && make test-gui`
+3. `BEAT_REAL_KIT_DIR=/Users/maximeliseyev/Sound/YAN9 build/release/tests/beat_gui_tests "[.real-kit-export]" -s`
+4. `BEAT_REAL_KIT_DIR=/Users/maximeliseyev/Sound/YAN9 build/release/tests/beat_tests "[.real-kit-source]" -s`
+5. Читать `docs/sessions/2026-09-03-source-centric-ui.md`; открыть PR или
+   продолжить с Basic/Advanced toggle после merge.
 
 ## Open
 
-- Source-centric diagnostic пока скрытый тест, а не видимая таблица в UI.
+- Compact source status есть, но полной таблицы source diagnostics в UI ещё нет.
 - Ownership/классификация источника всё ещё грубая: trusted prior держит
   геометрию известных пар, но не доказывает, что каждый snare-owned marker
   действительно снейр.
+- Basic/Advanced пока ADR, не переключатель в UI.
+- Ролей каналов в UI нет, поэтому compact status пишет `late Ch`, а не
+  `room/OH return`.
 - Реальный кит один; пороги не подгонять под него.
 - `beat_doc` пока не сериализуется.
 - Матрицу профиля и просачивания всё ещё негде смотреть.

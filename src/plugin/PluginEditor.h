@@ -34,6 +34,7 @@ public:
     // может быть больше, чем каналов у устройства.
     int activeChannelCount() const;
     ChannelRow& getRow(int index) { return *rows[static_cast<size_t>(index)]; }
+    juce::String getSourceStatusText() const { return sourceStatus.getText(); }
     int chromeHeight() const;
     // Тестам нужно попасть в полосу обзора и обновить её без таймера.
     juce::Rectangle<int> getOverviewBounds() const { return overview.getBounds(); }
@@ -81,6 +82,7 @@ private:
     juce::Label positionLabel;
     juce::Label deviceLabel;
     juce::Label detectStatus;
+    juce::Label sourceStatus;
     std::unique_ptr<juce::FileChooser> chooser;
     bool standalone = false;
     bool benchLoaded = false;

@@ -3,6 +3,20 @@
 Формат: [Keep a Changelog](https://keepachangelog.com/). Версия — semver
 `major.minor.patch`. Источник правды: файл `VERSION`. Как бампать: `docs/versioning.md`.
 
+## 0.21.0 — 2026-09-03
+
+### Added
+
+- **Source-centric diagnostics в `beat_doc` и Standalone.** Detect теперь
+  публикует сводку по выбранному источнику: сколько событий осталось за
+  опорным каналом, close-пара, поздний наблюдаемый канал, bleed-каналы,
+  raw/MAD и full-align offset. Standalone показывает компактную строку
+  `src / close / late / bleed`, а колонка `d/hit ms` после свежего Detect
+  показывает source-owned задержки вместо общей смеси всех событий канала.
+- **ADR Basic/Advanced UI.** Зафиксирован будущий режим Basic как стартовый
+  минимальный экран и Advanced как место для source-centric таблиц, phase,
+  rotator, monitor mix, grid и ручной диагностики.
+
 ## 0.20.1 — 2026-09-03
 
 ### Fixed

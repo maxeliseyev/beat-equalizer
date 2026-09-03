@@ -327,8 +327,8 @@ make test-gui
 BEAT_REAL_KIT_DIR=/path/to/kit build/release/tests/beat_gui_tests "[.real-kit-export]" -s
 ```
 
-Source-centric diagnostic тоже скрыт: он не gate сборки, а численный стенд для
-решения перед нарезкой.
+Полная source-centric таблица на 10…50 с остаётся скрытым стендом для решения
+перед нарезкой. Compact source status уже виден в Standalone после Detect.
 
 ```sh
 BEAT_REAL_KIT_DIR=/path/to/kit build/release/tests/beat_tests "[.real-kit-source]" -s

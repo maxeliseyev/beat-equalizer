@@ -3,6 +3,7 @@
 #include "doc/CrossMicMatcher.h"
 #include "doc/Document.h"
 #include "doc/SessionCalibration.h"
+#include "doc/SourceDiagnostic.h"
 #include "doc/SpectralFluxDetector.h"
 
 #include <atomic>
@@ -41,6 +42,7 @@ public:
         beat::doc::SessionProfile profile;
         beat::doc::CalibrationReport calibration;
         beat::doc::MatchReport match;
+        beat::doc::SourceDiagnostic source;
         int generation = -1;
         int from = 0;
         int length = 0;
