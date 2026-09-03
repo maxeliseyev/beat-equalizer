@@ -45,3 +45,47 @@ status.md обновлён: да. Ветка: `feat/glide-renderer`.
 - Нужно решить, где в UI живёт strength glide и как назвать режим экспорта.
 - Пересчёт событий остаётся ручным: Detect не запускается автоматически перед
   per-hit render.
+
+---
+
+## Export bridge
+
+## Context
+
+PR #34 смёржен. Следующий кусок — сделать renderer доступным в Standalone, не
+меняя старый статический экспорт молча.
+
+## What
+
+Добавлена отдельная кнопка `Export glide...` рядом с `Export static...`.
+`BeatEqualizerAudioProcessor::exportGlide` собирает события renderer-а из
+свежего `DetectWorker::Result`: `Document::events()` даёт время и защищённую
+зону, `DelayField::applied()` — целевую задержку канала. Каналы без задержки
+события остаются на базовой статической задержке.
+
+После `GlideRenderer` применяется та же часть статического рендера, что и
+раньше: polarity и rotator. Monitor mix, Solo/Mute, Level и Pan в export не
+попадают.
+
+## Why
+
+Старый `Export aligned...` переименован в `Export static...`, а не заменён:
+пользователь должен явно выбрать per-hit renderer. Без этого одна и та же
+кнопка давала бы разный звук в зависимости от того, нажимали Detect или нет.
+
+Strength пока не добавлен в APVTS: это отдельный UX-выбор, который нельзя
+прятать в неочевидном параметре. Текущий per-hit export работает на 100 %, а
+статический путь остаётся быстрым сравнением.
+
+## Status
+
+status.md обновлён: да. Ветка: `feat/glide-export`.
+
+## Next
+
+Показать метрику glide до экспорта и добавить strength UI.
+
+## Open
+
+- Strength glide всё ещё не настраивается.
+- Detect остаётся ручным; export не запускает анализ автоматически.

@@ -144,6 +144,30 @@ TEST_CASE("glide reaches a target delay when the decay interval is long enough")
     CHECK(result.events[1].actualDelaySamples[0] == Approx(100.0f).margin(0.05f));
 }
 
+TEST_CASE("channels missing from an event keep the base delay")
+{
+    constexpr int samples = 4096;
+    std::vector<std::vector<float>> input(2, std::vector<float>(samples, 0.0f));
+    std::vector<std::vector<float>> output(2, std::vector<float>(samples, 0.0f));
+
+    beat::GlideRenderer::EventDelay event;
+    event.timeSamples = 1000.0;
+    event.setDelay(0, 40.0f);
+
+    beat::GlideRenderer::Options options;
+    options.sampleRate = kSampleRate;
+    options.numChannels = 2;
+    options.numSamples = samples;
+    options.baseDelaySamples[1] = 12.0f;
+
+    const auto result = render(input, output, { event }, options);
+
+    REQUIRE(result.events.size() == 1);
+    CHECK(result.events[0].targetDelaySamples[0] == Approx(40.0f));
+    CHECK(result.events[0].targetDelaySamples[1] == Approx(12.0f));
+    CHECK(result.events[0].channelsMeasured == 0);
+}
+
 TEST_CASE("event coherence improves when glide delays align a later mic")
 {
     constexpr int samples = 16384;

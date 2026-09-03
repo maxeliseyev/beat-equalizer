@@ -121,9 +121,11 @@ BeatEqualizerAudioProcessorEditor::BeatEqualizerAudioProcessorEditor(BeatEqualiz
 
     exportButton.onClick = [this]
     {
-        const auto suggested =
-            juce::File::getSpecialLocation(juce::File::userMusicDirectory).getChildFile("aligned.wav");
-        chooser = std::make_unique<juce::FileChooser>("Export aligned WAV", suggested, "*.wav");
+        const auto suggested = juce::File::getSpecialLocation(juce::File::userMusicDirectory)
+                                   .getChildFile("aligned.wav");
+        chooser = std::make_unique<juce::FileChooser>("Export static aligned WAV",
+                                                      suggested,
+                                                      "*.wav");
         const auto flags = juce::FileBrowserComponent::saveMode
                            | juce::FileBrowserComponent::canSelectFiles
                            | juce::FileBrowserComponent::warnAboutOverwriting;
@@ -143,6 +145,32 @@ BeatEqualizerAudioProcessorEditor::BeatEqualizerAudioProcessorEditor(BeatEqualiz
                              });
     };
 
+    glideExportButton.onClick = [this]
+    {
+        const auto suggested = juce::File::getSpecialLocation(juce::File::userMusicDirectory)
+                                   .getChildFile("glide.wav");
+        chooser = std::make_unique<juce::FileChooser>("Export per-hit glide WAV",
+                                                      suggested,
+                                                      "*.wav");
+        const auto flags = juce::FileBrowserComponent::saveMode
+                           | juce::FileBrowserComponent::canSelectFiles
+                           | juce::FileBrowserComponent::warnAboutOverwriting;
+
+        chooser->launchAsync(flags,
+                             [this](const juce::FileChooser& browser)
+                             {
+                                 const auto file = browser.getResult();
+                                 if (file == juce::File {})
+                                     return;
+
+                                 const auto error = audioProcessor.exportGlide(file);
+                                 benchLabel.setText(error.isEmpty()
+                                                        ? audioProcessor.getGlideStatus()
+                                                        : error,
+                                                    juce::dontSendNotification);
+                             });
+    };
+
     audioButton.onClick = []
     {
         if (auto* holder = juce::StandalonePluginHolder::getInstance())
@@ -152,7 +180,7 @@ BeatEqualizerAudioProcessorEditor::BeatEqualizerAudioProcessorEditor(BeatEqualiz
     detectButton.onClick = [this] { audioProcessor.requestDetect(); };
 
     for (auto* button : { &loadButton, &rewindButton, &playButton, &detectButton,
-                          &exportButton, &audioButton })
+                          &exportButton, &glideExportButton, &audioButton })
     {
         addChildComponent(*button);
         button->setVisible(standalone);
@@ -425,7 +453,9 @@ void BeatEqualizerAudioProcessorEditor::resized()
         bench.removeFromLeft(8);
         detectButton.setBounds(bench.removeFromLeft(80));
         bench.removeFromLeft(8);
-        exportButton.setBounds(bench.removeFromLeft(160));
+        exportButton.setBounds(bench.removeFromLeft(140));
+        bench.removeFromLeft(8);
+        glideExportButton.setBounds(bench.removeFromLeft(140));
         bench.removeFromLeft(8);
         audioButton.setBounds(bench.removeFromLeft(100));
         bench.removeFromLeft(12);
@@ -606,6 +636,7 @@ void BeatEqualizerAudioProcessorEditor::updateBench()
     playButton.setEnabled(loaded);
     rewindButton.setEnabled(loaded);
     exportButton.setEnabled(loaded);
+    glideExportButton.setEnabled(audioProcessor.canExportGlide());
     overview.setEnabled(loaded);
     playButton.setButtonText(player.isPlaying() ? "Pause" : "Play");
 

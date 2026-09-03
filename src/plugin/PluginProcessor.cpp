@@ -1,11 +1,31 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
+#include "doc/ProtectedZone.h"
 #include "dsp/AnalysisState.h"
 #include "dsp/Constants.h"
+#include "dsp/GlideRenderer.h"
 #include "dsp/LatencyModel.h"
 
 #include <cmath>
+
+namespace
+{
+juce::String percent(float value)
+{
+    return juce::String(juce::roundToInt(100.0f * value)) + "%";
+}
+
+void copyIntoPadded(const juce::AudioBuffer<float>& source,
+                    int channels,
+                    int samples,
+                    juce::AudioBuffer<float>& padded)
+{
+    padded.clear();
+    for (int ch = 0; ch < channels; ++ch)
+        padded.copyFrom(ch, 0, source, ch, 0, samples);
+}
+} // namespace
 
 BeatEqualizerAudioProcessor::BeatEqualizerAudioProcessor()
     : AudioProcessor(createBusesProperties()),
@@ -665,6 +685,177 @@ juce::String BeatEqualizerAudioProcessor::exportAligned(const juce::File& file)
     if (!beat::exporter::writeWav(file, rendered, currentSampleRate))
         return "Could not write " + file.getFileName();
 
+    return {};
+}
+
+bool BeatEqualizerAudioProcessor::canExportGlide() const
+{
+    return filePlayer.hasMaterial() && detection.valid
+           && detection.generation == filePlayer.getGeneration() && detection.sampleRate > 0.0
+           && !detection.document.events().empty();
+}
+
+juce::String BeatEqualizerAudioProcessor::exportGlide(const juce::File& file)
+{
+    if (!filePlayer.hasMaterial())
+        return "Load files before exporting";
+
+    if (!canExportGlide())
+        return "Run Detect before Export glide";
+
+    const int channels = juce::jmin(filePlayer.numChannels(), beat::kMaxChannels);
+    const int sourceSamples = filePlayer.numSamples();
+    const double rate = filePlayer.getSampleRate() > 0.0 ? filePlayer.getSampleRate()
+                                                         : currentSampleRate;
+    if (channels <= 0 || sourceSamples <= 0 || rate <= 0.0)
+        return "Loaded material is not exportable";
+
+    const float samplesPerMs = static_cast<float>(rate) * 0.001f;
+    std::vector<beat::exporter::ChannelSettings> settings;
+    settings.reserve(static_cast<size_t>(channels));
+
+    std::array<bool, beat::kMaxChannels> enabled {};
+    float maxDelay = 0.0f;
+
+    for (int ch = 0; ch < channels; ++ch)
+    {
+        const auto& params = channelParams[static_cast<size_t>(ch)];
+        enabled[static_cast<size_t>(ch)] =
+            params.enabled == nullptr || params.enabled->load() >= 0.5f;
+
+        beat::exporter::ChannelSettings channelSettings;
+        if (enabled[static_cast<size_t>(ch)])
+        {
+            channelSettings.delaySamples =
+                (params.delayMs != nullptr) ? params.delayMs->load() * samplesPerMs : 0.0f;
+            channelSettings.invert =
+                params.polarity != nullptr
+                && juce::roundToInt(params.polarity->load())
+                       == static_cast<int>(beat::PolarityMode::invert);
+            channelSettings.rotatorHz = (params.rotatorHz != nullptr) ? params.rotatorHz->load()
+                                                                      : beat::kDefaultRotatorHz;
+            channelSettings.rotatorAmount =
+                (params.rotatorAmount != nullptr) ? params.rotatorAmount->load() : 0.0f;
+        }
+
+        maxDelay = std::max(maxDelay, channelSettings.delaySamples);
+        settings.push_back(channelSettings);
+    }
+
+    std::vector<beat::GlideRenderer::EventDelay> events;
+    events.reserve(detection.document.events().size());
+
+    for (const auto& event : detection.document.events())
+    {
+        if (!std::isfinite(event.timeSamples) || event.timeSamples < 0.0
+            || event.timeSamples >= static_cast<double>(sourceSamples))
+            continue;
+
+        beat::GlideRenderer::EventDelay glide;
+        glide.timeSamples = event.timeSamples;
+        glide.referenceChannel = juce::jlimit(0, channels - 1, event.referenceChannel);
+
+        const auto zone = beat::doc::protectedZone(event, rate);
+        glide.protectUntilSamples = zone.empty() ? event.timeSamples : zone.end;
+
+        bool anyDelay = false;
+        for (int ch = 0; ch < channels; ++ch)
+        {
+            const auto index = static_cast<size_t>(ch);
+            if (!enabled[index] || !detection.document.delays().has(event.id, ch))
+                continue;
+
+            const float delaySamples =
+                static_cast<float>(detection.document.delays().applied(event.id, ch));
+            glide.setDelay(ch, delaySamples);
+            maxDelay = std::max(maxDelay, delaySamples);
+            anyDelay = true;
+        }
+
+        if (anyDelay)
+            events.push_back(glide);
+    }
+
+    if (events.empty())
+        return "Detect found no per-hit delays to export";
+
+    const int tail = static_cast<int>(std::ceil(maxDelay)) + beat::kInterpolatorLatencySamples;
+    const int renderSamples = sourceSamples + tail;
+
+    juce::AudioBuffer<float> padded(channels, renderSamples);
+    copyIntoPadded(filePlayer.getBuffer(), channels, sourceSamples, padded);
+
+    juce::AudioBuffer<float> rendered(channels, renderSamples);
+    rendered.clear();
+
+    std::vector<const float*> input(static_cast<size_t>(channels));
+    std::vector<float*> output(static_cast<size_t>(channels));
+    for (int ch = 0; ch < channels; ++ch)
+    {
+        input[static_cast<size_t>(ch)] = padded.getReadPointer(ch);
+        output[static_cast<size_t>(ch)] = rendered.getWritePointer(ch);
+    }
+
+    beat::GlideRenderer::Options options;
+    options.sampleRate = rate;
+    options.numChannels = channels;
+    options.numSamples = renderSamples;
+    for (int ch = 0; ch < channels; ++ch)
+        options.baseDelaySamples[static_cast<size_t>(ch)] =
+            settings[static_cast<size_t>(ch)].delaySamples;
+
+    beat::GlideRenderer renderer;
+    const auto result = renderer.render(input.data(), output.data(), options, events);
+
+    beat::AllpassRotator exportRotator;
+    exportRotator.prepare(rate, channels);
+    for (int ch = 0; ch < channels; ++ch)
+    {
+        const auto& channelSettings = settings[static_cast<size_t>(ch)];
+        exportRotator.setRotation(ch, channelSettings.rotatorHz, channelSettings.rotatorAmount);
+    }
+    exportRotator.snapToTargets();
+
+    for (int ch = 0; ch < channels; ++ch)
+    {
+        const auto& channelSettings = settings[static_cast<size_t>(ch)];
+        float* samples = rendered.getWritePointer(ch);
+        for (int i = 0; i < renderSamples; ++i)
+        {
+            const float x = channelSettings.invert ? -samples[i] : samples[i];
+            samples[i] = exportRotator.processSample(ch, x);
+        }
+    }
+
+    if (!beat::exporter::writeWav(file, rendered, rate))
+        return "Could not write " + file.getFileName();
+
+    double before = 0.0;
+    double after = 0.0;
+    int measured = 0;
+    for (const auto& metric : result.events)
+    {
+        if (metric.channelsMeasured <= 0)
+            continue;
+
+        before += static_cast<double>(metric.coherenceBefore);
+        after += static_cast<double>(metric.coherenceAfter);
+        ++measured;
+    }
+
+    glideStatus = "Glide exported " + file.getFileName() + ": "
+                  + juce::String(result.eventsMeasured) + " hits";
+    if (measured > 0)
+    {
+        const float beforeMean = static_cast<float>(before / static_cast<double>(measured));
+        const float afterMean = static_cast<float>(after / static_cast<double>(measured));
+        glideStatus += ", event coherence " + percent(beforeMean) + " -> "
+                       + percent(afterMean);
+    }
+    if (result.limitedEvents > 0)
+        glideStatus += ", " + juce::String(result.limitedEvents) + " limited";
+
+    sendChangeMessage();
     return {};
 }
 

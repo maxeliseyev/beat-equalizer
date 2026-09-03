@@ -70,7 +70,8 @@ private:
     juce::TextButton loadButton { "Load files..." };
     juce::TextButton rewindButton { "|<" };
     juce::TextButton playButton { "Play" };
-    juce::TextButton exportButton { "Export aligned..." };
+    juce::TextButton exportButton { "Export static..." };
+    juce::TextButton glideExportButton { "Export glide..." };
     juce::TextButton audioButton { "Audio..." };
     juce::TextButton detectButton { "Detect" };
     juce::Label benchLabel;

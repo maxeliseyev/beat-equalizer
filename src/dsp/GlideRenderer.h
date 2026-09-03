@@ -32,6 +32,7 @@ public:
         int numSamples = 0;
         float strength = 1.0f;
         float maxSlew = kGlideMaxSlew;
+        std::array<float, kMaxChannels> baseDelaySamples {};
     };
 
     struct EventMetric

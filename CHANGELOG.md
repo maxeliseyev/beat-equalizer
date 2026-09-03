@@ -3,6 +3,24 @@
 Формат: [Keep a Changelog](https://keepachangelog.com/). Версия — semver
 `major.minor.patch`. Источник правды: файл `VERSION`. Как бампать: `docs/versioning.md`.
 
+## 0.20.0 — 2026-09-03
+
+### Added
+
+- **`Export glide...` в Standalone** — отдельный экспорт по-событийной задержки
+  через `GlideRenderer`. Он доступен только после свежего Detect на текущем
+  материале: старое поле задержек после перезагрузки файлов не экспортируется.
+- **Статус glide export** после записи WAV показывает число событий, среднюю
+  event coherence до/после и число событий, где renderer упёрся в slew-limit.
+
+### Changed
+
+- Старый экспорт переименован в **`Export static...`** и оставлен на прежнем
+  статическом пути delay/polarity/rotator.
+- `GlideRenderer::Options` получил `baseDelaySamples`: если событие не знает
+  задержку канала, renderer сохраняет базовую статическую задержку вместо
+  сброса в ноль.
+
 ## 0.19.0 — 2026-09-03
 
 ### Added

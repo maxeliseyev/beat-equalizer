@@ -90,11 +90,17 @@ std::vector<std::array<float, kMaxChannels>> buildTargets(
     const std::vector<GlideRenderer::EventDelay>& events,
     int numChannels,
     double sampleRate,
-    float strength)
+    float strength,
+    const std::array<float, kMaxChannels>& baseDelaySamples)
 {
     std::vector<std::array<float, kMaxChannels>> targets(events.size());
     std::array<float, kMaxChannels> current {};
     const float amount = std::clamp(strength, 0.0f, 1.0f);
+    for (int ch = 0; ch < numChannels; ++ch)
+    {
+        const auto channel = static_cast<size_t>(ch);
+        current[channel] = clampDelay(baseDelaySamples[channel], sampleRate) * amount;
+    }
 
     for (size_t index = 0; index < events.size(); ++index)
     {
@@ -230,7 +236,8 @@ GlideRenderer::Result GlideRenderer::render(const float* const* source,
     auto targets = buildTargets(usableEvents,
                                 result.numChannels,
                                 options.sampleRate,
-                                options.strength);
+                                options.strength,
+                                options.baseDelaySamples);
     std::vector<int> eventSamples(usableEvents.size());
     std::vector<int> protectUntil(usableEvents.size());
     for (size_t i = 0; i < usableEvents.size(); ++i)

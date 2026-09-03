@@ -99,6 +99,9 @@ public:
     // иначе он играет с чужой скоростью. true — перезагрузили.
     bool reloadBenchForSampleRate();
     juce::String exportAligned(const juce::File& file);
+    bool canExportGlide() const;
+    juce::String exportGlide(const juce::File& file);
+    juce::String getGlideStatus() const { return glideStatus; }
     // Публично, потому что путь «результат -> параметры» проверяется тестом
     // без message loop; worker зовёт то же самое из handleAsyncUpdate.
     void applyAnalysisResult(const beat::AlignmentEngine::Result& result);
@@ -160,6 +163,7 @@ private:
     DetectWorker detectWorker;
     DetectWorker::Result detection;
     juce::String detectStatus { "Load bench material, then Detect" };
+    juce::String glideStatus { "Run Detect, then Export glide" };
     juce::String analysisStatus { "Press Analyze after playing a few bars" };
     float coherenceBefore = 0.0f;
     float coherenceAfter = 0.0f;
