@@ -4,6 +4,7 @@
 #include "Correlometer.h"
 #include "OverviewStrip.h"
 #include "PluginProcessor.h"
+#include "dsp/Constants.h"
 
 #include <array>
 #include <atomic>
@@ -32,6 +33,7 @@ public:
     // Сколько строк канал+осциллограмма сейчас показано: в Standalone это
     // может быть больше, чем каналов у устройства.
     int activeChannelCount() const;
+    ChannelRow& getRow(int index) { return *rows[static_cast<size_t>(index)]; }
     int chromeHeight() const;
     // Тестам нужно попасть в полосу обзора и обновить её без таймера.
     juce::Rectangle<int> getOverviewBounds() const { return overview.getBounds(); }
@@ -45,6 +47,9 @@ private:
     void updateWaveforms();
     void updateAnalysisStatus();
     void updateBench();
+    // События последнего Detect: маркеры на строках и на полосе обзора,
+    // колонка по-ударной задержки.
+    void updateDetection();
     void updateTransportRow();
     void syncChannelCount();
     // Колонки монитора появляются вместе с материалом стенда и исчезают с ним.
@@ -67,15 +72,21 @@ private:
     juce::TextButton playButton { "Play" };
     juce::TextButton exportButton { "Export aligned..." };
     juce::TextButton audioButton { "Audio..." };
+    juce::TextButton detectButton { "Detect" };
     juce::Label benchLabel;
     OverviewStrip overview;
     juce::Label positionLabel;
     juce::Label deviceLabel;
+    juce::Label detectStatus;
     std::unique_ptr<juce::FileChooser> chooser;
     bool standalone = false;
     bool benchLoaded = false;
     int overviewGeneration = -1;
     int displaySpan = 0;
+    // Сдвиг окна каждой строки в отсчётах — тот же, с которым читается волна.
+    // Маркеры обязаны считаться от него же, иначе удар нарисуется не там, где
+    // он на картинке.
+    std::array<int, beat::kMaxChannels> displayShift {};
     bool monitorColumns = false;
     int lastActiveChannels = 0;
 
@@ -102,6 +113,7 @@ private:
     juce::Label headerPan;
     juce::Label headerCorr;
     juce::Label headerPhase;
+    juce::Label headerPerHit;
 
     Correlometer correlometer;
 
