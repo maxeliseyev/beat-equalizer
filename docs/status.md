@@ -4,7 +4,7 @@ Updated: 2026-09-03
 Stage: 2 (редактор в standalone)
 Plan step: этап 2, шаг 6 — source-centric gate перед нарезкой
 Branch: `feat/source-centric-diagnostics`
-PR: none
+PR: #37 — https://github.com/maxeliseyev/beat-equalizer/pull/37
 Blockers: none
 
 ## Done
