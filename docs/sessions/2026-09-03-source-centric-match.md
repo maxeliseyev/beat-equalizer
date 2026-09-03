@@ -41,6 +41,7 @@ PR #37 смёржен и зафиксировал проблему: source-centr
 ## Status
 
 status.md обновлён: да. Ветка: `fix/source-centric-snare-match`.
+PR: #38 — https://github.com/maxeliseyev/beat-equalizer/pull/38.
 
 ## Next
 
