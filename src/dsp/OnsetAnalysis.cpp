@@ -9,13 +9,11 @@ namespace beat
 
 namespace
 {
-int fftOrderFor(int windowSamples)
+// Порядок под окно анализа: общий `fftOrderFor` плюс нижняя граница, ниже
+// которой полосам не хватает разрешения по частоте.
+int analysisOrder(int windowSamples)
 {
-    int order = 1;
-    while ((1 << order) < windowSamples)
-        ++order;
-
-    return std::clamp(order, 6, 16);
+    return std::clamp(fftOrderFor(windowSamples), 6, 16);
 }
 
 int msToSamples(float ms, double sampleRate)
@@ -26,7 +24,7 @@ int msToSamples(float ms, double sampleRate)
 
 OnsetAnalysis::OnsetAnalysis(const OnsetAnalysisConfig& config)
     : settings(config),
-      fft(fftOrderFor(msToSamples(config.windowMs, config.sampleRate)))
+      fft(analysisOrder(msToSamples(config.windowMs, config.sampleRate)))
 {
     window = std::min(msToSamples(settings.windowMs, settings.sampleRate), fft.size());
     hop = std::max(1, msToSamples(settings.hopMs, settings.sampleRate));

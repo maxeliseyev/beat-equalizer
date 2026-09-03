@@ -98,6 +98,7 @@ MatchReport CrossMicMatcher::match(Document& document,
 
     const int maxLag = maxLagSamples(config.maxDistanceM, context.sampleRate);
     const int frame = msToSamples(config.frameMs, context.sampleRate);
+    const int refineLag = msToSamples(config.refineMs, context.sampleRate);
     const int preRoll = msToSamples(config.preRollMs, context.sampleRate);
     const int envelopeWindow = msToSamples(config.envelopeWindowMs, context.sampleRate);
     const int energyWindow = msToSamples(kOnsetEnergyWindowMs, context.sampleRate);
@@ -118,7 +119,9 @@ MatchReport CrossMicMatcher::match(Document& document,
         channelRms[index] = rmsOf(channels[ch], 0, numSamples);
     }
 
-    GccPhat gcc(kDefaultFftOrder);
+    // Порядок БПФ выводится из кадра и окна уточнения, а не берётся
+    // константой: кадр задан в миллисекундах и на 96 кГц вдвое длиннее.
+    GccPhat gcc(fftOrderFor(frame + 2 * refineLag + 2), config.weighting);
 
     std::vector<EventId> ids;
     ids.reserve(document.events().size());
@@ -138,7 +141,6 @@ MatchReport CrossMicMatcher::match(Document& document,
 
         const int refArrival = static_cast<int>(
             std::lround(referenceObservation.arrivalSamples - context.startSample));
-
         if (refArrival < 0 || refArrival >= numSamples)
             continue;
 
@@ -154,30 +156,49 @@ MatchReport CrossMicMatcher::match(Document& document,
             const int predicted = refArrival
                                   + static_cast<int>(std::lround(context.prior[index]));
 
+            // Кандидат ищется по огибающей самого канала, в окне, которое
+            // разрешает физика. Корреляцией это место не ищется: на реальном
+            // просачивании широкий поиск устойчиво врёт.
+            const auto found = segmentHit(envelopes[index],
+                                          predicted - maxLag,
+                                          predicted + maxLag,
+                                          numSamples - 1,
+                                          floors[index],
+                                          config.usefulEndMarginDb);
+
+            // Физика ограничивает не саму задержку, а остаток относительно
+            // предсказания: априорная задержка на то и нужна, чтобы вынести
+            // дальний микрофон за окно поиска, не расширяя окно.
+            const double residual = static_cast<double>(found.arrival - predicted);
+            if (std::abs(residual) > static_cast<double>(maxLag))
+            {
+                ++report.rejected;
+                continue;
+            }
+
+            double delay = static_cast<double>(found.arrival - refArrival);
+
             const int from = refArrival - preRoll;
-            const int to = predicted - preRoll;
+            const int to = found.arrival - preRoll;
             if (from < 0 || to < 0 || from + frame > numSamples || to + frame > numSamples)
             {
                 ++report.rejected;
                 continue;
             }
 
-            // Предсказание уточняется, а не подтверждается: GCC-PHAT ищет
-            // остаток относительно априорной задержки, и только внутри окна,
-            // которое разрешает физика.
+            // Уточнение: остаток относительно найденного прихода, в узком
+            // окне. Упёршееся в край окна уточнение — не уточнение, а признак
+            // того, что предсказание промахнулось; тогда остаётся грубый приход.
             const auto estimate = gcc.estimate(channels[reference] + from,
                                                channels[ch] + to,
                                                frame,
-                                               maxLag,
+                                               refineLag,
                                                context.sampleRate);
 
-            if (!estimate.valid)
-            {
-                ++report.rejected;
-                continue;
-            }
+            if (estimate.valid
+                && std::abs(estimate.lagSamples) < static_cast<float>(refineLag) - 1.0f)
+                delay += static_cast<double>(estimate.lagSamples);
 
-            const double delay = context.prior[index] + static_cast<double>(estimate.lagSamples);
             const int arrival = static_cast<int>(std::lround(refArrival + delay));
             if (arrival < 0 || arrival >= numSamples)
             {
@@ -205,12 +226,7 @@ MatchReport CrossMicMatcher::match(Document& document,
                 continue;
             }
 
-            const auto segment = segmentHit(envelopes[index],
-                                            arrival - preRoll,
-                                            arrival + frame,
-                                            numSamples - 1,
-                                            floors[index],
-                                            config.usefulEndMarginDb);
+            const auto& segment = found;
 
             auto& observation = event->channels[index];
             observation.present = true;

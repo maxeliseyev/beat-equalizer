@@ -226,17 +226,25 @@ TEST_CASE("сверка находит комнату только с априо
     CHECK(roomObservations(informed) > roomObservations(blind));
 }
 
-// 85 мс на 96 кГц — это 8160 сэмплов, а поиск лага при 4 м — ещё 1120. В БПФ
-// порядка 13 (8192) они не помещаются, и свёртка заворачивается: оценка
-// приходит из другого конца кадра. На 48 кГц те же миллисекунды помещались,
-// поэтому синтетика этого не показывала — а инвариант 4 требует, чтобы окна,
-// заданные в миллисекундах, вели себя одинаково на любой частоте.
-TEST_CASE("кадр сверки помещается в БПФ на 96 кГц", "[!shouldfail]")
+// Кадр плюс окно поиска обязаны помещаться в БПФ, иначе свёртка круговая и
+// оценка приходит из другого конца кадра. Порядок выводится из кадра, а не
+// берётся константой в сэмплах: на 96 кГц тот же кадр вдвое длиннее, и на
+// 48 кГц эта ошибка не проявлялась (инвариант 4).
+TEST_CASE("кадр сверки помещается в БПФ на любой частоте")
 {
-    const int frame = static_cast<int>(std::lround(kMatchFrameMs * kRate / 1000.0));
-    const int lag = maxLagSamples(kDefaultMaxDistanceM, kRate);
+    for (double rate : { 44100.0, 48000.0, 96000.0, 192000.0 })
+    {
+        const int frame = static_cast<int>(std::lround(kMatchFrameMs * rate / 1000.0));
+        const int refine = static_cast<int>(std::lround(kMatchRefineMs * rate / 1000.0));
+        INFO(rate);
+        CHECK(frame + 2 * refine <= (1 << fftOrderFor(frame + 2 * refine + 2)));
 
-    CHECK(frame + lag <= (1 << kDefaultFftOrder));
+        // И движок этапа 1: кадр там равен всему БПФ, поэтому корреляции
+        // отдан порядок на единицу больше.
+        const int lag = maxLagSamples(kDefaultMaxDistanceM, rate);
+        GccPhat gcc(kDefaultFftOrder + 1);
+        CHECK(gcc.usableSamples(lag) >= (1 << kDefaultFftOrder));
+    }
 }
 
 // Минимальный интервал между ударами держится на кадрах потока спектра, а
@@ -244,7 +252,7 @@ TEST_CASE("кадр сверки помещается в БПФ на 96 кГц",
 // 12–15 мс друг от друга откатываются в один и тот же приход, и в документ
 // попадают два события с одинаковым временем. На синтетике удары стоят редко,
 // поэтому видно это только на реальной игре.
-TEST_CASE("детектор не ставит два события в один приход", "[real-kit][!shouldfail]")
+TEST_CASE("детектор не ставит два события в один приход", "[real-kit]")
 {
     const auto dir = realKitDir();
     if (dir.empty())
@@ -272,12 +280,15 @@ TEST_CASE("детектор не ставит два события в один 
     CHECK(tooClose == 0);
 }
 
-// Сверка обязана уточнять предсказание, а не портить его. На синтетике так и
-// есть: там просачивание — задержанная копия, когерентность единица во всём
-// кадре. На реальном ките прямой путь когерентен первые единицы миллисекунд,
-// дальше два микрофона слышат разные поля, а PHAT выбеливает все корзины
-// одинаково — и переходный участок тонет в некогерентном хвосте.
-TEST_CASE("сверка по микрофонам не портит априорную задержку", "[real-kit][!shouldfail]")
+// Сверка обязана уточнять предсказание, а не портить его.
+//
+// Так было не всегда: с отбеливанием PHAT и кадром в 85 мс уточнение
+// разносило априорную задержку на порядок. У синтетического просачивания
+// когерентность единица во всём кадре, у настоящего прямой путь когерентен
+// первые единицы миллисекунд, дальше два микрофона слышат разные поля — а
+// PHAT выбеливает все корзины одинаково, и переходный участок тонет в
+// некогерентном хвосте. Отсюда `kPlainWeighting` и короткий кадр.
+TEST_CASE("уточнение не портит априорную задержку", "[real-kit]")
 {
     const auto dir = realKitDir();
     if (dir.empty())
@@ -285,16 +296,17 @@ TEST_CASE("сверка по микрофонам не портит априор
 
     const auto kit = loadKit(dir, kCalibrationStartSec, kCalibrationLengthSec);
 
+    const MatchSettings settings;
     const int guard = static_cast<int>(0.200 * kRate);
     const int search = static_cast<int>(0.060 * kRate);
-    const int frame = static_cast<int>(std::lround(kMatchFrameMs * kRate / 1000.0));
-    const int preRoll = static_cast<int>(std::lround(kMatchPreRollMs * kRate / 1000.0));
-    const int maxLag = maxLagSamples(kDefaultMaxDistanceM, kRate);
+    const int frame = static_cast<int>(std::lround(settings.frameMs * kRate / 1000.0));
+    const int preRoll = static_cast<int>(std::lround(settings.preRollMs * kRate / 1000.0));
+    const int refine = static_cast<int>(std::lround(settings.refineMs * kRate / 1000.0));
 
     const auto hits = isolatedHits(kit.envelopes[static_cast<size_t>(kSnareTop)], guard, 8.0f);
-    GccPhat gcc(kDefaultFftOrder);
+    GccPhat gcc(fftOrderFor(frame + 2 * refine + 2), settings.weighting);
 
-    for (int mic : { kSnareBottom, kTom1, kKick })
+    for (int mic : { kSnareBottom, kTom1, kHat, kKick, kRoom })
     {
         std::vector<double> priors;
         std::vector<double> refined;
@@ -316,7 +328,7 @@ TEST_CASE("сверка по микрофонам не портит априор
 
             const auto estimate = gcc.estimate(kit.audio[static_cast<size_t>(kSnareTop)].data() + from,
                                                kit.audio[static_cast<size_t>(mic)].data() + to,
-                                               frame, maxLag, kRate);
+                                               frame, refine, kRate);
             if (!estimate.valid)
                 continue;
 
@@ -327,8 +339,15 @@ TEST_CASE("сверка по микрофонам не портит априор
         INFO(kitNames()[mic]);
         REQUIRE(priors.size() >= 10);
 
-        const double priorSpread = madOf(priors, medianOf(priors));
-        const double refinedSpread = madOf(refined, medianOf(refined));
-        CHECK(refinedSpread <= priorSpread);
+        // Уточнение сдвигает задержку меньше чем на десятую миллиметра звука
+        // и не разбрасывает её: разброс остаётся того же порядка, что у
+        // предсказания, а не растёт в десятки раз.
+        const double priorSpread = toMs(madOf(priors, medianOf(priors)));
+        const double refinedSpread = toMs(madOf(refined, medianOf(refined)));
+        CHECK(refinedSpread < 0.15);
+        CHECK(refinedSpread < priorSpread + 0.10);
+
+        // И не уводит саму задержку: уточнение — это доли миллисекунды.
+        CHECK(std::abs(toMs(medianOf(refined) - medianOf(priors))) < settings.refineMs);
     }
 }

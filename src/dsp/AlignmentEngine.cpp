@@ -41,7 +41,11 @@ float median(std::vector<float>& values)
 } // namespace
 
 AlignmentEngine::AlignmentEngine(int fftOrder)
-    : gcc(fftOrder),
+    // Корреляции БПФ на порядок больше кадра: кадр здесь равен `1 << fftOrder`
+    // целиком, и вместе с окном поиска в БПФ того же размера он не помещается
+    // — свёртка круговая, и лаг считался бы по куску из другого конца кадра.
+    // Когерентности лишний порядок не нужен: там нет поиска по лагу.
+    : gcc(fftOrder + 1),
       coherence(fftOrder),
       frame(1 << fftOrder)
 {

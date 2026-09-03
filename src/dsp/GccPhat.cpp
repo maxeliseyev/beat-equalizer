@@ -21,12 +21,18 @@ float hann(int index, int length)
 }
 } // namespace
 
-GccPhat::GccPhat(int fftOrder)
+GccPhat::GccPhat(int fftOrder, float weighting)
     : fft(fftOrder),
+      phatWeighting(std::clamp(weighting, 0.0f, 1.0f)),
       spectrumRef(static_cast<size_t>(fft.size())),
       spectrumSig(static_cast<size_t>(fft.size()))
 {
     searchWindow.reserve(static_cast<size_t>(fft.size()));
+}
+
+int GccPhat::usableSamples(int maxLagSamples) const
+{
+    return std::max(0, fft.size() - 2 * std::max(0, maxLagSamples));
 }
 
 int GccPhat::lagIndex(int lag) const
@@ -50,9 +56,17 @@ GccPhat::Result GccPhat::estimate(const float* reference,
         return result;
 
     const int n = fft.size();
-    const int use = std::min(numSamples, n);
     const int maxLag = std::min(maxLagSamples, n / 2 - 2);
     if (maxLag <= 0)
+        return result;
+
+    // Кадр обязан оставить место под окно поиска: свёртка круговая, и кадр во
+    // весь БПФ означает, что корреляция на ненулевом лаге считается по куску
+    // из другого конца окна. Лучше взять кадр короче, чем молча завернуться —
+    // вызывающий, которому нужен весь кадр, должен дать БПФ побольше
+    // (`fftOrderFor`).
+    const int use = std::min(numSamples, usableSamples(maxLag));
+    if (use < 16)
         return result;
 
     std::fill(spectrumRef.begin(), spectrumRef.end(), std::complex<float>{});
@@ -85,8 +99,17 @@ GccPhat::Result GccPhat::estimate(const float* reference,
         // Y * conj(X): positive lag means `signal` is later than `reference`.
         const auto cross = spectrumSig[static_cast<size_t>(k)]
                            * std::conj(spectrumRef[static_cast<size_t>(k)]);
-        const float mag = std::abs(cross);
-        spectrumRef[static_cast<size_t>(k)] = cross / (mag + kPhatEps);
+
+        // Вес корзины: 1/|cross|^beta. При beta = 0 деления нет вовсе, и
+        // громкая корзина остаётся громкой — на низкой когерентности только
+        // переходный участок и несёт задержку.
+        float scale = 1.0f;
+        if (phatWeighting >= 1.0f)
+            scale = std::abs(cross) + kPhatEps;
+        else if (phatWeighting > 0.0f)
+            scale = std::pow(std::abs(cross), phatWeighting) + kPhatEps;
+
+        spectrumRef[static_cast<size_t>(k)] = cross / scale;
     }
 
     fft.inverse(spectrumRef.data());
