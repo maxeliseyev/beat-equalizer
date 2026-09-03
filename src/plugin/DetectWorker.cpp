@@ -95,6 +95,13 @@ void DetectWorker::detect(const Request& request, Result& into)
     match.sampleRate = request.sampleRate;
     match.startSample = static_cast<double>(from);
     into.profile.priors(reference, match.prior);
+    for (int ch = 0; ch < channels; ++ch)
+    {
+        const auto index = static_cast<size_t>(ch);
+        const auto& stat = into.profile.delay(reference, ch);
+        match.priorKnown[index] = stat.known;
+        match.priorSpread[index] = stat.spreadSamples;
+    }
 
     CrossMicMatcher matcher;
     into.match = matcher.match(into.document, pointers.data(), channels, length, match);

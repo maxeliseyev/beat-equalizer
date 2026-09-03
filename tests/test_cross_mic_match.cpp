@@ -138,6 +138,53 @@ TEST_CASE("a prior brings the room mic inside the window and gets refined to the
     }
 }
 
+TEST_CASE("trusted priors keep a close pair from jumping to a louder later front")
+{
+    Take take;
+    take.channels = kit();
+
+    for (int hit : kSnareHits)
+    {
+        for (int i = 0; i < 256; ++i)
+        {
+            const int source = hit + i;
+            const int reflected = hit + 300 + i;
+            if (source < static_cast<int>(take.channels[0].size())
+                && reflected < static_cast<int>(take.channels[1].size()))
+                take.channels[1][static_cast<size_t>(reflected)] +=
+                    2.0f * take.channels[0][static_cast<size_t>(source)];
+        }
+    }
+
+    for (const auto& channel : take.channels)
+        take.pointers.push_back(channel.data());
+
+    for (int hit : kSnareHits)
+    {
+        Event event;
+        event.referenceChannel = 0;
+        event.timeSamples = static_cast<double>(hit);
+        event.channels[0].present = true;
+        event.channels[0].arrivalSamples = event.timeSamples;
+        event.channels[0].attackEndSamples = event.timeSamples + 50.0;
+        event.channels[0].usefulEndSamples = event.timeSamples + 500.0;
+        take.document.addEvent(event);
+    }
+
+    MatchContext context;
+    context.sampleRate = kRate;
+    context.prior[1] = 240.0;
+    context.priorKnown[1] = true;
+    context.priorSpread[1] = 1.0;
+
+    CrossMicMatcher matcher;
+    take.report = matcher.match(take.document, take.data(), 3, 48000, context);
+
+    REQUIRE(take.report.observations >= static_cast<int>(kSnareHits.size()));
+    for (const auto& event : take.document.events())
+        CHECK(take.document.delays().raw(event.id, 1) == Approx(240.0).margin(0.5));
+}
+
 TEST_CASE("the hit belongs to the mic that heard it first and loudest")
 {
     // Опорный канал — оверхед. В нём слышно и снейр, и хэт.

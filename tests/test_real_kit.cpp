@@ -179,7 +179,7 @@ SourceDelayStats statsForSource(const Document& document,
 }
 
 Document detectAndMatchSnareSource(const Kit& kit,
-                                   const std::array<double, kMaxChannels>& priors,
+                                   const SessionProfile& profile,
                                    MatchReport& report)
 {
     auto pointers = pointersOf(kit);
@@ -195,7 +195,14 @@ Document detectAndMatchSnareSource(const Kit& kit,
 
     MatchContext match;
     match.sampleRate = kRate;
-    match.prior = priors;
+    profile.priors(kSnareTop, match.prior);
+    for (int mic = 0; mic < kKitMicCount; ++mic)
+    {
+        const auto index = static_cast<size_t>(mic);
+        const auto& stat = profile.delay(kSnareTop, mic);
+        match.priorKnown[index] = stat.known;
+        match.priorSpread[index] = stat.spreadSamples;
+    }
 
     CrossMicMatcher matcher;
     report = matcher.match(document, pointers.data(), kKitMicCount, kit.numSamples, match);
@@ -592,11 +599,9 @@ TEST_CASE("snare source diagnostic separates close pair, bleed and room return",
 
     CalibrationReport calibration;
     const auto profile = calibrateKit(kit, { kSnareTop }, calibration);
-    std::array<double, kMaxChannels> priors {};
-    profile.priors(kSnareTop, priors);
 
     MatchReport match;
-    const auto document = detectAndMatchSnareSource(kit, priors, match);
+    const auto document = detectAndMatchSnareSource(kit, profile, match);
     const int snareEvents = eventsOwnedBy(document, kSnareTop);
 
     auto returned = document.delays();
@@ -610,11 +615,16 @@ TEST_CASE("snare source diagnostic separates close pair, bleed and room return",
     REQUIRE(document.events().size() > 40);
     REQUIRE(snareEvents > 30);
     REQUIRE(bottom.observations > 30);
+    CHECK(std::abs(bottom.rawMedianMs - kProtocolMs[kSnareBottom]) < 0.05);
+    CHECK(bottom.rawSpreadMs < 0.05);
+    CHECK(std::abs(bottom.residualMedianMs) < 0.05);
     CHECK(std::abs(bottom.fullAlignOffsetMs) < 0.05);
 
     const auto& room = stats[static_cast<size_t>(kRoom)];
     REQUIRE(room.observations > 10);
     CHECK(room.rawMedianMs > 1000.0 * static_cast<double>(maxLagSeconds(kDefaultMaxDistanceM)));
+    CHECK(std::abs(room.rawMedianMs - kProtocolMs[kRoom]) < 0.05);
+    CHECK(room.rawSpreadMs < 0.05);
     CHECK(std::abs(room.fullAlignOffsetMs) < 0.05);
     CHECK(std::abs(room.roomReturnOffsetMs - room.rawMedianMs) < 0.05);
 
