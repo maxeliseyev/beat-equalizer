@@ -8,7 +8,10 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <algorithm>
+#include <array>
 #include <cmath>
+#include <iomanip>
+#include <iostream>
 #include <string>
 #include <vector>
 
@@ -103,6 +106,110 @@ std::vector<double> measureDelays(const Kit& kit, int reference, int mic)
 double toMs(double samples)
 {
     return samples * 1000.0 / kRate;
+}
+
+std::vector<const float*> pointersOf(const Kit& kit)
+{
+    std::vector<const float*> pointers(kKitMicCount);
+    for (int mic = 0; mic < kKitMicCount; ++mic)
+        pointers[static_cast<size_t>(mic)] = kit.audio[static_cast<size_t>(mic)].data();
+
+    return pointers;
+}
+
+struct SourceDelayStats
+{
+    int observations = 0;
+    double rawMedianMs = 0.0;
+    double rawSpreadMs = 0.0;
+    double residualMedianMs = 0.0;
+    double residualSpreadMs = 0.0;
+    double fullAlignOffsetMs = 0.0;
+    double roomReturnOffsetMs = 0.0;
+};
+
+SourceDelayStats statsForSource(const Document& document,
+                                int source,
+                                int mic,
+                                const DelayField& roomReturn)
+{
+    SourceDelayStats stats;
+    const auto& delays = document.delays();
+    std::vector<double> raw;
+    std::vector<double> residual;
+    std::vector<double> fullOffset;
+    std::vector<double> returnedOffset;
+
+    for (const auto& event : document.events())
+    {
+        if (event.referenceChannel != source || !delays.has(event.id, source)
+            || !delays.has(event.id, mic))
+            continue;
+
+        const double sourceRaw = delays.raw(event.id, source);
+        const double micRaw = delays.raw(event.id, mic);
+        const double rawRelative = micRaw - sourceRaw;
+        const double full =
+            micRaw + delays.applied(event.id, mic) - sourceRaw - delays.applied(event.id, source);
+        const double returned = micRaw + roomReturn.applied(event.id, mic) - sourceRaw
+                                - roomReturn.applied(event.id, source);
+
+        raw.push_back(rawRelative);
+        residual.push_back(rawRelative - kProtocolMs[mic] * kRate / 1000.0);
+        fullOffset.push_back(full);
+        returnedOffset.push_back(returned);
+    }
+
+    stats.observations = static_cast<int>(raw.size());
+    if (raw.empty())
+        return stats;
+
+    const double rawMedian = medianOf(raw);
+    const double residualMedian = medianOf(residual);
+    const double fullMedian = medianOf(fullOffset);
+    const double returnedMedian = medianOf(returnedOffset);
+
+    stats.rawMedianMs = toMs(rawMedian);
+    stats.rawSpreadMs = toMs(madOf(raw, rawMedian));
+    stats.residualMedianMs = toMs(residualMedian);
+    stats.residualSpreadMs = toMs(madOf(residual, residualMedian));
+    stats.fullAlignOffsetMs = toMs(fullMedian);
+    stats.roomReturnOffsetMs = toMs(returnedMedian);
+    return stats;
+}
+
+Document detectAndMatchSnareSource(const Kit& kit,
+                                   const std::array<double, kMaxChannels>& priors,
+                                   MatchReport& report)
+{
+    auto pointers = pointersOf(kit);
+
+    Document document;
+    AnalysisContext analysis;
+    analysis.sampleRate = kRate;
+    analysis.referenceChannel = kSnareTop;
+
+    SpectralFluxDetector detector;
+    for (auto& event : detector.analyze(pointers.data(), kKitMicCount, kit.numSamples, analysis))
+        document.addEvent(event);
+
+    MatchContext match;
+    match.sampleRate = kRate;
+    match.prior = priors;
+
+    CrossMicMatcher matcher;
+    report = matcher.match(document, pointers.data(), kKitMicCount, kit.numSamples, match);
+    return document;
+}
+
+int eventsOwnedBy(const Document& document, int source)
+{
+    int count = 0;
+    for (const auto& event : document.events())
+        if (event.referenceChannel == source)
+            ++count;
+
+    return count;
 }
 } // namespace
 
@@ -472,4 +579,63 @@ TEST_CASE("не всякий канал годится в опору, и про�
     profile.priors(kKick, priors);
     for (int mic = 0; mic < kKitMicCount; ++mic)
         CHECK(priors[static_cast<size_t>(mic)] == 0.0);
+}
+
+TEST_CASE("snare source diagnostic separates close pair, bleed and room return",
+          "[.real-kit-source][real-kit]")
+{
+    const auto dir = realKitDir();
+    if (dir.empty())
+        SKIP("BEAT_REAL_KIT_DIR не задан: реальный кит в репозитории не лежит");
+
+    const auto kit = loadKit(dir, kCalibrationStartSec, kCalibrationLengthSec);
+
+    CalibrationReport calibration;
+    const auto profile = calibrateKit(kit, { kSnareTop }, calibration);
+    std::array<double, kMaxChannels> priors {};
+    profile.priors(kSnareTop, priors);
+
+    MatchReport match;
+    const auto document = detectAndMatchSnareSource(kit, priors, match);
+    const int snareEvents = eventsOwnedBy(document, kSnareTop);
+
+    auto returned = document.delays();
+    returned.setReturn(kRoom, 1.0f);
+
+    std::array<SourceDelayStats, kKitMicCount> stats {};
+    for (int mic = 0; mic < kKitMicCount; ++mic)
+        stats[static_cast<size_t>(mic)] = statsForSource(document, kSnareTop, mic, returned);
+
+    const auto& bottom = stats[static_cast<size_t>(kSnareBottom)];
+    REQUIRE(document.events().size() > 40);
+    REQUIRE(snareEvents > 30);
+    REQUIRE(bottom.observations > 30);
+    CHECK(std::abs(bottom.fullAlignOffsetMs) < 0.05);
+
+    const auto& room = stats[static_cast<size_t>(kRoom)];
+    REQUIRE(room.observations > 10);
+    CHECK(room.rawMedianMs > 1000.0 * static_cast<double>(maxLagSeconds(kDefaultMaxDistanceM)));
+    CHECK(std::abs(room.fullAlignOffsetMs) < 0.05);
+    CHECK(std::abs(room.roomReturnOffsetMs - room.rawMedianMs) < 0.05);
+
+    std::cout << "\nYAN9 snare source diagnostic\n";
+    std::cout << std::fixed << std::setprecision(1);
+    std::cout << "window: " << kCalibrationStartSec << "-"
+              << kCalibrationStartSec + kCalibrationLengthSec << " s, ref snare top\n";
+    std::cout << "detect/match: " << document.events().size() << " hits, "
+              << snareEvents << " snare-owned, " << match.observations << " obs, "
+              << calibration.known << " calibrated delays\n";
+    std::cout << "mic            obs raw_ms  mad_ms  residual_ms  full_offset  room_return\n";
+    std::cout << std::setprecision(3);
+    for (int mic = 0; mic < kKitMicCount; ++mic)
+    {
+        const auto& row = stats[static_cast<size_t>(mic)];
+        std::cout << std::left << std::setw(14) << kitNames()[mic] << std::right
+                  << std::setw(4) << row.observations
+                  << std::setw(8) << row.rawMedianMs
+                  << std::setw(8) << row.rawSpreadMs
+                  << std::setw(13) << row.residualMedianMs
+                  << std::setw(13) << row.fullAlignOffsetMs
+                  << std::setw(13) << row.roomReturnOffsetMs << "\n";
+    }
 }
