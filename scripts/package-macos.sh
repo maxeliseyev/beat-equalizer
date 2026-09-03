@@ -211,4 +211,4 @@ MSG
 fi
 
 say "готово: $DMG"
-du -h "$DMG" | sed 's/^/    /'
+ls -lh "$DMG" | awk '{printf "    %s\n", $5}'

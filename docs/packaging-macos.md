@@ -175,8 +175,17 @@ xcrun stapler validate "dist/Beat Equalizer <версия>.dmg"
 ```
 
 `spctl … rejected` c припиской `source=Unnotarized Developer ID` — норма до
-нотаризации: подпись правильная, талона ещё нет. `rejected` **после**
-`make release-dmg` — уже не норма.
+нотаризации: подпись правильная, талона ещё нет. После `make release-dmg`
+обязано быть:
+
+```
+accepted
+source=Notarized Developer ID
+```
+
+и `stapler validate` на приложении, обоих плагинах и образе отвечает
+`The validate action worked!`. Талон в бандле означает, что первая проверка на
+чужой машине пройдёт без интернета.
 
 Честная проверка — на другой машине, а не на своей: на машине сборщика
 Gatekeeper мягче, и подпись, которая проходит здесь, может не пройти там.

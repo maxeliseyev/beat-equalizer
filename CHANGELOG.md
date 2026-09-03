@@ -3,6 +3,34 @@
 Формат: [Keep a Changelog](https://keepachangelog.com/). Версия — semver
 `major.minor.patch`. Источник правды: файл `VERSION`. Как бампать: `docs/versioning.md`.
 
+## 0.17.1 — 2026-09-03
+
+### Added
+
+- **`scripts/package-macos.sh`** — сборка, подпись и упаковка одной командой:
+  `make app` даёт подписанный `.app` и `dist/Beat Equalizer <версия>.dmg` с
+  приложением и папкой `Plug-Ins`; `make release-dmg` — то же с нотаризацией
+  и степлингом. Приложение и плагины степлятся до сборки образа: талон живёт
+  внутри бандла, и перетащенное из образа приложение иначе не пройдёт
+  проверку без интернета. Прогон пройден целиком — Gatekeeper отвечает
+  `accepted, source=Notarized Developer ID`.
+- **`packaging/macos/BeatEqualizer.entitlements`** и
+  `MICROPHONE_PERMISSION_ENABLED` в сборке плагина. Под hardened runtime без
+  права на вход звуковой карты macOS убивает процесс в момент открытия
+  устройства — и падение выглядит как баг в аудио, а не как незаполненный
+  список прав.
+- **`scripts/make-icon.sh`** и `ICON_BIG` в сборке: `make icon FILE=art.png`
+  кладёт картинку туда, откуда её забирает JUCE. Нет файла — сборка идёт без
+  иконки, а не падает.
+- **`docs/packaging-macos.md`** — сертификаты, нотаризация, геометрия иконки
+  macOS и почему масштабировать одну картинку во все размеры недостаточно.
+
+### Fixed
+
+- Подпись берётся по отпечатку сертификата, а не по имени: один и тот же
+  Developer ID нередко лежит сразу в двух связках, `login` и `System`, и
+  `codesign` по имени отвечает `ambiguous`.
+
 ## 0.17.0 — 2026-09-03
 
 ### Added
