@@ -65,6 +65,28 @@ HitSegment segmentHit(const std::vector<float>& envelope,
     return segment;
 }
 
+int arrivalAboveFloor(const std::vector<float>& envelope,
+                      int peak,
+                      int from,
+                      float floorLevel,
+                      float marginDb)
+{
+    const int n = static_cast<int>(envelope.size());
+    if (n == 0)
+        return 0;
+
+    peak = std::clamp(peak, 0, n - 1);
+    from = std::clamp(from, 0, peak);
+
+    const float level = std::max(floorLevel, 1.0e-9f) * std::pow(10.0f, marginDb / 20.0f);
+
+    int i = peak;
+    while (i > from && envelope[static_cast<size_t>(i)] > level)
+        --i;
+
+    return i;
+}
+
 float decaySlope(const std::vector<float>& envelope,
                  const HitSegment& segment,
                  double sampleRate)

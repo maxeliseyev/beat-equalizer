@@ -6,6 +6,8 @@ add_library(beat_doc STATIC
     Event.cpp
     FeatureCache.cpp
     ProtectedZone.cpp
+    SessionCalibration.cpp
+    SessionProfile.cpp
     SpectralFluxDetector.cpp)
 
 # Документ стоит над ядром и знает про его константы; обратной зависимости
