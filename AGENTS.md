@@ -57,9 +57,13 @@ make test
 make test-gui     # рисует осциллограф в PNG (без Reaper)
 make vst3|au|standalone
 make run
+make app          # macOS: подписанный .app и dist/*.dmg
+make release-dmg  # то же плюс нотаризация
 ```
 
-macOS: VST3+AU+Standalone, копия в `~/Library/Audio/Plug-Ins/`.
+macOS: VST3+AU+Standalone, копия в `~/Library/Audio/Plug-Ins/`. Раздача
+наружу — `docs/packaging-macos.md`: без Developer ID и нотаризации сборка
+работает только на своей машине.
 Linux/Windows (когда появится): VST3+Standalone, без AU.
 
 Перед тем как считать задачу сделанной: `make test` зелёный. GUI — Standalone
@@ -75,6 +79,8 @@ src/doc/        документ: источники, события, поле �
                 Без JUCE и без окон. Знает про beat_dsp, обратной связи нет.
 src/plugin/     JUCE: шины, APVTS, processBlock, editor, worker, ring buffer.
 tests/          Catch2, линк на beat_dsp. DSP-тесты не поднимают GUI.
+scripts/        Сборка и упаковка. Логика живёт здесь, Makefile — обёртка.
+packaging/      Права и иконка для бандлов macOS.
 docs/           планы, решения, заметки сессий.
 ```
 

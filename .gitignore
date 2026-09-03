@@ -1,6 +1,7 @@
 /build/
 /.cache/
 /out/
+/dist/
 CMakeUserPresets.json
 compile_commands.json
 CLAUDE.local.md

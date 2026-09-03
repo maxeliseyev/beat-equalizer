@@ -5,6 +5,9 @@
 #   make test            DSP tests only
 #   make vst3|au|standalone
 #   make run             Open Standalone
+#   make icon FILE=art.png   App icon from a 1024x1024 PNG (macOS)
+#   make app             Signed .app and .dmg in dist/ (macOS)
+#   make release-dmg     Same, notarised and stapled (macOS)
 #   make where           Artefact and install paths
 #   make clean
 #
@@ -41,7 +44,7 @@ STANDALONE_BIN := $(ARTEFACT_DIR)/Standalone/$(PLUGIN_NAME)
 endif
 endif
 
-.PHONY: all debug plugin test vst3 au standalone run where version configure clean help
+.PHONY: all debug plugin test vst3 au standalone run icon app release-dmg where version configure clean help
 
 all: test plugin where
 
@@ -84,6 +87,31 @@ else
 	"$(STANDALONE_BIN)"
 endif
 
+# Иконка: картинка 1024x1024, уже в форме иконки macOS. Геометрия и весь
+# порядок подписи — docs/packaging-macos.md.
+icon:
+ifeq ($(HOST),macos)
+	@scripts/make-icon.sh "$(FILE)"
+else
+	$(error icon is macOS-only)
+endif
+
+# Подписанный .app и образ диска. Без нотаризации: на своей машине хватает,
+# наружу нужен release-dmg.
+app:
+ifeq ($(HOST),macos)
+	CONFIG=$(CONFIG) scripts/package-macos.sh
+else
+	$(error app is macOS-only)
+endif
+
+release-dmg:
+ifeq ($(HOST),macos)
+	CONFIG=$(CONFIG) scripts/package-macos.sh --notarize
+else
+	$(error release-dmg is macOS-only)
+endif
+
 version:
 	@echo $(VERSION)
 
@@ -100,9 +128,12 @@ ifeq ($(HOST),macos)
 	@echo "           ~/Library/Audio/Plug-Ins/Components/"
 endif
 	@echo "standalone: $(STANDALONE_BIN)"
+ifeq ($(HOST),macos)
+	@echo "dmg:       dist/$(PLUGIN_NAME) $(VERSION).dmg"
+endif
 
 clean:
-	rm -rf build/debug build/release
+	rm -rf build/debug build/release dist
 
 help:
 	@echo "make              Release tests + plugins for $(HOST)"
@@ -111,7 +142,12 @@ help:
 	@echo "make test-gui     render oscilloscope to PNG"
 	@echo "make vst3|au|standalone"
 	@echo "make run          Open Standalone"
+ifeq ($(HOST),macos)
+	@echo "make icon FILE=x.png  App icon from a 1024x1024 PNG"
+	@echo "make app          Signed .app and .dmg in dist/"
+	@echo "make release-dmg  Same, notarised and stapled"
+endif
 	@echo "make where        Print output paths"
 	@echo "make version      Print VERSION"
-	@echo "make clean        Remove build/debug and build/release"
+	@echo "make clean        Remove build/debug, build/release and dist"
 	@echo "CONFIG=debug|release (default release)"
