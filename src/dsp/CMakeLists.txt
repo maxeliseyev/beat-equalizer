@@ -8,6 +8,7 @@ add_library(beat_dsp STATIC
     Fft.cpp
     FractionalDelay.cpp
     GccPhat.cpp
+    GlideRenderer.cpp
     HitSegment.cpp
     OnsetAnalysis.cpp
     PeakPicker.cpp)

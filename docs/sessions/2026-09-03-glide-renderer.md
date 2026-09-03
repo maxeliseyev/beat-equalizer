@@ -1,0 +1,47 @@
+# 2026-09-03 — `GlideRenderer`
+
+## Context
+
+PR #33 смёржен, этап 2 дошёл до шага 6: по-ударный рендер без нарезки.
+`timing-design-recommendations.md` задаёт первый механизм — glide на
+существующей задержке с лимитом скорости и метрикой когерентности на событие.
+
+## What
+
+Добавлен `beat::GlideRenderer` в `src/dsp`: события несут целевую applied delay
+по каналам, renderer держит задержку постоянной в защищённой атаке и меняет её
+между событиями не быстрее `kGlideMaxSlew`.
+
+`FractionalDelay` получил `processSampleAtDelay`, чтобы offline renderer мог
+задавать задержку на каждый сэмпл без realtime smoothing.
+
+Тесты закрывают `strength = 0` как бит-в-бит копию входа, ограничение скорости
+glide, достижение цели на длинном затухании и знак задержки в event coherence.
+
+## Why
+
+`GlideRenderer` оставлен в `beat_dsp`, а не в plugin: это алгоритм рендера, и
+его надо проверять синтетикой до того, как его дёргает `PluginProcessor`.
+Зависимость на `beat_doc` не добавлялась: plugin позже соберёт простые события
+renderer-а из `Document` и `DelayField`.
+
+`Export aligned` не переключён на per-hit renderer в этом изменении. Сейчас он
+имеет понятный статический контракт: применяет ручные delay/polarity/rotator и
+не зависит от последнего Detect. Молча менять экспорт после появления событий
+значит смешать новый звук, отсутствие strength UI и старое имя кнопки в одном
+PR.
+
+## Status
+
+status.md обновлён: да. Ветка: `feat/glide-renderer`.
+
+## Next
+
+Подключить `GlideRenderer` к standalone-экспорту явным режимом/статусом и
+показать event coherence пользователю.
+
+## Open
+
+- Нужно решить, где в UI живёт strength glide и как назвать режим экспорта.
+- Пересчёт событий остаётся ручным: Detect не запускается автоматически перед
+  per-hit render.

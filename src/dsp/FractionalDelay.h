@@ -19,6 +19,7 @@ public:
     void setInvert(int channel, bool shouldInvert);
 
     float processSample(int channel, float input);
+    float processSampleAtDelay(int channel, float input, float delaySamples);
 
     int interpolatorLatency() const { return kInterpolatorLatencySamples; }
 

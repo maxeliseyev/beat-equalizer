@@ -31,6 +31,9 @@ inline constexpr float kPlainWeighting = 0.0f;
 inline constexpr int kLagrangeOrder = 5;
 inline constexpr int kInterpolatorLatencySamples = 2;
 inline constexpr float kDelaySmoothMs = 5.0f;
+// Максимальная скорость glide: d(delay)/dt в сэмплах на сэмпл.
+// 0.005 — 0.5%, рабочий порог из timing-design.
+inline constexpr float kGlideMaxSlew = 0.005f;
 // Запас по краям защищённой зоны варпа: край зоны — не обрыв, а склейка,
 // и кроссфейду нужно место вне атаки (инвариант 17).
 inline constexpr float kProtectedMarginMs = 3.0f;
