@@ -4,7 +4,7 @@ Updated: 2026-09-03
 Stage: 2 (редактор в standalone)
 Plan step: этап 2, шаг 4 — калибровка сессии
 Branch: `feat/session-calibration`
-PR: —
+PR: https://github.com/maxeliseyev/beat-equalizer/pull/31
 Blockers: none
 
 ## Done
