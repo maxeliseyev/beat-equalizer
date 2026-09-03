@@ -47,6 +47,15 @@ security find-identity -v -p codesigning
 `.p12` оттуда (Keychain Access → сертификат → Export, с паролем) и импорт
 здесь, либо новый сертификат по CSR, сделанному тут.
 
+`SecKeychainItemImport: The specified item already exists` — не ошибка:
+сертификат уже в связке, импорт не нужен. Проверять всё равно через
+`find-identity`.
+
+Один и тот же сертификат нередко оказывается сразу в двух связках, `login` и
+`System`, и тогда `find-identity` показывает его дважды с одинаковым
+отпечатком. Это одна личность, а не две, но `codesign` по имени отвечает
+`ambiguous` — поэтому скрипт подписывает по отпечатку, а не по имени.
+
 `Developer ID Installer` нужен только для `.pkg`; для `.dmg` он не участвует.
 Пусть лежит.
 
@@ -131,6 +140,30 @@ iconutil --convert icns icon.iconset --output icon.icns
 
 ---
 
+## Info.plist подписывать отдельно не нужно
+
+Info.plist собирает JUCE, и `codesign` запечатывает его сам вместе со всем
+бандлом. Разница видна в выводе `codesign -dv`:
+
+```
+Info.plist=not bound        до подписи (ad-hoc от линковщика)
+Info.plist entries=12       после
+```
+
+Отдельного действия для него нет. Менять plist после подписи нельзя — подпись
+сломается, придётся подписывать заново.
+
+Что должно быть в выводе `codesign -dv --verbose=4` на подписанном бандле:
+
+| строка | зачем |
+|---|---|
+| `flags=0x10000(runtime)` | hardened runtime включён — без него нотаризация откажет |
+| `Authority=Developer ID Application: …` | не «Apple Development» |
+| `Authority=Apple Root CA` | цепочка целая |
+| `Timestamp=…` | защищённая метка времени, тоже обязательна для нотаризации |
+| `TeamIdentifier=PK2473XF3P` | не `not set` |
+| `Info.plist entries=…` | plist запечатан |
+
 ## Проверка
 
 Скрипт в конце сам прогоняет Gatekeeper и печатает вердикт. Вручную:
@@ -141,8 +174,9 @@ spctl --assess --type exec --verbose=4 "dist/…/Beat Equalizer.app"
 xcrun stapler validate "dist/Beat Equalizer <версия>.dmg"
 ```
 
-`spctl … rejected` без нотаризации — это норма и ожидаемо. `rejected` **после**
-`make release-dmg` — нет.
+`spctl … rejected` c припиской `source=Unnotarized Developer ID` — норма до
+нотаризации: подпись правильная, талона ещё нет. `rejected` **после**
+`make release-dmg` — уже не норма.
 
 Честная проверка — на другой машине, а не на своей: на машине сборщика
 Gatekeeper мягче, и подпись, которая проходит здесь, может не пройти там.

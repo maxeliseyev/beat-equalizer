@@ -53,9 +53,16 @@ say() { printf '\n\033[1m==> %s\033[0m\n' "$*"; }
 
 # --- личность для подписи ---------------------------------------------------
 
+# Личность берётся по SHA-1, а не по имени. Один и тот же сертификат нередко
+# лежит сразу в двух связках — login и System, — и тогда find-identity
+# показывает его дважды, а codesign по имени отвечает «ambiguous».
 if [ -z "$IDENTITY" ]; then
     IDENTITY="$(security find-identity -v -p codesigning \
-                | sed -n 's/.*"\(Developer ID Application: [^"]*\)".*/\1/p' | head -1)"
+                | awk '/Developer ID Application/{print $2; exit}')"
+    IDENTITY_NAME="$(security find-identity -v -p codesigning \
+                     | sed -n 's/.*"\(Developer ID Application: [^"]*\)".*/\1/p' | head -1)"
+else
+    IDENTITY_NAME="$IDENTITY"
 fi
 
 if [ -z "$IDENTITY" ]; then
@@ -76,8 +83,9 @@ MSG
     exit 1
 fi
 
-TEAM_ID="$(printf '%s' "$IDENTITY" | sed -n 's/.*(\([A-Z0-9]*\))$/\1/p')"
-say "подпись: $IDENTITY  (team $TEAM_ID)"
+TEAM_ID="$(printf '%s' "$IDENTITY_NAME" | sed -n 's/.*(\([A-Z0-9]*\))$/\1/p')"
+say "подпись: $IDENTITY_NAME"
+echo "    отпечаток: $IDENTITY   team: $TEAM_ID"
 
 # --- сборка -----------------------------------------------------------------
 
@@ -143,20 +151,25 @@ MSG
 }
 
 if [ "$NOTARIZE" -eq 1 ]; then
+    # Нотаризуется один архив со всеми тремя бандлами, а талон степлится в
+    # каждый по отдельности: он живёт внутри бандла, а не в архиве, и без
+    # степлинга первая проверка на чужой машине пойдёт в сеть.
+    #
+    # Архив делает ditto, а не zip: у бандлов есть симлинки и ресурсные вилки,
+    # и обычный zip складывает их так, что подпись после распаковки ломается.
+    BATCH_DIR="${BUILD_DIR}/notarize"
     BATCH="${BUILD_DIR}/notarize.zip"
-    rm -f "$BATCH"
-    # Нотаризуется архив, а степлится каждый бандл: талон живёт в бандле, а не
-    # в архиве, и без степлинга первая проверка на чужой машине пойдёт в сеть.
-    ditto -c -k --keepParent --sequesterRsrc "$APP" "${BUILD_DIR}/app.zip"
-    /usr/bin/zip -qr "$BATCH" "$AU" "$VST3" > /dev/null 2>&1 || true
-    notarize "${BUILD_DIR}/app.zip"
-    xcrun stapler staple "$APP"
+    rm -rf "$BATCH_DIR" "$BATCH"
+    mkdir -p "$BATCH_DIR"
+    cp -R "$APP" "$AU" "$VST3" "$BATCH_DIR/"
+    ditto -c -k --keepParent --sequesterRsrc "$BATCH_DIR" "$BATCH"
 
-    if [ -s "$BATCH" ]; then
-        notarize "$BATCH"
-        xcrun stapler staple "$AU" || true
-        xcrun stapler staple "$VST3" || true
-    fi
+    notarize "$BATCH"
+
+    xcrun stapler staple "$APP"
+    xcrun stapler staple "$AU"
+    xcrun stapler staple "$VST3"
+    rm -rf "$BATCH_DIR" "$BATCH"
 fi
 
 # --- DMG --------------------------------------------------------------------
