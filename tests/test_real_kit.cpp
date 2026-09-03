@@ -1,5 +1,6 @@
 #include "RealKit.h"
 #include "doc/CrossMicMatcher.h"
+#include "doc/SessionCalibration.h"
 #include "doc/SpectralFluxDetector.h"
 #include "dsp/Envelope.h"
 #include "dsp/GccPhat.h"
@@ -350,4 +351,125 @@ TEST_CASE("уточнение не портит априорную задерж�
         // И не уводит саму задержку: уточнение — это доли миллисекунды.
         CHECK(std::abs(toMs(medianOf(refined) - medianOf(priors))) < settings.refineMs);
     }
+}
+
+// Калибровка сессии, ступень 2 лестницы: первый проход собирает статистику
+// записи. Проверяется не «посчиталось», а два свойства, которые и делают
+// профиль пригодным — он воспроизводит записанную геометрию, и он отказывается
+// знать то, чего материал не даёт померить.
+namespace
+{
+SessionProfile calibrateKit(const Kit& kit, std::vector<int> references, CalibrationReport& report)
+{
+    std::vector<const float*> pointers(kKitMicCount);
+    for (int mic = 0; mic < kKitMicCount; ++mic)
+        pointers[static_cast<size_t>(mic)] = kit.audio[static_cast<size_t>(mic)].data();
+
+    CalibrationContext context;
+    context.sampleRate = kRate;
+    context.references = std::move(references);
+
+    SpectralFluxDetector detector;
+    SessionCalibration calibration;
+    return calibration.run(detector, pointers.data(), kKitMicCount, kit.numSamples,
+                           context, &report);
+}
+} // namespace
+
+TEST_CASE("калибровка воспроизводит записанный протокол задержек", "[real-kit]")
+{
+    const auto dir = realKitDir();
+    if (dir.empty())
+        SKIP("BEAT_REAL_KIT_DIR не задан: реальный кит в репозитории не лежит");
+
+    const auto kit = loadKit(dir, kCalibrationStartSec, kCalibrationLengthSec);
+
+    CalibrationReport report;
+    const auto profile = calibrateKit(kit, { kSnareTop }, report);
+
+    REQUIRE(report.selected > 10);
+    CHECK(report.known == kKitMicCount - 1);
+
+    for (int mic = 0; mic < kKitMicCount; ++mic)
+    {
+        if (mic == kSnareTop)
+            continue;
+
+        const auto& stat = profile.delay(kSnareTop, mic);
+        INFO(kitNames()[mic]);
+        CHECK(stat.known);
+        CHECK(std::abs(toMs(stat.medianSamples) - kProtocolMs[mic]) < 0.10);
+        CHECK(toMs(stat.spreadSamples) < 0.15);
+    }
+
+    // Просачивание записано вместе с задержками: хэт слышит снейр почти так же
+    // громко, как его собственный микрофон, а бочка — на тридцать децибел тише.
+    CHECK(profile.bleedDb(kSnareTop, kHat) > profile.bleedDb(kSnareTop, kKick));
+    CHECK(profile.bleedDb(kSnareTop, kKick) < -20.0f);
+}
+
+TEST_CASE("профиль сходится сам с собой с двух сторон", "[real-kit]")
+{
+    const auto dir = realKitDir();
+    if (dir.empty())
+        SKIP("BEAT_REAL_KIT_DIR не задан: реальный кит в репозитории не лежит");
+
+    const auto kit = loadKit(dir, kCalibrationStartSec, kCalibrationLengthSec);
+
+    CalibrationReport report;
+    const auto profile = calibrateKit(kit, { kKick, kSnareTop, kRoom }, report);
+
+    // Взаимность: задержка пары, померенная с одного конца, обязана быть
+    // минус задержкой с другого. Удары при этом разные — с опоры снейра
+    // отбираются одни, с опоры комнаты другие, — поэтому совпадение здесь не
+    // тавтология, а проверка самой линейки.
+    int checked = 0;
+    for (int from = 0; from < kKitMicCount; ++from)
+        for (int to = 0; to < kKitMicCount; ++to)
+        {
+            if (from == to || !profile.knows(from, to) || !profile.knows(to, from))
+                continue;
+
+            INFO(kitNames()[from] << " <-> " << kitNames()[to]);
+            CHECK(std::abs(toMs(profile.delay(from, to).medianSamples
+                                + profile.delay(to, from).medianSamples)) < 0.10);
+            ++checked;
+        }
+
+    REQUIRE(checked > 0);
+
+    // И ни одна известная строка не спорит с протоколом.
+    for (int mic = 0; mic < kKitMicCount; ++mic)
+    {
+        if (!profile.knows(kSnareTop, mic))
+            continue;
+
+        INFO(kitNames()[mic]);
+        CHECK(std::abs(toMs(profile.delay(kSnareTop, mic).medianSamples) - kProtocolMs[mic]) < 0.10);
+    }
+}
+
+TEST_CASE("не всякий канал годится в опору, и профиль это признаёт", "[real-kit]")
+{
+    const auto dir = realKitDir();
+    if (dir.empty())
+        SKIP("BEAT_REAL_KIT_DIR не задан: реальный кит в репозитории не лежит");
+
+    const auto kit = loadKit(dir, kCalibrationStartSec, kCalibrationLengthSec);
+
+    CalibrationReport report;
+    const auto profile = calibrateKit(kit, { kKick }, report);
+
+    // Ударов бочка даёт много, а задержек по ним не померить: собственный
+    // низкочастотный хвост не даёт огибающей вернуться к полу, и откат
+    // упирается в край окна. Профиль обязан остаться пустым, а не заполниться
+    // медианами по мусору — ноль в априорной задержке означает «микрофоны
+    // стоят рядом», и сверка поверит.
+    REQUIRE(report.selected > 10);
+    CHECK(report.known == 0);
+
+    std::array<double, kMaxChannels> priors {};
+    profile.priors(kKick, priors);
+    for (int mic = 0; mic < kKitMicCount; ++mic)
+        CHECK(priors[static_cast<size_t>(mic)] == 0.0);
 }
