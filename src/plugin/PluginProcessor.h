@@ -86,6 +86,8 @@ public:
     void applyDetection(DetectWorker::Result result);
     bool isDetectBusy() const { return detectWorker.isBusy(); }
     juce::String getDetectStatus() const { return detectStatus; }
+    const beat::doc::SourceDiagnostic& getSourceDiagnostic() const { return detection.source; }
+    juce::String getSourceDiagnosticStatus() const { return sourceDiagnosticStatus; }
     // Медиана и разброс по-ударной задержки канала, сэмплы. observations = 0 —
     // событий с этим каналом нет, показывать нечего.
     struct DelaySpread
@@ -145,6 +147,8 @@ private:
     juce::String renderGlide(GlideRun& run, bool previewOnly) const;
     juce::String formatGlideStatus(const juce::String& action,
                                    const beat::GlideRenderer::Result& result) const;
+    juce::String formatSourceDiagnosticStatus(
+        const beat::doc::SourceDiagnostic& source) const;
     juce::String refreshGlidePreview(bool notify);
 
     juce::AudioProcessorValueTreeState parameters;
@@ -178,6 +182,7 @@ private:
     DetectWorker detectWorker;
     DetectWorker::Result detection;
     juce::String detectStatus { "Load bench material, then Detect" };
+    juce::String sourceDiagnosticStatus { "Source: -" };
     juce::String glideStatus { "Run Detect, then Export glide" };
     juce::String analysisStatus { "Press Analyze after playing a few bars" };
     float coherenceBefore = 0.0f;

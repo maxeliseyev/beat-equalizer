@@ -508,6 +508,11 @@ TEST_CASE("real kit glide export writes comparable static and strength renders",
     processor.applyDetection(std::move(detection));
     REQUIRE(processor.canExportGlide());
 
+    const auto sourceStatus = processor.getSourceDiagnosticStatus();
+    CHECK(sourceStatus.contains("src Ch 2"));
+    CHECK(sourceStatus.contains("close Ch 3"));
+    CHECK(sourceStatus.contains("late Ch"));
+
     const auto staticFile = outputDir.getChildFile("yan9-static.wav");
     const auto glide50File = outputDir.getChildFile("yan9-glide-50.wav");
     const auto glide100File = outputDir.getChildFile("yan9-glide-100.wav");
@@ -547,6 +552,7 @@ TEST_CASE("real kit glide export writes comparable static and strength renders",
                      .toStdString()
               << "%\n";
     std::cout << "detect: " << processor.getDetectStatus().toStdString() << "\n";
+    std::cout << "source: " << sourceStatus.toStdString() << "\n";
     std::cout << "preview 50: " << preview50.toStdString() << "\n";
     std::cout << "export  50: " << export50.toStdString() << "\n";
     std::cout << "preview100: " << preview100.toStdString() << "\n";

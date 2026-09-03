@@ -7,13 +7,20 @@
 #include "dsp/GlideRenderer.h"
 #include "dsp/LatencyModel.h"
 
+#include <algorithm>
 #include <cmath>
+#include <vector>
 
 namespace
 {
 juce::String percent(float value)
 {
     return juce::String(juce::roundToInt(100.0f * value)) + "%";
+}
+
+juce::String msString(double samples, double sampleRate)
+{
+    return juce::String(1000.0 * samples / sampleRate, 2);
 }
 
 void copyIntoPadded(const juce::AudioBuffer<float>& source,
@@ -530,6 +537,7 @@ void BeatEqualizerAudioProcessor::applyDetection(DetectWorker::Result result)
     if (!detection.valid)
     {
         detectStatus = "Detect found nothing to measure";
+        sourceDiagnosticStatus = "Source: -";
         glideStatus = "Run Detect before Export glide";
     }
     else
@@ -540,6 +548,7 @@ void BeatEqualizerAudioProcessor::applyDetection(DetectWorker::Result result)
         detectStatus = juce::String(detection.document.events().size()) + " hits, "
                        + juce::String(detection.match.observations) + " obs, "
                        + juce::String(detection.calibration.known) + " delays";
+        sourceDiagnosticStatus = formatSourceDiagnosticStatus(detection.source);
         refreshGlidePreview(false);
     }
 
@@ -896,6 +905,52 @@ juce::String BeatEqualizerAudioProcessor::formatGlideStatus(
     }
     if (result.limitedEvents > 0)
         status += ", " + juce::String(result.limitedEvents) + " limited";
+
+    return status;
+}
+
+juce::String BeatEqualizerAudioProcessor::formatSourceDiagnosticStatus(
+    const beat::doc::SourceDiagnostic& source) const
+{
+    const double rate = detection.sampleRate > 0.0 ? detection.sampleRate : currentSampleRate;
+    if (!source.valid || rate <= 0.0)
+        return "Source: -";
+
+    int bleedChannels = 0;
+    for (int ch = 0; ch < beat::kMaxChannels; ++ch)
+    {
+        if (ch == source.sourceChannel || ch == source.closeChannel || ch == source.lateChannel)
+            continue;
+
+        if (source.channels[static_cast<size_t>(ch)].observations > 0)
+            ++bleedChannels;
+    }
+
+    juce::String status = "src Ch " + juce::String(source.sourceChannel + 1) + ": "
+                          + juce::String(source.sourceOwnedEvents) + "/"
+                          + juce::String(source.totalEvents) + " owned";
+
+    if (source.closeChannel >= 0)
+    {
+        const auto& close = source.channels[static_cast<size_t>(source.closeChannel)];
+        status += " | close Ch " + juce::String(source.closeChannel + 1) + " "
+                  + juce::String(close.observations) + " obs "
+                  + msString(close.rawMedianSamples, rate) + "±"
+                  + msString(close.rawSpreadSamples, rate);
+        if (close.calibrated)
+            status += " res " + msString(close.calibrationResidualSamples, rate);
+    }
+
+    if (source.lateChannel >= 0)
+    {
+        const auto& late = source.channels[static_cast<size_t>(source.lateChannel)];
+        status += " | late Ch " + juce::String(source.lateChannel + 1) + " "
+                  + msString(late.naturalOffsetSamples, rate) + " ms"
+                  + " (full " + msString(late.fullAlignOffsetSamples, rate) + ")";
+    }
+
+    if (bleedChannels > 0)
+        status += " | bleed " + juce::String(bleedChannels) + " ch";
 
     return status;
 }

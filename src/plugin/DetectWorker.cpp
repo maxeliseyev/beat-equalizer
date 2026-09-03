@@ -105,6 +105,7 @@ void DetectWorker::detect(const Request& request, Result& into)
 
     CrossMicMatcher matcher;
     into.match = matcher.match(into.document, pointers.data(), channels, length, match);
+    into.source = buildSourceDiagnostic(into.document, into.profile, reference, channels);
 
     into.generation = request.generation;
     into.from = from;

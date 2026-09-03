@@ -20,6 +20,7 @@ constexpr int kTitleHeight = 28;
 constexpr int kHintHeight = 22;
 constexpr int kControlsHeight = 28;
 constexpr int kAnalysisHeight = 28;
+constexpr int kSourceHeight = 22;
 constexpr int kBenchHeight = 28;
 constexpr int kBenchTransportHeight = OverviewStrip::kHeight;
 constexpr int kScopeControlsHeight = 28;
@@ -191,6 +192,13 @@ BeatEqualizerAudioProcessorEditor::BeatEqualizerAudioProcessorEditor(BeatEqualiz
     detectStatus.setColour(juce::Label::textColourId, juce::Colour(0xffc5cad3));
     addChildComponent(detectStatus);
     detectStatus.setVisible(standalone);
+
+    sourceStatus.setJustificationType(juce::Justification::centredLeft);
+    sourceStatus.setFont(juce::FontOptions(13.0f));
+    sourceStatus.setColour(juce::Label::textColourId, juce::Colour(0xffc5cad3));
+    sourceStatus.setText("Source: -", juce::dontSendNotification);
+    addChildComponent(sourceStatus);
+    sourceStatus.setVisible(standalone);
 
     glideStrengthLabel.setText("Glide", juce::dontSendNotification);
     glideStrengthLabel.setFont(juce::FontOptions(13.0f));
@@ -414,6 +422,7 @@ void BeatEqualizerAudioProcessorEditor::paint(juce::Graphics& g)
     benchLabel.setColour(juce::Label::textColourId, juce::Colour(0xff8b919c));
     positionLabel.setColour(juce::Label::textColourId, juce::Colour(0xffc5cad3));
     deviceLabel.setColour(juce::Label::textColourId, juce::Colour(0xff8b919c));
+    sourceStatus.setColour(juce::Label::textColourId, juce::Colour(0xffc5cad3));
     glideStrengthLabel.setColour(juce::Label::textColourId, juce::Colours::white);
     coherenceLabel.setColour(juce::Label::textColourId, juce::Colour(0xff7ddc9a));
     referenceLabel.setColour(juce::Label::textColourId, juce::Colours::white);
@@ -430,7 +439,10 @@ int BeatEqualizerAudioProcessorEditor::chromeHeight() const
 {
     return 2 * kMargin + kTitleHeight + kGapS + kHintHeight + kGapM + kControlsHeight + kGapS
            + kAnalysisHeight
-           + (standalone ? kGapS + kBenchHeight + kGapS + kBenchTransportHeight : 0) + kGapL
+           + (standalone ? kGapS + kSourceHeight + kGapS + kBenchHeight + kGapS
+                               + kBenchTransportHeight
+                         : 0)
+           + kGapL
            + Correlometer::kHeight + kGapL + kScopeControlsHeight + kGapS + kTableHeaderHeight;
 }
 
@@ -476,6 +488,9 @@ void BeatEqualizerAudioProcessorEditor::resized()
 
     if (standalone)
     {
+        area.removeFromTop(kGapS);
+        sourceStatus.setBounds(area.removeFromTop(kSourceHeight));
+
         area.removeFromTop(kGapS);
         auto bench = area.removeFromTop(kBenchHeight);
         loadButton.setBounds(bench.removeFromLeft(130));
@@ -587,6 +602,9 @@ void BeatEqualizerAudioProcessorEditor::updateDetection()
 
     // Материал сменили после Detect: числа относятся к другому клипу.
     const bool fresh = detection.valid && detection.generation == player.getGeneration();
+    sourceStatus.setText(fresh ? audioProcessor.getSourceDiagnosticStatus() : "Source: -",
+                         juce::dontSendNotification);
+    const auto& source = audioProcessor.getSourceDiagnostic();
 
     for (int ch = 0; ch < static_cast<int>(rows.size()); ++ch)
     {
@@ -599,10 +617,20 @@ void BeatEqualizerAudioProcessorEditor::updateDetection()
             continue;
         }
 
-        const auto spread = audioProcessor.getDelaySpread(ch);
-        row.setPerHitDelay(1000.0 * spread.medianSamples / rate,
-                           1000.0 * spread.spreadSamples / rate,
-                           spread.observations);
+        if (source.valid && ch < beat::kMaxChannels)
+        {
+            const auto& sourceRow = source.channels[static_cast<size_t>(ch)];
+            row.setPerHitDelay(1000.0 * sourceRow.rawMedianSamples / rate,
+                               1000.0 * sourceRow.rawSpreadSamples / rate,
+                               sourceRow.observations);
+        }
+        else
+        {
+            const auto spread = audioProcessor.getDelaySpread(ch);
+            row.setPerHitDelay(1000.0 * spread.medianSamples / rate,
+                               1000.0 * spread.spreadSamples / rate,
+                               spread.observations);
+        }
 
         // Окно строки кончается на позиции воспроизведения и сдвинуто назад на
         // задержку канала — ровно так же, как читается сама волна. Маркер
