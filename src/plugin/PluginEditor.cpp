@@ -86,8 +86,9 @@ BeatEqualizerAudioProcessorEditor::BeatEqualizerAudioProcessorEditor(BeatEqualiz
                                  auto& player = audioProcessor.getFilePlayer();
                                  const auto error =
                                      player.load(files, audioProcessor.getCurrentSampleRate());
-                                 benchLabel.setText(error.isEmpty() ? player.getDescription()
-                                                                    : error,
+                                 const auto text = error.isEmpty() ? player.getDescription()
+                                                                   : error;
+                                 benchLabel.setText(benchStatusForMode(text),
                                                     juce::dontSendNotification);
                                  updateBench();
                              });
@@ -176,9 +177,10 @@ BeatEqualizerAudioProcessorEditor::BeatEqualizerAudioProcessorEditor(BeatEqualiz
                                      return;
 
                                  const auto error = audioProcessor.exportGlide(file);
-                                 benchLabel.setText(error.isEmpty()
-                                                        ? audioProcessor.getGlideStatus()
-                                                        : error,
+                                 const auto text = error.isEmpty()
+                                                       ? audioProcessor.getGlideStatus()
+                                                       : error;
+                                 benchLabel.setText(benchStatusForMode(text),
                                                     juce::dontSendNotification);
                              });
     };
@@ -455,8 +457,11 @@ void BeatEqualizerAudioProcessorEditor::paint(juce::Graphics& g)
 int BeatEqualizerAudioProcessorEditor::chromeHeight() const
 {
     const bool advanced = isAdvancedMode();
-    int height = 2 * kMargin + kTitleHeight + kGapS + kHintHeight + kGapM + kControlsHeight
-                 + kGapS + kAnalysisHeight;
+    int height = 2 * kMargin + kTitleHeight + kGapM + kControlsHeight + kGapS
+                 + kAnalysisHeight;
+
+    if (advanced)
+        height += kGapS + kHintHeight;
 
     if (standalone)
     {
@@ -487,8 +492,11 @@ void BeatEqualizerAudioProcessorEditor::resized()
     latencyLabel.setBounds(titleRow.removeFromRight(220));
     layoutLabel.setBounds(titleRow);
 
-    area.removeFromTop(kGapS);
-    hint.setBounds(area.removeFromTop(kHintHeight));
+    if (advanced)
+    {
+        area.removeFromTop(kGapS);
+        hint.setBounds(area.removeFromTop(kHintHeight));
+    }
     area.removeFromTop(kGapM);
 
     auto controls = area.removeFromTop(kControlsHeight);
@@ -521,7 +529,7 @@ void BeatEqualizerAudioProcessorEditor::resized()
     }
     if (advanced)
         coherenceLabel.setBounds(analysisRow.removeFromRight(240));
-    if (standalone)
+    if (standalone && advanced)
         detectStatus.setBounds(analysisRow.removeFromRight(300));
     analysisStatus.setBounds(analysisRow);
 
@@ -754,7 +762,7 @@ void BeatEqualizerAudioProcessorEditor::updateBench()
     if (loaded != benchLoaded)
     {
         benchLoaded = loaded;
-        benchLabel.setText(loaded ? player.getDescription() : "No files loaded",
+        benchLabel.setText(benchStatusForMode(loaded ? player.getDescription() : "No files loaded"),
                            juce::dontSendNotification);
         lastGlideStatus = audioProcessor.getGlideStatus();
         updateChannelNames();
@@ -771,7 +779,7 @@ void BeatEqualizerAudioProcessorEditor::updateBench()
         if (status.isNotEmpty() && status != lastGlideStatus)
         {
             lastGlideStatus = status;
-            benchLabel.setText(status, juce::dontSendNotification);
+            benchLabel.setText(benchStatusForMode(status), juce::dontSendNotification);
         }
     }
 
@@ -855,7 +863,9 @@ void BeatEqualizerAudioProcessorEditor::updateTransportRow()
 void BeatEqualizerAudioProcessorEditor::updateAnalysisStatus()
 {
     analyzeButton.setEnabled(!audioProcessor.isAnalysisBusy());
-    analysisStatus.setText(audioProcessor.getAnalysisStatus(), juce::dontSendNotification);
+    analysisStatus.setText(isAdvancedMode() ? audioProcessor.getAnalysisStatus()
+                                            : basicOutcomeStatus(),
+                           juce::dontSendNotification);
 
     const float after = audioProcessor.getCoherenceAfter();
     if (after <= 0.0f)
@@ -878,6 +888,13 @@ void BeatEqualizerAudioProcessorEditor::refreshWaveforms()
     // следом за ней и никогда отдельно.
     updateWaveforms();
     updateDetection();
+}
+
+void BeatEqualizerAudioProcessorEditor::refreshStatus()
+{
+    updateAnalysisStatus();
+    updateDetection();
+    updateBench();
 }
 
 int BeatEqualizerAudioProcessorEditor::getScopeDisplayPoints() const
@@ -903,6 +920,7 @@ BeatEqualizerAudioProcessorEditor::UiMode BeatEqualizerAudioProcessorEditor::get
 void BeatEqualizerAudioProcessorEditor::refreshUiMode()
 {
     updateUiModeVisibility();
+    refreshStatus();
     updateEditorSizeForMode();
     resized();
 }
@@ -913,6 +931,7 @@ void BeatEqualizerAudioProcessorEditor::setUiMode(UiMode mode)
         param->setValueNotifyingHost(param->convertTo0to1(static_cast<float>(mode)));
 
     updateUiModeVisibility();
+    refreshStatus();
     updateEditorSizeForMode();
     resized();
 }
@@ -935,6 +954,7 @@ void BeatEqualizerAudioProcessorEditor::updateUiModeVisibility()
     const auto tableMode = currentChannelTableMode();
 
     updateUiModeControls();
+    hint.setVisible(advanced);
     distanceLabel.setVisible(advanced);
     distanceSlider.setVisible(advanced);
     freezeButton.setVisible(advanced);
@@ -952,6 +972,7 @@ void BeatEqualizerAudioProcessorEditor::updateUiModeVisibility()
     scopeTimeRight.setVisible(advanced);
 
     sourceStatus.setVisible(standalone && advanced);
+    detectStatus.setVisible(standalone && advanced);
     glideStrengthLabel.setVisible(standalone && advanced);
     glideStrengthSlider.setVisible(standalone && advanced);
 
@@ -968,6 +989,8 @@ void BeatEqualizerAudioProcessorEditor::updateUiModeVisibility()
 
     for (auto& row : rows)
         row->setTableMode(tableMode);
+
+    syncBenchStatusForMode();
 }
 
 void BeatEqualizerAudioProcessorEditor::updateEditorSizeForMode()
@@ -986,6 +1009,102 @@ void BeatEqualizerAudioProcessorEditor::updateEditorSizeForMode()
 ChannelTableMode BeatEqualizerAudioProcessorEditor::currentChannelTableMode() const
 {
     return isAdvancedMode() ? ChannelTableMode::advanced : ChannelTableMode::basic;
+}
+
+juce::String BeatEqualizerAudioProcessorEditor::basicOutcomeStatus()
+{
+    const auto analysis = audioProcessor.getAnalysisStatus();
+
+    if (audioProcessor.isAnalysisBusy())
+        return "Analyzing...";
+
+    if (standalone)
+    {
+        auto& player = audioProcessor.getFilePlayer();
+        if (!player.hasMaterial())
+            return "Load files to begin";
+
+        if (audioProcessor.isDetectBusy())
+            return "Detecting...";
+
+        const auto& detection = audioProcessor.getDetection();
+        const bool fresh = detection.valid && detection.generation == player.getGeneration();
+        if (fresh && !detection.document.events().empty())
+            return "Export ready: "
+                   + juce::String(static_cast<int>(detection.document.events().size()))
+                   + " hits found";
+
+        if (audioProcessor.getDetectStatus().containsIgnoreCase("nothing"))
+            return "Review in Advanced: no hits found";
+
+        if (audioProcessor.getCoherenceAfter() > 0.0f)
+            return "Aligned. A/B to compare";
+
+        return "Ready to Detect";
+    }
+
+    if (analysis.containsIgnoreCase("Too quiet"))
+        return "Play the kit, then Analyze";
+
+    if (analysis.containsIgnoreCase("Not enough"))
+        return "Play a few seconds, then Analyze";
+
+    if (analysis.containsIgnoreCase("needs at least two"))
+        return "Needs two or more channels";
+
+    if (analysis.containsIgnoreCase("Frozen"))
+        return "Advanced freeze is on";
+
+    if (audioProcessor.getCoherenceAfter() > 0.0f)
+        return "Aligned. A/B to compare";
+
+    return "Play the kit, then Analyze";
+}
+
+juce::String BeatEqualizerAudioProcessorEditor::benchStatusForMode(
+    const juce::String& advancedText)
+{
+    if (isAdvancedMode())
+        return advancedText;
+
+    if (advancedText.startsWith("Glide exported "))
+    {
+        const auto fileName =
+            advancedText.fromFirstOccurrenceOf("Glide exported ", false, false)
+                .upToFirstOccurrenceOf(" @", false, false);
+        return fileName.isNotEmpty() ? "Exported " + fileName : "Export complete";
+    }
+
+    if (advancedText.startsWith("Exported ") || advancedText.startsWith("Could not")
+        || advancedText.containsIgnoreCase("error"))
+        return advancedText;
+
+    auto& player = audioProcessor.getFilePlayer();
+    return player.hasMaterial() ? player.getDescription() : "No files loaded";
+}
+
+void BeatEqualizerAudioProcessorEditor::syncBenchStatusForMode()
+{
+    if (!standalone)
+        return;
+
+    auto& player = audioProcessor.getFilePlayer();
+    if (!player.hasMaterial())
+    {
+        benchLabel.setText("No files loaded", juce::dontSendNotification);
+        return;
+    }
+
+    if (isAdvancedMode() && audioProcessor.canExportGlide())
+    {
+        const auto status = audioProcessor.getGlideStatus();
+        if (status.isNotEmpty())
+            benchLabel.setText(status, juce::dontSendNotification);
+        return;
+    }
+
+    if (!isAdvancedMode() && benchLabel.getText().contains("Glide "))
+        benchLabel.setText(player.getDescription(), juce::dontSendNotification);
 }
 
 bool BeatEqualizerAudioProcessorEditor::isAudible(int channel) const

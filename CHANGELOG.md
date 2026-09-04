@@ -3,6 +3,15 @@
 Формат: [Keep a Changelog](https://keepachangelog.com/). Версия — semver
 `major.minor.patch`. Источник правды: файл `VERSION`. Как бампать: `docs/versioning.md`.
 
+## 0.24.0 — 2026-09-04
+
+### Added
+
+- **Basic outcome/status.** Basic теперь показывает короткий пользовательский
+  итог/следующее действие вместо подробных `analysisStatus`/`detectStatus`.
+  Detailed detect/source/glide preview строки остаются в Advanced; Basic
+  больше не показывает `obs/delays` и event-coherence preview на первом экране.
+
 ## 0.23.0 — 2026-09-04
 
 ### Added

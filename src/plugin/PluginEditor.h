@@ -48,6 +48,12 @@ public:
     bool isGlideStrengthVisible() const { return glideStrengthSlider.isVisible(); }
     bool isScopeGridVisible() const { return gridBox.isVisible(); }
     bool isDistanceControlVisible() const { return distanceSlider.isVisible(); }
+    bool isHintVisible() const { return hint.isVisible(); }
+    bool isDetectStatusVisible() const { return detectStatus.isVisible(); }
+    juce::String getPrimaryStatusText() const { return analysisStatus.getText(); }
+    juce::String getDetectStatusText() const { return detectStatus.getText(); }
+    juce::String getBenchStatusText() const { return benchLabel.getText(); }
+    void refreshStatus();
     int chromeHeight() const;
     // Тестам нужно попасть в полосу обзора и обновить её без таймера.
     juce::Rectangle<int> getOverviewBounds() const { return overview.getBounds(); }
@@ -79,6 +85,9 @@ private:
     // Линии сетки внутри показанного окна; count = 0, когда темпа или позиции нет.
     int buildGrid(double startQuarters, int windowSamples, beat::grid::Line* out) const;
     bool isAudible(int channel) const;
+    juce::String basicOutcomeStatus();
+    juce::String benchStatusForMode(const juce::String& advancedText);
+    void syncBenchStatusForMode();
 
     BeatEqualizerAudioProcessor& audioProcessor;
 
