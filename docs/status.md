@@ -4,7 +4,7 @@ Updated: 2026-09-05
 Stage: 2 (редактор в standalone)
 Plan step: продуктовая дорожная карта этапов 2+
 Branch: `docs/product-roadmap`
-PR: none
+PR: #50 draft — https://github.com/maxeliseyev/beat-equalizer/pull/50
 Blockers: none
 
 ## Done
@@ -20,7 +20,7 @@ Blockers: none
 
 ## Now
 
-- Документационная правка готова к draft PR.
+- Документационная правка готова; draft PR #50 открыт.
 - Код DSP/doc/plugin и поведение приложения не менялись.
 
 ## Next
@@ -33,7 +33,7 @@ Blockers: none
 1. `git fetch && git checkout docs/product-roadmap && git pull`
 2. Читать секцию 9 в `docs/drum-editor-plan.md`
 3. `rtk git diff --check && rtk make test`
-4. Проверить draft PR; после merge начать Standalone `Export crossfade...`.
+4. Проверить PR #50; после merge начать Standalone `Export crossfade...`.
 
 ## Open
 
