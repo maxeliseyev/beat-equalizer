@@ -3,6 +3,15 @@
 Формат: [Keep a Changelog](https://keepachangelog.com/). Версия — semver
 `major.minor.patch`. Источник правды: файл `VERSION`. Как бампать: `docs/versioning.md`.
 
+## 0.27.0 — 2026-09-04
+
+### Added
+
+- **`CrossfadeRenderer` в `beat_dsp`.** Offline-render теперь имеет отдельный
+  DSP-блок для скачка задержки под равноамплитудным crossfade: edit points
+  задают общий join-интервал, target delay по каналам и base delay для
+  отсутствующих измерений. `strength = 0` остаётся bit-for-bit bypass.
+
 ## 0.26.0 — 2026-09-04
 
 ### Added
