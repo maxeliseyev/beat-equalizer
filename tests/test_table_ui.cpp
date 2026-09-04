@@ -82,6 +82,43 @@ TEST_CASE("table columns never overlap and the waveform takes the right edge")
     REQUIRE(columns.scope.getWidth() == 1200 - ChannelRow::kControlsWidth);
 }
 
+TEST_CASE("basic table columns hide manual diagnostics and give the waveform room")
+{
+    const auto advanced =
+        ChannelColumns::from({ 0, 0, 1200, ChannelRow::kHeight },
+                             true,
+                             ChannelTableMode::advanced);
+    const auto basicBench =
+        ChannelColumns::from({ 0, 0, 1200, ChannelRow::kHeight },
+                             true,
+                             ChannelTableMode::basic);
+    const auto basicHost =
+        ChannelColumns::from({ 0, 0, 1200, ChannelRow::kHeight },
+                             false,
+                             ChannelTableMode::basic);
+
+    REQUIRE(ChannelRow::controlsWidth(ChannelTableMode::basic, false)
+            == ChannelRow::kEnableWidth + ChannelRow::kNameWidth);
+    REQUIRE(ChannelRow::controlsWidth(ChannelTableMode::basic, true)
+            == ChannelRow::kEnableWidth + ChannelRow::kSoloWidth + ChannelRow::kMuteWidth
+                   + ChannelRow::kNameWidth);
+
+    CHECK(basicBench.scope.getWidth() > advanced.scope.getWidth());
+    CHECK(basicHost.scope.getWidth() > basicBench.scope.getWidth());
+    CHECK(basicBench.delay.getWidth() == 0);
+    CHECK(basicBench.rotator.getWidth() == 0);
+    CHECK(basicBench.polarity.getWidth() == 0);
+    CHECK(basicBench.corr.getWidth() == 0);
+    CHECK(basicBench.phase.getWidth() == 0);
+    CHECK(basicBench.perHit.getWidth() == 0);
+    CHECK(basicBench.level.getWidth() == 0);
+    CHECK(basicBench.pan.getWidth() == 0);
+    CHECK(basicBench.solo.getWidth() == ChannelRow::kSoloWidth);
+    CHECK(basicBench.mute.getWidth() == ChannelRow::kMuteWidth);
+    CHECK(basicHost.solo.getWidth() == 0);
+    CHECK(basicHost.mute.getWidth() == 0);
+}
+
 TEST_CASE("monitor columns appear only when the bench has material")
 {
     juce::ScopedJuceInitialiser_GUI gui;
@@ -107,6 +144,52 @@ TEST_CASE("monitor columns appear only when the bench has material")
 
     row.setMonitorVisible(false);
     REQUIRE(row.getScopeBounds().getWidth() == withoutMonitor);
+}
+
+TEST_CASE("a channel row switches between Basic and Advanced table modes")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+
+    BeatEqualizerAudioProcessor processor;
+    ChannelRow row(processor.getParameters(), 0);
+    row.setActive(true);
+    row.setBounds(0, 0, 1200, ChannelRow::kHeight);
+    row.setMonitorVisible(true);
+    row.setTableMode(ChannelTableMode::basic);
+    row.resized();
+
+    const auto basicColumns =
+        ChannelColumns::from({ 0, 0, 1200, ChannelRow::kHeight },
+                             true,
+                             ChannelTableMode::basic);
+    REQUIRE(row.getTableMode() == ChannelTableMode::basic);
+    CHECK(row.isSoloVisible());
+    CHECK_FALSE(row.isLevelVisible());
+    CHECK_FALSE(row.isDelayVisible());
+    CHECK_FALSE(row.isPerHitVisible());
+    CHECK(row.getScopeBounds() == basicColumns.scope);
+    const int basicScopeWidth = row.getScopeBounds().getWidth();
+
+    row.setTableMode(ChannelTableMode::advanced);
+    const auto advancedColumns =
+        ChannelColumns::from({ 0, 0, 1200, ChannelRow::kHeight },
+                             true,
+                             ChannelTableMode::advanced);
+    CHECK(row.isSoloVisible());
+    CHECK(row.isLevelVisible());
+    CHECK(row.isDelayVisible());
+    CHECK(row.isPerHitVisible());
+    CHECK(row.getScopeBounds() == advancedColumns.scope);
+    CHECK(row.getScopeBounds().getWidth() < basicScopeWidth);
+
+    row.setMonitorVisible(false);
+    row.setTableMode(ChannelTableMode::basic);
+    const auto hostBasicColumns =
+        ChannelColumns::from({ 0, 0, 1200, ChannelRow::kHeight },
+                             false,
+                             ChannelTableMode::basic);
+    CHECK_FALSE(row.isSoloVisible());
+    CHECK(row.getScopeBounds() == hostBasicColumns.scope);
 }
 
 TEST_CASE("a channel row draws its own waveform right of the controls")

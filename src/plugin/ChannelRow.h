@@ -6,6 +6,12 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_gui_basics/juce_gui_basics.h>
 
+enum class ChannelTableMode
+{
+    basic = 0,
+    advanced = 1
+};
+
 // Геометрия колонок таблицы живёт в одном месте: и строка, и её шапка
 // раскладываются отсюда, иначе они разъезжаются при первой же правке.
 struct ChannelColumns
@@ -26,7 +32,9 @@ struct ChannelColumns
 
     // Монитор-микс есть только у стенда: внутри хоста уровень и панорама ничего
     // не делают (инвариант 3), поэтому их колонки не занимают места вовсе.
-    static ChannelColumns from(juce::Rectangle<int> row, bool withMonitor = true);
+    static ChannelColumns from(juce::Rectangle<int> row,
+                               bool withMonitor = true,
+                               ChannelTableMode mode = ChannelTableMode::advanced);
 };
 
 class ChannelRow final : public juce::Component
@@ -58,6 +66,8 @@ public:
                                           + kPerHitWidth;
     static constexpr int kMinScopeWidth = 240;
 
+    static int controlsWidth(ChannelTableMode mode, bool withMonitor = true);
+
     ChannelRow(juce::AudioProcessorValueTreeState& state, int channelIndex);
 
     void resized() override;
@@ -77,6 +87,12 @@ public:
     void setChannelName(const juce::String& name);
     // Уровень и панорама показываются только когда в стенде есть материал.
     void setMonitorVisible(bool shouldBeVisible);
+    void setTableMode(ChannelTableMode mode);
+    ChannelTableMode getTableMode() const { return tableMode; }
+    bool isSoloVisible() const { return soloButton.isVisible(); }
+    bool isLevelVisible() const { return levelSlider.isVisible(); }
+    bool isDelayVisible() const { return delaySlider.isVisible(); }
+    bool isPerHitVisible() const { return perHitLabel.isVisible(); }
 
     juce::Rectangle<int> getScopeBounds() const { return scope.getBounds(); }
     juce::String getLabelText() const { return nameLabel.getText(); }
@@ -88,6 +104,9 @@ private:
     int index = 0;
     bool active = false;
     bool monitorVisible = false;
+    ChannelTableMode tableMode = ChannelTableMode::advanced;
+
+    void updateColumnVisibility();
 
     juce::ToggleButton enabledButton;
     juce::TextButton soloButton { "S" };

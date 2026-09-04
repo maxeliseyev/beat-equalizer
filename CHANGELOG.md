@@ -3,6 +3,15 @@
 Формат: [Keep a Changelog](https://keepachangelog.com/). Версия — semver
 `major.minor.patch`. Источник правды: файл `VERSION`. Как бампать: `docs/versioning.md`.
 
+## 0.23.0 — 2026-09-04
+
+### Added
+
+- **Mode-aware channel table.** Basic теперь скрывает ручные и диагностические
+  колонки таблицы каналов (`Delay`, `Rot`, `Pol`, `Corr`, `Phase`, `d/hit ms`
+  и monitor `Level/Pan`) и отдаёт освободившуюся ширину waveform. Advanced
+  сохраняет полный инженерный набор колонок.
+
 ## 0.22.0 — 2026-09-03
 
 ### Added
