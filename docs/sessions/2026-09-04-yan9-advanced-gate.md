@@ -38,13 +38,14 @@ source не даёт выигрыша или упирается в slew-limit, �
 ## Status
 
 status.md обновлён: да. Ветка: `test/yan9-advanced-gate`.
-PR: none.
+PR: #44 draft — https://github.com/maxeliseyev/beat-equalizer/pull/44.
 Проверено: `make test` с `BEAT_REAL_KIT_DIR`, hidden `[.real-kit-source]`,
 `make test-gui`, hidden `[.real-kit-export]`.
 
 ## Next
 
-Открыть draft PR с YAN9 gate-протоколом.
+После merge PR #44 начать этап 2, шаг 7: точки реза, кроссфейды и WSOLA на
+затухании.
 
 ## Open
 

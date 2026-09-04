@@ -4,7 +4,7 @@ Updated: 2026-09-04
 Stage: 2 (редактор в standalone)
 Plan step: этап 2, gate после шага 6 — YAN9 Advanced diagnostics
 Branch: `test/yan9-advanced-gate`
-PR: none
+PR: #44 draft — https://github.com/maxeliseyev/beat-equalizer/pull/44
 Blockers: none
 
 ## Done
@@ -47,7 +47,8 @@ Blockers: none
 
 ## Next
 
-Открыть draft PR с YAN9 gate-протоколом.
+После merge PR #44 начать этап 2, шаг 7: точки реза, кроссфейды и WSOLA на
+затухании.
 
 ## Resume
 
@@ -55,7 +56,7 @@ Blockers: none
 2. Читать `docs/sessions/2026-09-04-yan9-advanced-gate.md`
 3. Проверить `docs/real-kit-protocol.md`
 4. `git diff --check`
-5. Открыть draft PR в `main`.
+5. Проверить PR #44 и после merge начать шаг 7 от актуального `main`.
 
 ## Open
 
