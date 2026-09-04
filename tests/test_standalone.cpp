@@ -152,6 +152,23 @@ void checkRealKitExport(const juce::File& file, int minimumSamples)
     CHECK(info.numFrames >= minimumSamples);
 }
 
+void setSourceRow(beat::doc::SourceChannelDiagnostic& row,
+                  int observations,
+                  double naturalSamples,
+                  double spreadSamples,
+                  double fullSamples,
+                  double residualSamples,
+                  bool calibrated)
+{
+    row.observations = observations;
+    row.rawMedianSamples = naturalSamples;
+    row.naturalOffsetSamples = naturalSamples;
+    row.rawSpreadSamples = spreadSamples;
+    row.fullAlignOffsetSamples = fullSamples;
+    row.calibrationResidualSamples = residualSamples;
+    row.calibrated = calibrated;
+}
+
 DetectWorker::Result twoHitDetection(int generation, int sampleCount)
 {
     DetectWorker::Result detection;
@@ -185,6 +202,72 @@ DetectWorker::Result twoHitDetection(int generation, int sampleCount)
 
     addEvent(1000, 1010);
     addEvent(12000, 12030);
+    detection.match.observations = 4;
+    detection.calibration.known = 1;
+
+    detection.source.valid = true;
+    detection.source.sourceChannel = 0;
+    detection.source.totalEvents = 2;
+    detection.source.sourceOwnedEvents = 2;
+    detection.source.sourceObservations = 4;
+    detection.source.calibratedDelays = 1;
+    detection.source.closeChannel = 1;
+    detection.source.lateChannel = 1;
+    setSourceRow(detection.source.channels[0], 2, 0.0, 0.0, 0.0, 0.0, true);
+    setSourceRow(detection.source.channels[1], 2, 30.0, 20.0, 0.0, 0.0, true);
+    return detection;
+}
+
+DetectWorker::Result threeChannelSourceDiagnostic(int generation, int sampleCount)
+{
+    DetectWorker::Result detection;
+    detection.generation = generation;
+    detection.sampleRate = kSampleRate;
+    detection.from = 0;
+    detection.length = sampleCount;
+    detection.reference = 0;
+    detection.valid = true;
+    detection.match.observations = 6;
+    detection.calibration.known = 2;
+
+    const auto addEvent = [&detection](int sourceSample)
+    {
+        beat::doc::Event event;
+        event.referenceChannel = 0;
+        event.timeSamples = static_cast<double>(sourceSample);
+
+        for (int ch = 0; ch < 3; ++ch)
+        {
+            auto& observation = event.channels[static_cast<size_t>(ch)];
+            observation.present = true;
+            observation.arrivalSamples = static_cast<double>(sourceSample);
+            observation.attackEndSamples = static_cast<double>(sourceSample + 8);
+        }
+        event.channels[1].arrivalSamples += 24.0;
+        event.channels[1].attackEndSamples += 24.0;
+        event.channels[2].arrivalSamples += 480.0;
+        event.channels[2].attackEndSamples += 480.0;
+
+        const auto id = detection.document.addEvent(event);
+        detection.document.delays().setRaw(id, 0, 0.0);
+        detection.document.delays().setRaw(id, 1, 24.0);
+        detection.document.delays().setRaw(id, 2, 480.0);
+    };
+
+    addEvent(1000);
+    addEvent(12000);
+
+    detection.source.valid = true;
+    detection.source.sourceChannel = 0;
+    detection.source.totalEvents = 2;
+    detection.source.sourceOwnedEvents = 2;
+    detection.source.sourceObservations = 6;
+    detection.source.calibratedDelays = 2;
+    detection.source.closeChannel = 1;
+    detection.source.lateChannel = 2;
+    setSourceRow(detection.source.channels[0], 2, 0.0, 0.0, 0.0, 0.0, true);
+    setSourceRow(detection.source.channels[1], 2, 24.0, 0.0, 0.0, 0.0, true);
+    setSourceRow(detection.source.channels[2], 2, 480.0, 0.0, 0.0, 0.0, true);
     return detection;
 }
 } // namespace
@@ -1114,9 +1197,11 @@ TEST_CASE("the editor defaults to Basic and expands Advanced blocks on demand")
     CHECK_FALSE(scoped->isDistanceControlVisible());
     CHECK_FALSE(scoped->isHintVisible());
     CHECK_FALSE(scoped->isDetectStatusVisible());
+    CHECK_FALSE(scoped->isSourceDiagnosticsVisible());
     CHECK(scoped->getPrimaryStatusText() == "Load files to begin");
     CHECK(scoped->getRow(0).getTableMode() == ChannelTableMode::basic);
     CHECK_FALSE(scoped->getRow(0).isSoloVisible());
+    CHECK_FALSE(scoped->getRow(0).isRoleVisible());
     CHECK_FALSE(scoped->getRow(0).isDelayVisible());
     const int basicScopeWidth = scoped->getRow(0).getScopeBounds().getWidth();
 
@@ -1131,8 +1216,10 @@ TEST_CASE("the editor defaults to Basic and expands Advanced blocks on demand")
     CHECK(scoped->isDistanceControlVisible());
     CHECK(scoped->isHintVisible());
     CHECK(scoped->isDetectStatusVisible());
+    CHECK(scoped->isSourceDiagnosticsVisible());
     CHECK(scoped->getRow(0).getTableMode() == ChannelTableMode::advanced);
     CHECK(scoped->getRow(0).isSoloVisible());
+    CHECK(scoped->getRow(0).isRoleVisible());
     CHECK(scoped->getRow(0).isDelayVisible());
     CHECK(scoped->getRow(0).getScopeBounds().getWidth() < basicScopeWidth);
     CHECK(scoped->chromeHeight() > basicChrome);
@@ -1189,6 +1276,65 @@ TEST_CASE("Basic status reports the outcome while Advanced keeps detect details"
     CHECK(scoped->isDetectStatusVisible());
     CHECK(scoped->getDetectStatusText().contains("obs"));
     CHECK(scoped->getBenchStatusText().contains("Glide preview"));
+
+    input.deleteFile();
+}
+
+TEST_CASE("Advanced source diagnostics table labels role returns")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+
+    juce::AudioBuffer<float> source(3, 16384);
+    source.clear();
+    source.setSample(0, 1000, 1.0f);
+    source.setSample(1, 1024, 1.0f);
+    source.setSample(2, 1480, 1.0f);
+
+    const auto input = writeTempWav(source);
+
+    juce::AudioProcessor::setTypeOfNextNewPlugin(juce::AudioProcessor::wrapperType_Standalone);
+    BeatEqualizerAudioProcessor processor;
+    juce::AudioProcessor::setTypeOfNextNewPlugin(juce::AudioProcessor::wrapperType_Undefined);
+    processor.enableAllBuses();
+    processor.prepareToPlay(kSampleRate, 128);
+    REQUIRE(processor.getFilePlayer().load({ input }, kSampleRate).isEmpty());
+
+    setParameter(processor, "ch01.role", 1.0f);
+    setParameter(processor, "ch02.role", 1.0f);
+    setParameter(processor, "ch03.role", 3.0f);
+
+    std::unique_ptr<juce::AudioProcessorEditor> editor(processor.createEditor());
+    auto* scoped = dynamic_cast<BeatEqualizerAudioProcessorEditor*>(editor.get());
+    REQUIRE(scoped != nullptr);
+    CHECK(scoped->getUiMode() == BeatEqualizerAudioProcessorEditor::UiMode::basic);
+    CHECK_FALSE(scoped->isSourceDiagnosticsVisible());
+
+    processor.applyDetection(
+        threeChannelSourceDiagnostic(processor.getFilePlayer().getGeneration(),
+                                     source.getNumSamples()));
+    scoped->refreshStatus();
+
+    CHECK_FALSE(scoped->isSourceDiagnosticsVisible());
+    CHECK(processor.getSourceDiagnosticStatus().contains("room return Ch 3"));
+    CHECK_FALSE(processor.getSourceDiagnosticStatus().contains("late Ch 3"));
+
+    auto* mode = processor.getParameters().getParameter("global.uiMode");
+    REQUIRE(mode != nullptr);
+    mode->setValueNotifyingHost(mode->convertTo0to1(1.0f));
+    scoped->refreshUiMode();
+
+    CHECK(scoped->isSourceDiagnosticsVisible());
+    CHECK(scoped->getSourceDiagnosticsRowCount() == 3);
+    CHECK(scoped->getRow(0).getRoleText() == "Close");
+    CHECK(scoped->getRow(2).getRoleText() == "Room");
+
+    const auto text = scoped->getSourceDiagnosticsText();
+    CHECK(text.contains("Natural ms"));
+    CHECK(text.contains("Ch 01\tClose\tsource"));
+    CHECK(text.contains("Ch 02\tClose\tclose pair"));
+    CHECK(text.contains("Ch 03\tRoom\troom return"));
+    CHECK(text.contains("10.00"));
+    CHECK(text.contains("Residual ms"));
 
     input.deleteFile();
 }

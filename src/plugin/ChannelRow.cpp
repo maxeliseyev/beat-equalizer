@@ -13,6 +13,9 @@ ChannelColumns ChannelColumns::from(juce::Rectangle<int> row,
     }
     columns.name = row.removeFromLeft(ChannelRow::kNameWidth);
 
+    if (mode == ChannelTableMode::advanced)
+        columns.role = row.removeFromLeft(ChannelRow::kRoleWidth);
+
     if (mode == ChannelTableMode::advanced && withMonitor)
     {
         columns.level = row.removeFromLeft(ChannelRow::kLevelWidth);
@@ -46,8 +49,8 @@ int ChannelRow::controlsWidth(ChannelTableMode mode, bool withMonitor)
         if (withMonitor)
             width += kLevelWidth + kPanWidth;
 
-        width += kDelayWidth + kRotatorWidth + kPolarityWidth + kCorrWidth + kPhaseWidth
-                 + kPerHitWidth;
+        width += kRoleWidth + kDelayWidth + kRotatorWidth + kPolarityWidth + kCorrWidth
+                 + kPhaseWidth + kPerHitWidth;
     }
 
     return width;
@@ -76,6 +79,13 @@ ChannelRow::ChannelRow(juce::AudioProcessorValueTreeState& state, int channelInd
     nameLabel.setFont(juce::FontOptions(13.0f));
     addAndMakeVisible(nameLabel);
     setChannelName({});
+
+    roleBox.addItem("-", 1);
+    roleBox.addItem("Close", 2);
+    roleBox.addItem("OH", 3);
+    roleBox.addItem("Room", 4);
+    roleBox.addItem("Hats", 5);
+    addAndMakeVisible(roleBox);
 
     // Все четыре регулятора — полосы со значением внутри: ручку с отдельным
     // текстовым полем строка себе позволить не может, окно и так шире экрана.
@@ -132,6 +142,8 @@ ChannelRow::ChannelRow(juce::AudioProcessorValueTreeState& state, int channelInd
         state, beat::channelParamId(index, "solo"), soloButton);
     muteAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
         state, beat::channelParamId(index, "mute"), muteButton);
+    roleAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
+        state, beat::channelParamId(index, "role"), roleBox);
     levelAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
         state, beat::channelParamId(index, "levelDb"), levelSlider);
     panAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
@@ -163,6 +175,8 @@ void ChannelRow::resized()
     if (!columns.mute.isEmpty())
         muteButton.setBounds(centred(columns.mute, 2));
     nameLabel.setBounds(centred(columns.name, 4));
+    if (!columns.role.isEmpty())
+        roleBox.setBounds(centred(columns.role, 2));
     if (!columns.level.isEmpty())
     {
         levelSlider.setBounds(centred(columns.level, 4));
@@ -227,6 +241,7 @@ void ChannelRow::updateColumnVisibility()
 
     soloButton.setVisible(showMonitorButtons);
     muteButton.setVisible(showMonitorButtons);
+    roleBox.setVisible(advanced);
     levelSlider.setVisible(advanced && monitorVisible);
     panSlider.setVisible(advanced && monitorVisible);
     delaySlider.setVisible(advanced);

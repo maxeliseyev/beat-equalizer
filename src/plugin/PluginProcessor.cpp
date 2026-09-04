@@ -1,5 +1,6 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
+#include "SourceDiagnosticTable.h"
 
 #include "doc/ProtectedZone.h"
 #include "dsp/AnalysisState.h"
@@ -52,6 +53,8 @@ BeatEqualizerAudioProcessor::BeatEqualizerAudioProcessor()
             parameters.getRawParameterValue(beat::channelParamId(i, "mute"));
         channelParams[static_cast<size_t>(i)].solo =
             parameters.getRawParameterValue(beat::channelParamId(i, "solo"));
+        channelParams[static_cast<size_t>(i)].role =
+            parameters.getRawParameterValue(beat::channelParamId(i, "role"));
         channelParams[static_cast<size_t>(i)].rotatorAmount =
             parameters.getRawParameterValue(beat::channelParamId(i, "rotatorAmount"));
         channelParams[static_cast<size_t>(i)].rotatorHz =
@@ -909,6 +912,15 @@ juce::String BeatEqualizerAudioProcessor::formatGlideStatus(
     return status;
 }
 
+beat::ChannelRole BeatEqualizerAudioProcessor::channelRole(int channel) const
+{
+    if (channel < 0 || channel >= beat::kMaxChannels)
+        return beat::ChannelRole::unknown;
+
+    return SourceDiagnosticTable::roleFromParameter(
+        channelParams[static_cast<size_t>(channel)].role);
+}
+
 juce::String BeatEqualizerAudioProcessor::formatSourceDiagnosticStatus(
     const beat::doc::SourceDiagnostic& source) const
 {
@@ -944,7 +956,11 @@ juce::String BeatEqualizerAudioProcessor::formatSourceDiagnosticStatus(
     if (source.lateChannel >= 0)
     {
         const auto& late = source.channels[static_cast<size_t>(source.lateChannel)];
-        status += " | late Ch " + juce::String(source.lateChannel + 1) + " "
+        const auto role = channelRole(source.lateChannel);
+        const auto usage = role == beat::ChannelRole::overhead ? juce::String("OH return")
+                         : role == beat::ChannelRole::room ? juce::String("room return")
+                                                           : juce::String("late");
+        status += " | " + usage + " Ch " + juce::String(source.lateChannel + 1) + " "
                   + msString(late.naturalOffsetSamples, rate) + " ms"
                   + " (full " + msString(late.fullAlignOffsetSamples, rate) + ")";
     }

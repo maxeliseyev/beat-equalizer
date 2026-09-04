@@ -3,6 +3,22 @@
 Формат: [Keep a Changelog](https://keepachangelog.com/). Версия — semver
 `major.minor.patch`. Источник правды: файл `VERSION`. Как бампать: `docs/versioning.md`.
 
+## 0.25.0 — 2026-09-04
+
+### Added
+
+- **Advanced diagnostics v2.** Advanced теперь показывает source-centric
+  таблицу по всем активным каналам: роль, usage, observations, natural delay,
+  spread, full-align offset, calibration residual и calibration flag.
+- **Роль канала в Advanced table.** Существующий параметр `chXX.role` получил
+  UI-control в Advanced; Basic его не показывает.
+
+### Changed
+
+- Compact source status теперь называет поздний канал `OH return` или
+  `room return`, когда соответствующая роль задана. Роли остаются
+  метаданными и не меняют Detect/matcher/glide/export.
+
 ## 0.24.0 — 2026-09-04
 
 ### Added

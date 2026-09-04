@@ -213,6 +213,9 @@ BeatEqualizerAudioProcessorEditor::BeatEqualizerAudioProcessorEditor(BeatEqualiz
     addChildComponent(sourceStatus);
     sourceStatus.setVisible(standalone);
 
+    addChildComponent(sourceDiagnostics);
+    sourceDiagnostics.setVisible(standalone);
+
     glideStrengthLabel.setText("Glide", juce::dontSendNotification);
     glideStrengthLabel.setFont(juce::FontOptions(13.0f));
     addChildComponent(glideStrengthLabel);
@@ -278,6 +281,7 @@ BeatEqualizerAudioProcessorEditor::BeatEqualizerAudioProcessorEditor(BeatEqualiz
     setupHeader(headerSolo, "S");
     setupHeader(headerMute, "M");
     setupHeader(headerName, "Ch / file");
+    setupHeader(headerRole, "Role");
     setupHeader(headerLevel, "Level");
     setupHeader(headerPan, "Pan");
     setupHeader(headerDelay, "Delay ms");
@@ -291,12 +295,12 @@ BeatEqualizerAudioProcessorEditor::BeatEqualizerAudioProcessorEditor(BeatEqualiz
     headerPerHit.setJustificationType(juce::Justification::centredRight);
 
     // Подписи узких колонок стоят над своими полями, а не левее их.
-    for (auto* header : { &headerOn, &headerSolo, &headerMute, &headerLevel, &headerPan,
-                          &headerDelay, &headerRotator, &headerPolarity })
+    for (auto* header : { &headerOn, &headerSolo, &headerMute, &headerRole, &headerLevel,
+                          &headerPan, &headerDelay, &headerRotator, &headerPolarity })
         header->setJustificationType(juce::Justification::centred);
-    for (auto* header : { &headerOn, &headerSolo, &headerMute, &headerName, &headerDelay,
-                          &headerRotator, &headerPolarity, &headerCorr, &headerPhase,
-                          &headerPerHit })
+    for (auto* header : { &headerOn, &headerSolo, &headerMute, &headerName, &headerRole,
+                          &headerDelay, &headerRotator, &headerPolarity, &headerCorr,
+                          &headerPhase, &headerPerHit })
         addAndMakeVisible(*header);
 
     // Level и Pan прячутся вместе со своими колонками: без материала стенда
@@ -352,6 +356,8 @@ BeatEqualizerAudioProcessorEditor::BeatEqualizerAudioProcessorEditor(BeatEqualiz
             state.getRawParameterValue(beat::channelParamId(i, "delayMs"));
         polarityParams[static_cast<size_t>(i)] =
             state.getRawParameterValue(beat::channelParamId(i, "polarity"));
+        roleParams[static_cast<size_t>(i)] =
+            state.getRawParameterValue(beat::channelParamId(i, "role"));
         muteParams[static_cast<size_t>(i)] =
             state.getRawParameterValue(beat::channelParamId(i, "mute"));
         soloParams[static_cast<size_t>(i)] =
@@ -466,7 +472,7 @@ int BeatEqualizerAudioProcessorEditor::chromeHeight() const
     if (standalone)
     {
         if (advanced)
-            height += kGapS + kSourceHeight;
+            height += kGapS + kSourceHeight + kGapS + sourceDiagnosticsHeight();
 
         height += kGapS + kBenchHeight + kGapS + kBenchTransportHeight;
     }
@@ -539,6 +545,8 @@ void BeatEqualizerAudioProcessorEditor::resized()
         {
             area.removeFromTop(kGapS);
             sourceStatus.setBounds(area.removeFromTop(kSourceHeight));
+            area.removeFromTop(kGapS);
+            sourceDiagnostics.setBounds(area.removeFromTop(sourceDiagnosticsHeight()));
         }
 
         area.removeFromTop(kGapS);
@@ -596,6 +604,7 @@ void BeatEqualizerAudioProcessorEditor::resized()
     headerSolo.setBounds(headerColumns.solo);
     headerMute.setBounds(headerColumns.mute);
     headerName.setBounds(headerColumns.name);
+    headerRole.setBounds(headerColumns.role);
     headerLevel.setBounds(headerColumns.level);
     headerPan.setBounds(headerColumns.pan);
     headerDelay.setBounds(headerColumns.delay);
@@ -660,6 +669,7 @@ void BeatEqualizerAudioProcessorEditor::updateDetection()
     const bool fresh = detection.valid && detection.generation == player.getGeneration();
     sourceStatus.setText(fresh ? audioProcessor.getSourceDiagnosticStatus() : "Source: -",
                          juce::dontSendNotification);
+    updateSourceDiagnostics();
     const auto& source = audioProcessor.getSourceDiagnostic();
 
     for (int ch = 0; ch < static_cast<int>(rows.size()); ++ch)
@@ -972,12 +982,14 @@ void BeatEqualizerAudioProcessorEditor::updateUiModeVisibility()
     scopeTimeRight.setVisible(advanced);
 
     sourceStatus.setVisible(standalone && advanced);
+    sourceDiagnostics.setVisible(standalone && advanced);
     detectStatus.setVisible(standalone && advanced);
     glideStrengthLabel.setVisible(standalone && advanced);
     glideStrengthSlider.setVisible(standalone && advanced);
 
     headerSolo.setVisible(advanced || monitorColumns);
     headerMute.setVisible(advanced || monitorColumns);
+    headerRole.setVisible(advanced);
     headerLevel.setVisible(advanced && monitorColumns);
     headerPan.setVisible(advanced && monitorColumns);
     headerDelay.setVisible(advanced);
@@ -1107,6 +1119,40 @@ void BeatEqualizerAudioProcessorEditor::syncBenchStatusForMode()
         benchLabel.setText(player.getDescription(), juce::dontSendNotification);
 }
 
+void BeatEqualizerAudioProcessorEditor::updateSourceDiagnostics()
+{
+    if (!standalone)
+        return;
+
+    auto& player = audioProcessor.getFilePlayer();
+    const auto& detection = audioProcessor.getDetection();
+    const bool fresh = detection.valid && detection.generation == player.getGeneration();
+    const double rate = fresh && detection.sampleRate > 0.0
+                            ? detection.sampleRate
+                            : audioProcessor.getCurrentSampleRate();
+
+    sourceDiagnostics.setDiagnostic(fresh ? &audioProcessor.getSourceDiagnostic() : nullptr,
+                                    rate,
+                                    activeChannelCount(),
+                                    channelRoles());
+}
+
+int BeatEqualizerAudioProcessorEditor::sourceDiagnosticsHeight() const
+{
+    return SourceDiagnosticTable::heightForRows(activeChannelCount());
+}
+
+std::array<beat::ChannelRole, beat::kMaxChannels>
+BeatEqualizerAudioProcessorEditor::channelRoles() const
+{
+    std::array<beat::ChannelRole, beat::kMaxChannels> roles {};
+    for (int ch = 0; ch < beat::kMaxChannels; ++ch)
+        roles[static_cast<size_t>(ch)] =
+            SourceDiagnosticTable::roleFromParameter(roleParams[static_cast<size_t>(ch)]);
+
+    return roles;
+}
+
 bool BeatEqualizerAudioProcessorEditor::isAudible(int channel) const
 {
     const auto on = [](std::atomic<float>* param)
@@ -1196,6 +1242,7 @@ void BeatEqualizerAudioProcessorEditor::syncChannelCount()
     lastActiveChannels = active;
     updateRowVisibility();
     updateChannelNames();
+    updateSourceDiagnostics();
     updateEditorSizeForMode();
     resized();
 }

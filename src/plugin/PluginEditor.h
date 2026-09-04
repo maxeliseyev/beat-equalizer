@@ -4,6 +4,7 @@
 #include "Correlometer.h"
 #include "OverviewStrip.h"
 #include "PluginProcessor.h"
+#include "SourceDiagnosticTable.h"
 #include "dsp/Constants.h"
 
 #include <array>
@@ -50,9 +51,12 @@ public:
     bool isDistanceControlVisible() const { return distanceSlider.isVisible(); }
     bool isHintVisible() const { return hint.isVisible(); }
     bool isDetectStatusVisible() const { return detectStatus.isVisible(); }
+    bool isSourceDiagnosticsVisible() const { return sourceDiagnostics.isVisible(); }
     juce::String getPrimaryStatusText() const { return analysisStatus.getText(); }
     juce::String getDetectStatusText() const { return detectStatus.getText(); }
     juce::String getBenchStatusText() const { return benchLabel.getText(); }
+    juce::String getSourceDiagnosticsText() const { return sourceDiagnostics.getText(); }
+    int getSourceDiagnosticsRowCount() const { return sourceDiagnostics.getRowCount(); }
     void refreshStatus();
     int chromeHeight() const;
     // Тестам нужно попасть в полосу обзора и обновить её без таймера.
@@ -88,6 +92,9 @@ private:
     juce::String basicOutcomeStatus();
     juce::String benchStatusForMode(const juce::String& advancedText);
     void syncBenchStatusForMode();
+    void updateSourceDiagnostics();
+    int sourceDiagnosticsHeight() const;
+    std::array<beat::ChannelRole, beat::kMaxChannels> channelRoles() const;
 
     BeatEqualizerAudioProcessor& audioProcessor;
 
@@ -113,6 +120,7 @@ private:
     juce::Label deviceLabel;
     juce::Label detectStatus;
     juce::Label sourceStatus;
+    SourceDiagnosticTable sourceDiagnostics;
     std::unique_ptr<juce::FileChooser> chooser;
     bool standalone = false;
     bool benchLoaded = false;
@@ -141,6 +149,7 @@ private:
     juce::Label headerSolo;
     juce::Label headerMute;
     juce::Label headerName;
+    juce::Label headerRole;
     juce::Label headerDelay;
     juce::Label headerRotator;
     juce::Label headerPolarity;
@@ -170,6 +179,7 @@ private:
     std::array<std::atomic<float>*, beat::kMaxChannels> enabledParams {};
     std::array<std::atomic<float>*, beat::kMaxChannels> delayParams {};
     std::array<std::atomic<float>*, beat::kMaxChannels> polarityParams {};
+    std::array<std::atomic<float>*, beat::kMaxChannels> roleParams {};
     std::array<std::atomic<float>*, beat::kMaxChannels> muteParams {};
     std::array<std::atomic<float>*, beat::kMaxChannels> soloParams {};
     std::atomic<float>* bypassParam = nullptr;

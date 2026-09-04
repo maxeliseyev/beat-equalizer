@@ -20,6 +20,7 @@ struct ChannelColumns
     juce::Rectangle<int> solo;
     juce::Rectangle<int> mute;
     juce::Rectangle<int> name;
+    juce::Rectangle<int> role;
     juce::Rectangle<int> level;
     juce::Rectangle<int> pan;
     juce::Rectangle<int> delay;
@@ -49,6 +50,7 @@ public:
     static constexpr int kSoloWidth = 26;
     static constexpr int kMuteWidth = 26;
     static constexpr int kNameWidth = 118;
+    static constexpr int kRoleWidth = 70;
     static constexpr int kLevelWidth = 62;
     static constexpr int kPanWidth = 56;
     static constexpr int kDelayWidth = 84;
@@ -61,9 +63,9 @@ public:
     // одно и то же число, и статического выравнивания достаточно.
     static constexpr int kPerHitWidth = 92;
     static constexpr int kControlsWidth = kEnableWidth + kSoloWidth + kMuteWidth + kNameWidth
-                                          + kLevelWidth + kPanWidth + kDelayWidth + kRotatorWidth
-                                          + kPolarityWidth + kCorrWidth + kPhaseWidth
-                                          + kPerHitWidth;
+                                          + kRoleWidth + kLevelWidth + kPanWidth + kDelayWidth
+                                          + kRotatorWidth + kPolarityWidth + kCorrWidth
+                                          + kPhaseWidth + kPerHitWidth;
     static constexpr int kMinScopeWidth = 240;
 
     static int controlsWidth(ChannelTableMode mode, bool withMonitor = true);
@@ -91,11 +93,13 @@ public:
     ChannelTableMode getTableMode() const { return tableMode; }
     bool isSoloVisible() const { return soloButton.isVisible(); }
     bool isLevelVisible() const { return levelSlider.isVisible(); }
+    bool isRoleVisible() const { return roleBox.isVisible(); }
     bool isDelayVisible() const { return delaySlider.isVisible(); }
     bool isPerHitVisible() const { return perHitLabel.isVisible(); }
 
     juce::Rectangle<int> getScopeBounds() const { return scope.getBounds(); }
     juce::String getLabelText() const { return nameLabel.getText(); }
+    juce::String getRoleText() const { return roleBox.getText(); }
     juce::String getPhaseText() const { return phaseLabel.getText(); }
     juce::String getPerHitText() const { return perHitLabel.getText(); }
     ScopeStrip& getScope() { return scope; }
@@ -112,6 +116,7 @@ private:
     juce::TextButton soloButton { "S" };
     juce::TextButton muteButton { "M" };
     juce::Label nameLabel;
+    juce::ComboBox roleBox;
     juce::Slider levelSlider;
     juce::Slider panSlider;
     juce::Slider delaySlider;
@@ -125,6 +130,7 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> enabledAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> soloAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> muteAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> roleAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> levelAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> panAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> delayAttachment;
