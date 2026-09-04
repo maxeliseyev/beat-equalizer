@@ -10,6 +10,7 @@ add_executable(beat_tests
     test_allpass_rotator.cpp
     test_coherence.cpp
     test_correlation.cpp
+    test_crossfade_edit_adapter.cpp
     test_crossfade_renderer.cpp
     test_grid.cpp
     test_analysis_state.cpp

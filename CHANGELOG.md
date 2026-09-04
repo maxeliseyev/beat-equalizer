@@ -3,6 +3,16 @@
 Формат: [Keep a Changelog](https://keepachangelog.com/). Версия — semver
 `major.minor.patch`. Источник правды: файл `VERSION`. Как бампать: `docs/versioning.md`.
 
+## 0.28.0 — 2026-09-04
+
+### Added
+
+- **Crossfade edit adapter в `beat_doc`.** Документ теперь строит
+  `CrossfadeRenderer::EditPoint` из `EditRegionPlan` и `DelayField`: первый
+  point задаёт seed delay, следующие несут общий join-интервал и per-event
+  applied delays. Невалидные regions и события без delay rows явно считаются
+  в result.
+
 ## 0.27.1 — 2026-09-04
 
 ### Changed
