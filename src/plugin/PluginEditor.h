@@ -71,6 +71,7 @@ private:
     void updateUiModeVisibility();
     void updateEditorSizeForMode();
     bool isAdvancedMode() const;
+    ChannelTableMode currentChannelTableMode() const;
     // Колонки монитора появляются вместе с материалом стенда и исчезают с ним.
     void setMonitorColumns(bool visible);
     void updateChannelNames();

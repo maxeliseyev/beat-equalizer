@@ -1106,6 +1106,10 @@ TEST_CASE("the editor defaults to Basic and expands Advanced blocks on demand")
     CHECK_FALSE(scoped->isAdvancedChromeVisible());
     CHECK_FALSE(scoped->isScopeGridVisible());
     CHECK_FALSE(scoped->isDistanceControlVisible());
+    CHECK(scoped->getRow(0).getTableMode() == ChannelTableMode::basic);
+    CHECK_FALSE(scoped->getRow(0).isSoloVisible());
+    CHECK_FALSE(scoped->getRow(0).isDelayVisible());
+    const int basicScopeWidth = scoped->getRow(0).getScopeBounds().getWidth();
 
     mode->setValueNotifyingHost(mode->convertTo0to1(1.0f));
     scoped->refreshUiMode();
@@ -1116,6 +1120,10 @@ TEST_CASE("the editor defaults to Basic and expands Advanced blocks on demand")
     CHECK(scoped->isAdvancedChromeVisible());
     CHECK(scoped->isScopeGridVisible());
     CHECK(scoped->isDistanceControlVisible());
+    CHECK(scoped->getRow(0).getTableMode() == ChannelTableMode::advanced);
+    CHECK(scoped->getRow(0).isSoloVisible());
+    CHECK(scoped->getRow(0).isDelayVisible());
+    CHECK(scoped->getRow(0).getScopeBounds().getWidth() < basicScopeWidth);
     CHECK(scoped->chromeHeight() > basicChrome);
     CHECK(editor->getHeight() == scoped->chromeHeight()
                                      + scoped->activeChannelCount() * ChannelRow::kHeight);

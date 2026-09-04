@@ -1,10 +1,10 @@
 # Status
 
-Updated: 2026-09-03
+Updated: 2026-09-04
 Stage: 2 (редактор в standalone)
-Plan step: этап 2, шаг 6 — Basic/Advanced foundation перед source-centric gate UI
-Branch: `feat/basic-advanced-ui`
-PR: #40 ready — https://github.com/maxeliseyev/beat-equalizer/pull/40
+Plan step: этап 2, шаг 6 — Basic/Advanced channel table перед source-centric gate UI
+Branch: `feat/basic-channel-table`
+PR: none
 Blockers: none
 
 ## Done
@@ -21,32 +21,36 @@ Blockers: none
 - PR #39 смёржен в `main` squash-коммитом `ad45b3b` 2026-09-03:
   Standalone показывает compact source-centric status, а `d/hit ms` после
   Detect берёт source-owned задержки.
+- PR #40 смёржен в `main` squash-коммитом `a866ddc` 2026-09-04:
+  Basic/Advanced UI mode добавил `global.uiMode`, header toggle и видимость
+  top-level advanced-блоков.
 
 ## Now
 
 - Basic/Advanced rollout фиксируется в продуктовых документах как серия PR:
   каркас режима, таблица каналов, Basic outcome/status, Advanced diagnostics v2.
-- Первый PR этой серии реализован на ветке: добавлен `global.uiMode`, header
-  toggle и видимость существующих top-level advanced-блоков.
-- Basic выбран по умолчанию и скрывает `max distance`/`freeze`, `glide strength`,
-  source status, correlometer и grid/time/tempo controls. Advanced возвращает
-  текущий инженерный экран.
-- DSP, glide, source matching и export не менялись.
-- Версия поднята до `0.22.0`; changelog обновлён.
+- PR 41 реализован на ветке: `ChannelTableMode` управляет геометрией
+  `ChannelColumns`/`ChannelRow`, а `PluginEditor` передаёт режим из
+  `global.uiMode`.
+- Basic скрывает ручные/диагностические колонки таблицы (`Delay`, `Rot`, `Pol`,
+  `Corr`, `Phase`, `d/hit ms`, monitor `Level/Pan`) и отдаёт ширину waveform.
+  В Standalone Basic оставляет monitor `S/M`, когда загружен bench material.
+- Advanced сохраняет текущую таблицу целиком.
+- DSP, glide, source matching, export и APVTS channel parameters не менялись.
+- Версия поднята до `0.23.0`; changelog обновлён.
 - Проверено: `make test`, `make test-gui`, `git diff --check`.
-- PR #40 переведён из draft в ready for review.
 
 ## Next
 
-Смёржить PR #40; после merge продолжить PR 41 — mode-aware таблица каналов.
+Открыть draft PR в `main`; после merge продолжить PR 42 — Basic outcome/status.
 
 ## Resume
 
-1. `git fetch && git checkout feat/basic-advanced-ui && git pull`
-2. Читать `docs/sessions/2026-09-03-basic-advanced-ui.md`
+1. `git fetch && git checkout feat/basic-channel-table && git pull`
+2. Читать `docs/sessions/2026-09-04-basic-channel-table.md`
 3. `make test`
 4. `make test-gui`
-5. Смёржить PR #40 и после merge начать PR 41 от актуального `main`.
+5. Открыть или проверить draft PR в `main`.
 
 ## Open
 
@@ -54,8 +58,8 @@ Blockers: none
 - Ownership/классификация источника всё ещё грубая: trusted prior держит
   геометрию известных пар, но не доказывает, что каждый snare-owned marker
   действительно снейр.
-- Basic/Advanced имеет первый пользовательский переключатель, но таблица
-  каналов пока остаётся Advanced-таблицей даже в Basic.
+- Basic/Advanced имеет первый пользовательский переключатель и mode-aware
+  таблицу каналов; Basic outcome/status ещё не сделан.
 - Ролей каналов в UI нет, поэтому compact status пишет `late Ch`, а не
   `room/OH return`.
 - Реальный кит один; пороги не подгонять под него.

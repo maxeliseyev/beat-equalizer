@@ -1,27 +1,56 @@
 #include "ChannelRow.h"
 
-ChannelColumns ChannelColumns::from(juce::Rectangle<int> row, bool withMonitor)
+ChannelColumns ChannelColumns::from(juce::Rectangle<int> row,
+                                    bool withMonitor,
+                                    ChannelTableMode mode)
 {
     ChannelColumns columns;
     columns.enable = row.removeFromLeft(ChannelRow::kEnableWidth);
-    columns.solo = row.removeFromLeft(ChannelRow::kSoloWidth);
-    columns.mute = row.removeFromLeft(ChannelRow::kMuteWidth);
+    if (mode == ChannelTableMode::advanced || withMonitor)
+    {
+        columns.solo = row.removeFromLeft(ChannelRow::kSoloWidth);
+        columns.mute = row.removeFromLeft(ChannelRow::kMuteWidth);
+    }
     columns.name = row.removeFromLeft(ChannelRow::kNameWidth);
-    if (withMonitor)
+
+    if (mode == ChannelTableMode::advanced && withMonitor)
     {
         columns.level = row.removeFromLeft(ChannelRow::kLevelWidth);
         columns.pan = row.removeFromLeft(ChannelRow::kPanWidth);
     }
 
-    columns.delay = row.removeFromLeft(ChannelRow::kDelayWidth);
-    columns.rotator = row.removeFromLeft(ChannelRow::kRotatorWidth);
-    columns.polarity = row.removeFromLeft(ChannelRow::kPolarityWidth);
-    columns.corr = row.removeFromLeft(ChannelRow::kCorrWidth);
-    columns.phase = row.removeFromLeft(ChannelRow::kPhaseWidth);
-    columns.perHit = row.removeFromLeft(ChannelRow::kPerHitWidth);
+    if (mode == ChannelTableMode::advanced)
+    {
+        columns.delay = row.removeFromLeft(ChannelRow::kDelayWidth);
+        columns.rotator = row.removeFromLeft(ChannelRow::kRotatorWidth);
+        columns.polarity = row.removeFromLeft(ChannelRow::kPolarityWidth);
+        columns.corr = row.removeFromLeft(ChannelRow::kCorrWidth);
+        columns.phase = row.removeFromLeft(ChannelRow::kPhaseWidth);
+        columns.perHit = row.removeFromLeft(ChannelRow::kPerHitWidth);
+    }
+
     // Осциллограмма забирает весь остаток: она одна тянется по ширине окна.
     columns.scope = row;
     return columns;
+}
+
+int ChannelRow::controlsWidth(ChannelTableMode mode, bool withMonitor)
+{
+    int width = kEnableWidth + kNameWidth;
+
+    if (mode == ChannelTableMode::advanced || withMonitor)
+        width += kSoloWidth + kMuteWidth;
+
+    if (mode == ChannelTableMode::advanced)
+    {
+        if (withMonitor)
+            width += kLevelWidth + kPanWidth;
+
+        width += kDelayWidth + kRotatorWidth + kPolarityWidth + kCorrWidth + kPhaseWidth
+                 + kPerHitWidth;
+    }
+
+    return width;
 }
 
 ChannelRow::ChannelRow(juce::AudioProcessorValueTreeState& state, int channelIndex)
@@ -120,7 +149,7 @@ ChannelRow::ChannelRow(juce::AudioProcessorValueTreeState& state, int channelInd
 
 void ChannelRow::resized()
 {
-    const auto columns = ChannelColumns::from(getLocalBounds(), monitorVisible);
+    const auto columns = ChannelColumns::from(getLocalBounds(), monitorVisible, tableMode);
 
     // Строка выше ручек: их держим по центру, а высоту отдаём осциллограмме.
     const auto centred = [](juce::Rectangle<int> cell, int trimX)
@@ -129,21 +158,29 @@ void ChannelRow::resized()
     };
 
     enabledButton.setBounds(centred(columns.enable, 6));
-    soloButton.setBounds(centred(columns.solo, 2));
-    muteButton.setBounds(centred(columns.mute, 2));
+    if (!columns.solo.isEmpty())
+        soloButton.setBounds(centred(columns.solo, 2));
+    if (!columns.mute.isEmpty())
+        muteButton.setBounds(centred(columns.mute, 2));
     nameLabel.setBounds(centred(columns.name, 4));
-    if (monitorVisible)
+    if (!columns.level.isEmpty())
     {
         levelSlider.setBounds(centred(columns.level, 4));
         panSlider.setBounds(centred(columns.pan, 4));
     }
 
-    delaySlider.setBounds(centred(columns.delay, 4));
-    rotatorSlider.setBounds(centred(columns.rotator, 4));
-    polarityBox.setBounds(centred(columns.polarity, 2));
-    corrLabel.setBounds(centred(columns.corr, 0));
-    phaseLabel.setBounds(centred(columns.phase, 4));
-    perHitLabel.setBounds(centred(columns.perHit, 4));
+    if (!columns.delay.isEmpty())
+        delaySlider.setBounds(centred(columns.delay, 4));
+    if (!columns.rotator.isEmpty())
+        rotatorSlider.setBounds(centred(columns.rotator, 4));
+    if (!columns.polarity.isEmpty())
+        polarityBox.setBounds(centred(columns.polarity, 2));
+    if (!columns.corr.isEmpty())
+        corrLabel.setBounds(centred(columns.corr, 0));
+    if (!columns.phase.isEmpty())
+        phaseLabel.setBounds(centred(columns.phase, 4));
+    if (!columns.perHit.isEmpty())
+        perHitLabel.setBounds(centred(columns.perHit, 4));
     scope.setBounds(columns.scope);
 }
 
@@ -169,9 +206,35 @@ void ChannelRow::setMonitorVisible(bool shouldBeVisible)
         return;
 
     monitorVisible = shouldBeVisible;
-    levelSlider.setVisible(shouldBeVisible);
-    panSlider.setVisible(shouldBeVisible);
+    updateColumnVisibility();
     resized();
+}
+
+void ChannelRow::setTableMode(ChannelTableMode mode)
+{
+    if (tableMode == mode)
+        return;
+
+    tableMode = mode;
+    updateColumnVisibility();
+    resized();
+}
+
+void ChannelRow::updateColumnVisibility()
+{
+    const bool advanced = tableMode == ChannelTableMode::advanced;
+    const bool showMonitorButtons = advanced || monitorVisible;
+
+    soloButton.setVisible(showMonitorButtons);
+    muteButton.setVisible(showMonitorButtons);
+    levelSlider.setVisible(advanced && monitorVisible);
+    panSlider.setVisible(advanced && monitorVisible);
+    delaySlider.setVisible(advanced);
+    rotatorSlider.setVisible(advanced);
+    polarityBox.setVisible(advanced);
+    corrLabel.setVisible(advanced);
+    phaseLabel.setVisible(advanced);
+    perHitLabel.setVisible(advanced);
 }
 
 void ChannelRow::setGrid(const beat::grid::Line* lines, int count)

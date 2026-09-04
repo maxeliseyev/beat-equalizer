@@ -406,7 +406,9 @@ BeatEqualizerAudioProcessorEditor::BeatEqualizerAudioProcessorEditor(BeatEqualiz
 
     // Окно растёт вниз линейно: одна строка = канал плюс его осциллограмма.
     // Ширина не зависит от числа каналов, поэтому вбок оно не разъезжается.
-    const int minWidth = 2 * kMargin + ChannelRow::kControlsWidth + ChannelRow::kMinScopeWidth;
+    const int minWidth = 2 * kMargin
+                         + ChannelRow::controlsWidth(currentChannelTableMode(), monitorColumns)
+                         + ChannelRow::kMinScopeWidth;
     lastActiveChannels = juce::jmax(1, activeChannelCount());
     setResizable(true, true);
     setResizeLimits(minWidth,
@@ -579,8 +581,9 @@ void BeatEqualizerAudioProcessorEditor::resized()
     }
 
     const int active = juce::jmax(1, activeChannelCount());
-    const auto headerColumns =
-        ChannelColumns::from(area.removeFromTop(kTableHeaderHeight), monitorColumns);
+    const auto headerColumns = ChannelColumns::from(area.removeFromTop(kTableHeaderHeight),
+                                                    monitorColumns,
+                                                    currentChannelTableMode());
     headerOn.setBounds(headerColumns.enable);
     headerSolo.setBounds(headerColumns.solo);
     headerMute.setBounds(headerColumns.mute);
@@ -929,6 +932,7 @@ void BeatEqualizerAudioProcessorEditor::updateUiModeControls()
 void BeatEqualizerAudioProcessorEditor::updateUiModeVisibility()
 {
     const bool advanced = isAdvancedMode();
+    const auto tableMode = currentChannelTableMode();
 
     updateUiModeControls();
     distanceLabel.setVisible(advanced);
@@ -950,17 +954,38 @@ void BeatEqualizerAudioProcessorEditor::updateUiModeVisibility()
     sourceStatus.setVisible(standalone && advanced);
     glideStrengthLabel.setVisible(standalone && advanced);
     glideStrengthSlider.setVisible(standalone && advanced);
+
+    headerSolo.setVisible(advanced || monitorColumns);
+    headerMute.setVisible(advanced || monitorColumns);
+    headerLevel.setVisible(advanced && monitorColumns);
+    headerPan.setVisible(advanced && monitorColumns);
+    headerDelay.setVisible(advanced);
+    headerRotator.setVisible(advanced);
+    headerPolarity.setVisible(advanced);
+    headerCorr.setVisible(advanced);
+    headerPhase.setVisible(advanced);
+    headerPerHit.setVisible(advanced);
+
+    for (auto& row : rows)
+        row->setTableMode(tableMode);
 }
 
 void BeatEqualizerAudioProcessorEditor::updateEditorSizeForMode()
 {
-    const int minWidth = 2 * kMargin + ChannelRow::kControlsWidth + ChannelRow::kMinScopeWidth;
+    const int minWidth = 2 * kMargin
+                         + ChannelRow::controlsWidth(currentChannelTableMode(), monitorColumns)
+                         + ChannelRow::kMinScopeWidth;
     const int active = juce::jmax(1, activeChannelCount());
     setResizeLimits(minWidth,
                     chromeHeight() + ChannelRow::kHeight,
                     2400,
                     chromeHeight() + beat::kMaxChannels * ChannelRow::kHeight);
-    setSize(getWidth(), chromeHeight() + active * ChannelRow::kHeight);
+    setSize(juce::jmax(getWidth(), minWidth), chromeHeight() + active * ChannelRow::kHeight);
+}
+
+ChannelTableMode BeatEqualizerAudioProcessorEditor::currentChannelTableMode() const
+{
+    return isAdvancedMode() ? ChannelTableMode::advanced : ChannelTableMode::basic;
 }
 
 bool BeatEqualizerAudioProcessorEditor::isAudible(int channel) const
@@ -1034,12 +1059,12 @@ void BeatEqualizerAudioProcessorEditor::setMonitorColumns(bool visible)
         return;
 
     monitorColumns = visible;
-    headerLevel.setVisible(visible);
-    headerPan.setVisible(visible);
 
     for (auto& row : rows)
         row->setMonitorVisible(visible);
 
+    updateUiModeVisibility();
+    updateEditorSizeForMode();
     resized();
 }
 
@@ -1052,7 +1077,7 @@ void BeatEqualizerAudioProcessorEditor::syncChannelCount()
     lastActiveChannels = active;
     updateRowVisibility();
     updateChannelNames();
-    setSize(getWidth(), chromeHeight() + active * ChannelRow::kHeight);
+    updateEditorSizeForMode();
     resized();
 }
 
