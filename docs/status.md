@@ -2,42 +2,40 @@
 
 Updated: 2026-09-04
 Stage: 2 (редактор в standalone)
-Plan step: этап 2, шаг 7.1 — adapter `EditRegionPlan -> CrossfadeRenderer::EditPoint`
-Branch: `feat/crossfade-edit-adapter`
-PR: #48 draft — https://github.com/maxeliseyev/beat-equalizer/pull/48
+Plan step: macOS onboarding prerequisites для второго разработчика
+Branch: `docs/macos-onboarding-prereqs`
+PR: #49 draft — https://github.com/maxeliseyev/beat-equalizer/pull/49
 Blockers: none
 
 ## Done
 
-- PR #47 смёржен в `main` squash-коммитом `9852bbf` 2026-09-04:
-  onboarding/workflow readiness docs обновлены для передачи второму
-  разработчику.
-- Ветка `feat/crossfade-edit-adapter` начата от актуального `main`.
-- Добавлен `CrossfadeEditAdapter` в `beat_doc`: документ строит
-  `CrossfadeRenderer::EditPoint` из `EditRegionPlan` и `DelayField`.
-- Adapter добавляет seed point для старого target delay, затем target point с
-  общим join-интервалом для следующего события.
-- Regions без crossfade budget и события без delay rows явно считаются в
-  `CrossfadeEditPlan`.
-- `VERSION` поднят до `0.28.0`, `CHANGELOG.md` обновлён.
+- PR #48 смёржен в `main` squash-коммитом `8a58f18` 2026-09-04:
+  `CrossfadeEditAdapter` добавлен в `beat_doc`.
+- Ветка `docs/macos-onboarding-prereqs` начата от актуального `main`.
+- `docs/onboarding.md` дополнен явным macOS dev setup: Command Line Tools,
+  Homebrew-пакеты, проверка окружения, `gh auth`, Reaper host-smoke и
+  release-only требования.
+- `README.md` ссылается на onboarding как источник macOS setup.
+- `VERSION` поднят до `0.28.1`, `CHANGELOG.md` обновлён.
 
 ## Now
 
-- `rtk make test` зелёный.
-- PR #48 открыт draft.
-- UI/export не менялись: crossfade-render пока не доступен из Standalone.
+- Документационная правка готовится к draft PR.
+- `rtk git diff --check` и `rtk make test` зелёные.
+- PR #49 открыт draft.
+- Код DSP/doc/plugin не менялся.
 
 ## Next
 
-После merge PR #48 сделать этап 2, шаг 7.2 — Standalone `Export crossfade...`
-поверх adapter + `CrossfadeRenderer`.
+После merge PR #49 вернуться к этапу 2, шагу 7.2 — Standalone
+`Export crossfade...` поверх adapter + `CrossfadeRenderer`.
 
 ## Resume
 
-1. `git fetch && git checkout feat/crossfade-edit-adapter && git pull`
-2. Читать `docs/sessions/2026-09-04-crossfade-edit-adapter.md`
-3. `rtk make test`
-4. Проверить PR #48; после merge начать Standalone `Export crossfade...`.
+1. `git fetch && git checkout docs/macos-onboarding-prereqs && git pull`
+2. Читать `docs/onboarding.md`
+3. `rtk git diff --check`
+4. Проверить PR #49; после merge начать Standalone `Export crossfade...`.
 
 ## Open
 

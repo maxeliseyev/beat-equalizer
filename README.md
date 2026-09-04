@@ -16,6 +16,7 @@ alignment, crossfades and later WSOLA.
 
 Needs CMake 3.22+, Ninja, and a C++20 compiler (Apple Clang / MSVC / GCC).
 JUCE 8.0.15 and Catch2 are fetched on first configure.
+macOS developer setup is in `docs/onboarding.md`.
 
 ```bash
 make              # Release: tests + VST3 (+ AU on macOS) + Standalone
