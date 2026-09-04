@@ -4,7 +4,7 @@ Updated: 2026-09-04
 Stage: 2 (редактор в standalone)
 Plan step: этап 2, шаг 6 — Basic/Advanced channel table перед source-centric gate UI
 Branch: `feat/basic-channel-table`
-PR: none
+PR: #41 draft — https://github.com/maxeliseyev/beat-equalizer/pull/41
 Blockers: none
 
 ## Done
@@ -42,7 +42,7 @@ Blockers: none
 
 ## Next
 
-Открыть draft PR в `main`; после merge продолжить PR 42 — Basic outcome/status.
+После merge PR #41 продолжить PR 42 — Basic outcome/status.
 
 ## Resume
 
@@ -50,7 +50,7 @@ Blockers: none
 2. Читать `docs/sessions/2026-09-04-basic-channel-table.md`
 3. `make test`
 4. `make test-gui`
-5. Открыть или проверить draft PR в `main`.
+5. Проверить PR #41 и после merge начать PR 42 от актуального `main`.
 
 ## Open
 

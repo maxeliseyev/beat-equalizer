@@ -43,11 +43,12 @@ source-centric diagnostics v2.
 ## Status
 
 status.md обновлён: да. Ветка: `feat/basic-channel-table`.
+PR: #41 draft — https://github.com/maxeliseyev/beat-equalizer/pull/41.
 Проверено: `make test`, `make test-gui`, `git diff --check`.
 
 ## Next
 
-Открыть draft PR в `main`; после merge продолжить PR 42 — Basic outcome/status.
+После merge PR #41 продолжить PR 42 — Basic outcome/status.
 
 ## Open
 
