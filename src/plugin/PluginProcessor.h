@@ -9,6 +9,7 @@
 #include "dsp/AlignmentSnapshot.h"
 #include "dsp/AllpassRotator.h"
 #include "dsp/AnalysisRing.h"
+#include "dsp/Constants.h"
 #include "dsp/FractionalDelay.h"
 #include "dsp/GlideRenderer.h"
 #include "dsp/Grid.h"
@@ -124,6 +125,7 @@ private:
         std::atomic<float>* enabled = nullptr;
         std::atomic<float>* mute = nullptr;
         std::atomic<float>* solo = nullptr;
+        std::atomic<float>* role = nullptr;
         std::atomic<float>* rotatorAmount = nullptr;
         std::atomic<float>* rotatorHz = nullptr;
         std::atomic<float>* pan = nullptr;
@@ -147,6 +149,7 @@ private:
     juce::String renderGlide(GlideRun& run, bool previewOnly) const;
     juce::String formatGlideStatus(const juce::String& action,
                                    const beat::GlideRenderer::Result& result) const;
+    beat::ChannelRole channelRole(int channel) const;
     juce::String formatSourceDiagnosticStatus(
         const beat::doc::SourceDiagnostic& source) const;
     juce::String refreshGlidePreview(bool notify);

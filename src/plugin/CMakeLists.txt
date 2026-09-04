@@ -44,6 +44,7 @@ target_sources(BeatEqualizer
         Parameters.cpp
         PluginProcessor.cpp
         PluginEditor.cpp
+        SourceDiagnosticTable.cpp
         ScopeStrip.cpp)
 
 target_compile_definitions(BeatEqualizer

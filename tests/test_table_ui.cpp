@@ -66,7 +66,8 @@ TEST_CASE("table columns never overlap and the waveform takes the right edge")
 
     REQUIRE(columns.delay.getWidth() == ChannelRow::kDelayWidth);
     REQUIRE_FALSE(overlaps(columns.enable, columns.name));
-    REQUIRE_FALSE(overlaps(columns.name, columns.level));
+    REQUIRE_FALSE(overlaps(columns.name, columns.role));
+    REQUIRE_FALSE(overlaps(columns.role, columns.level));
     REQUIRE_FALSE(overlaps(columns.level, columns.pan));
     REQUIRE_FALSE(overlaps(columns.pan, columns.delay));
     REQUIRE_FALSE(overlaps(columns.delay, columns.rotator));
@@ -106,6 +107,7 @@ TEST_CASE("basic table columns hide manual diagnostics and give the waveform roo
     CHECK(basicBench.scope.getWidth() > advanced.scope.getWidth());
     CHECK(basicHost.scope.getWidth() > basicBench.scope.getWidth());
     CHECK(basicBench.delay.getWidth() == 0);
+    CHECK(basicBench.role.getWidth() == 0);
     CHECK(basicBench.rotator.getWidth() == 0);
     CHECK(basicBench.polarity.getWidth() == 0);
     CHECK(basicBench.corr.getWidth() == 0);
@@ -136,10 +138,12 @@ TEST_CASE("monitor columns appear only when the bench has material")
     REQUIRE(row.getScopeBounds() == columns.scope);
     REQUIRE(columns.level.getWidth() == ChannelRow::kLevelWidth);
     REQUIRE(columns.pan.getWidth() == ChannelRow::kPanWidth);
+    REQUIRE(columns.role.getWidth() == ChannelRow::kRoleWidth);
 
     // Level и Pan забирают ширину у осциллограммы, а не у ручек выравнивания.
     REQUIRE(withoutMonitor - row.getScopeBounds().getWidth()
             == ChannelRow::kLevelWidth + ChannelRow::kPanWidth);
+    REQUIRE(columns.role.getX() == columns.name.getRight());
     REQUIRE(columns.delay.getX() == columns.pan.getRight());
 
     row.setMonitorVisible(false);
@@ -165,6 +169,7 @@ TEST_CASE("a channel row switches between Basic and Advanced table modes")
     REQUIRE(row.getTableMode() == ChannelTableMode::basic);
     CHECK(row.isSoloVisible());
     CHECK_FALSE(row.isLevelVisible());
+    CHECK_FALSE(row.isRoleVisible());
     CHECK_FALSE(row.isDelayVisible());
     CHECK_FALSE(row.isPerHitVisible());
     CHECK(row.getScopeBounds() == basicColumns.scope);
@@ -177,6 +182,7 @@ TEST_CASE("a channel row switches between Basic and Advanced table modes")
                              ChannelTableMode::advanced);
     CHECK(row.isSoloVisible());
     CHECK(row.isLevelVisible());
+    CHECK(row.isRoleVisible());
     CHECK(row.isDelayVisible());
     CHECK(row.isPerHitVisible());
     CHECK(row.getScopeBounds() == advancedColumns.scope);
