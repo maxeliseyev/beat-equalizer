@@ -42,12 +42,12 @@ waveform. Следующий пункт rollout — убрать из Basic ин
 ## Status
 
 status.md обновлён: да. Ветка: `feat/basic-outcome-status`.
+PR: #42 draft — https://github.com/maxeliseyev/beat-equalizer/pull/42.
 Проверено: `make test`, `make test-gui`, `git diff --check`.
 
 ## Next
 
-Открыть draft PR в `main`; после merge продолжить PR 43 — Advanced
-diagnostics v2.
+После merge PR #42 продолжить PR 43 — Advanced diagnostics v2.
 
 ## Open
 

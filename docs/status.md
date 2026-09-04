@@ -4,7 +4,7 @@ Updated: 2026-09-04
 Stage: 2 (редактор в standalone)
 Plan step: этап 2, шаг 6 — Basic outcome/status перед source-centric gate UI
 Branch: `feat/basic-outcome-status`
-PR: none
+PR: #42 draft — https://github.com/maxeliseyev/beat-equalizer/pull/42
 Blockers: none
 
 ## Done
@@ -46,8 +46,7 @@ Blockers: none
 
 ## Next
 
-Открыть draft PR в `main`; после merge продолжить PR 43 — Advanced
-diagnostics v2.
+После merge PR #42 продолжить PR 43 — Advanced diagnostics v2.
 
 ## Resume
 
@@ -55,7 +54,7 @@ diagnostics v2.
 2. Читать `docs/sessions/2026-09-04-basic-outcome-status.md`
 3. `make test`
 4. `make test-gui`
-5. Открыть или проверить draft PR в `main`.
+5. Проверить PR #42 и после merge начать PR 43 от актуального `main`.
 
 ## Open
 
