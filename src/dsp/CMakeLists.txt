@@ -4,6 +4,7 @@ add_library(beat_dsp STATIC
     AllpassRotator.cpp
     AnalysisState.cpp
     Coherence.cpp
+    CrossfadeRenderer.cpp
     Envelope.cpp
     Fft.cpp
     FractionalDelay.cpp
