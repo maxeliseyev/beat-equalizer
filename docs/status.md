@@ -2,9 +2,9 @@
 
 Updated: 2026-09-04
 Stage: 2 (редактор в standalone)
-Plan step: этап 2, шаг 6 — PR 43 Advanced diagnostics v2
-Branch: `feat/advanced-diagnostics-v2`
-PR: #43 draft — https://github.com/maxeliseyev/beat-equalizer/pull/43
+Plan step: этап 2, gate после шага 6 — YAN9 Advanced diagnostics
+Branch: `test/yan9-advanced-gate`
+PR: none
 Blockers: none
 
 ## Done
@@ -30,35 +30,32 @@ Blockers: none
 - PR #42 смёржен в `main` squash-коммитом `e5aaf7e` 2026-09-04:
   Basic показывает короткий outcome/status, Advanced сохраняет подробные
   detect/source/glide строки.
+- PR #43 смёржен в `main` squash-коммитом `1ae968c` 2026-09-04:
+  Advanced показывает source-centric diagnostics table и role metadata в
+  таблице каналов; Basic остаётся компактным.
 
 ## Now
 
-- PR #43 реализован на ветке `feat/advanced-diagnostics-v2`.
-- Advanced получил source-centric таблицу по всем активным каналам: роль,
-  usage, observations, natural delay, spread, full-align offset, residual и
-  calibration flag.
-- Advanced channel table показывает role control для существующего
-  `chXX.role`; Basic role control и source diagnostics не показывает.
-- Compact source status пишет `OH return`/`room return`, когда роль позднего
-  канала задана как overhead/room.
-- Роли остаются метаданными: они подписывают строки, но не меняют DSP, Detect,
-  matcher, glide или export.
-- Версия поднята до `0.25.0`; changelog обновлён.
-- Проверено: `make test`, `make test-gui`, `git diff --check`.
+- Gate-прогон YAN9 после PR #43 выполнен на ветке `test/yan9-advanced-gate`.
+- `BEAT_REAL_KIT_DIR=/Users/maximeliseyev/Sound/YAN9 make test` зелёный.
+- Hidden source стенд `[.real-kit-source]`: 124 hits, 91 snare-owned, 608 obs,
+  7 calibrated delays; snare bottom 0.281 мс, room 14.667 мс с return.
+- Hidden export стенд `[.real-kit-export]`: static 79 % → 92 % sum coherence;
+  glide 50 % и 100 % остаётся 81 % → 81 % event coherence, 13/30 limited.
+- Gate-вывод: glide сам по себе недостаточен; после merge этого PR идти к
+  этапу 2, шагу 7 — точки реза, кроссфейды, WSOLA на затухании.
 
 ## Next
 
-После merge PR #43 прогнать Advanced diagnostics на YAN9 и решить gate к
-шагу 7: нужны ли точки реза/кроссфейды/WSOLA или glide достаточно.
+Открыть draft PR с YAN9 gate-протоколом.
 
 ## Resume
 
-1. `git fetch && git checkout feat/advanced-diagnostics-v2 && git pull`
-2. Читать `docs/sessions/2026-09-04-advanced-diagnostics-v2.md`
-3. `make test`
-4. `make test-gui`
-5. Проверить PR #43 и после merge начать gate-прогон на YAN9 от актуального
-   `main`.
+1. `git fetch && git checkout test/yan9-advanced-gate && git pull`
+2. Читать `docs/sessions/2026-09-04-yan9-advanced-gate.md`
+3. Проверить `docs/real-kit-protocol.md`
+4. `git diff --check`
+5. Открыть draft PR в `main`.
 
 ## Open
 

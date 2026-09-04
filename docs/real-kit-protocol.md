@@ -245,6 +245,28 @@ Static Analyze выставил такие задержки:
 разобраться с картой событий/по-канальным strength, а не переходить сразу к
 нарезке.
 
+Повтор после PR #43 (Advanced diagnostics v2), тот же отрезок 10…30 с:
+
+| режим | статус |
+|---|---|
+| Analyze | 8 ch aligned, ref Ch 2, 123 frames, sum coherence 79 % → 92 % |
+| Detect | 59 hits, 239 obs, 4 delays |
+| Source | src Ch 2: 39/59 owned; close Ch 3 21 obs 0.28±0.00 ms; late Ch 1 2.74 ms; bleed 4 ch |
+| Glide 50 % preview/export | 59 hits, event coherence 81 % → 81 %, 13 limited |
+| Glide 100 % preview/export | 59 hits, event coherence 81 % → 81 %, 30 limited |
+
+Static Analyze задержки не изменил: kick 0.538 мс, snare top 0.913 мс,
+snare bottom 1.024 мс, hat 0.000 мс, ride 2.737 мс, tom 1 0.796 мс,
+tom 2 2.007 мс, room 0.913 мс.
+
+Вывод PR #43 gate: сама возможность видеть Advanced source diagnostics не
+изменила картину glide. На реальном отрезке он по-прежнему не даёт прироста
+event coherence, а значительная часть событий не успевает дойти до цели при
+текущем slew-limit. Значит считать glide достаточным нельзя; следующий
+технический шаг — точки реза, кроссфейды и WSOLA на затухании из этапа 2,
+шаг 7. При этом room/OH return остаётся обязательным условием: полный align
+сводит поздний канал в ноль, но это не музыкальная цель.
+
 ## Source-centric diagnostic, snare 10…50 с
 
 Следующий прогон смотрит не всю сумму, а один источник: верхний микрофон
@@ -288,6 +310,12 @@ snare bottom приходил как 0.776 мс вместо протоколь�
 самой геометрии trusted-пар, а в ownership/классификации источника: нужно
 показывать эти source-centric строки инженеру и отличать настоящий snare-owned
 удар от просачивания других инструментов в snare top.
+
+Повтор после PR #43 дал те же gate-числа: 124 hits, 91 snare-owned, 608 obs,
+7 calibrated delays; snare bottom 0.281 мс, room 14.667 мс, `return(room)=1`
+сохраняет room offset 14.667 мс. Это подтверждает, что close-пара и room
+return стабильны; проблема gate не в геометрии source diagnostic, а в том, что
+текущий glide не улучшает события на YAN9.
 
 ---
 
