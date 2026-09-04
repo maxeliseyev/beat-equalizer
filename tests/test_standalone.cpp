@@ -151,6 +151,42 @@ void checkRealKitExport(const juce::File& file, int minimumSamples)
     CHECK(info.numChannels == beat::test::kKitMicCount);
     CHECK(info.numFrames >= minimumSamples);
 }
+
+DetectWorker::Result twoHitDetection(int generation, int sampleCount)
+{
+    DetectWorker::Result detection;
+    detection.generation = generation;
+    detection.sampleRate = kSampleRate;
+    detection.from = 0;
+    detection.length = sampleCount;
+    detection.valid = true;
+
+    const auto addEvent = [&detection](int referenceSample, int otherSample)
+    {
+        beat::doc::Event event;
+        event.referenceChannel = 0;
+        event.timeSamples = static_cast<double>(referenceSample);
+
+        auto& reference = event.channels[0];
+        reference.present = true;
+        reference.arrivalSamples = static_cast<double>(referenceSample);
+        reference.attackEndSamples = static_cast<double>(referenceSample + 8);
+
+        auto& other = event.channels[1];
+        other.present = true;
+        other.arrivalSamples = static_cast<double>(otherSample);
+        other.attackEndSamples = static_cast<double>(otherSample + 8);
+
+        const auto id = detection.document.addEvent(event);
+        detection.document.delays().setRaw(id, 0, 0.0);
+        detection.document.delays().setRaw(id, 1,
+                                           static_cast<double>(otherSample - referenceSample));
+    };
+
+    addEvent(1000, 1010);
+    addEvent(12000, 12030);
+    return detection;
+}
 } // namespace
 
 TEST_CASE("offline render lines up two mics from the first sample")
@@ -392,38 +428,8 @@ TEST_CASE("glide export uses fresh per-hit delays and reports coherence")
     REQUIRE(processor.exportGlide(rejected).isNotEmpty());
     REQUIRE_FALSE(rejected.existsAsFile());
 
-    DetectWorker::Result detection;
-    detection.generation = processor.getFilePlayer().getGeneration();
-    detection.sampleRate = kSampleRate;
-    detection.from = 0;
-    detection.length = source.getNumSamples();
-    detection.valid = true;
-
-    const auto addEvent = [&detection](int referenceSample, int otherSample)
-    {
-        beat::doc::Event event;
-        event.referenceChannel = 0;
-        event.timeSamples = static_cast<double>(referenceSample);
-
-        auto& reference = event.channels[0];
-        reference.present = true;
-        reference.arrivalSamples = static_cast<double>(referenceSample);
-        reference.attackEndSamples = static_cast<double>(referenceSample + 8);
-
-        auto& other = event.channels[1];
-        other.present = true;
-        other.arrivalSamples = static_cast<double>(otherSample);
-        other.attackEndSamples = static_cast<double>(otherSample + 8);
-
-        const auto id = detection.document.addEvent(event);
-        detection.document.delays().setRaw(id, 0, 0.0);
-        detection.document.delays().setRaw(id, 1,
-                                           static_cast<double>(otherSample - referenceSample));
-    };
-
-    addEvent(1000, 1010);
-    addEvent(12000, 12030);
-    processor.applyDetection(std::move(detection));
+    processor.applyDetection(
+        twoHitDetection(processor.getFilePlayer().getGeneration(), source.getNumSamples()));
     REQUIRE(processor.canExportGlide());
     CHECK(processor.getGlideStatus().contains("Glide preview @ 100%"));
 
@@ -1106,6 +1112,9 @@ TEST_CASE("the editor defaults to Basic and expands Advanced blocks on demand")
     CHECK_FALSE(scoped->isAdvancedChromeVisible());
     CHECK_FALSE(scoped->isScopeGridVisible());
     CHECK_FALSE(scoped->isDistanceControlVisible());
+    CHECK_FALSE(scoped->isHintVisible());
+    CHECK_FALSE(scoped->isDetectStatusVisible());
+    CHECK(scoped->getPrimaryStatusText() == "Load files to begin");
     CHECK(scoped->getRow(0).getTableMode() == ChannelTableMode::basic);
     CHECK_FALSE(scoped->getRow(0).isSoloVisible());
     CHECK_FALSE(scoped->getRow(0).isDelayVisible());
@@ -1120,6 +1129,8 @@ TEST_CASE("the editor defaults to Basic and expands Advanced blocks on demand")
     CHECK(scoped->isAdvancedChromeVisible());
     CHECK(scoped->isScopeGridVisible());
     CHECK(scoped->isDistanceControlVisible());
+    CHECK(scoped->isHintVisible());
+    CHECK(scoped->isDetectStatusVisible());
     CHECK(scoped->getRow(0).getTableMode() == ChannelTableMode::advanced);
     CHECK(scoped->getRow(0).isSoloVisible());
     CHECK(scoped->getRow(0).isDelayVisible());
@@ -1127,6 +1138,59 @@ TEST_CASE("the editor defaults to Basic and expands Advanced blocks on demand")
     CHECK(scoped->chromeHeight() > basicChrome);
     CHECK(editor->getHeight() == scoped->chromeHeight()
                                      + scoped->activeChannelCount() * ChannelRow::kHeight);
+}
+
+TEST_CASE("Basic status reports the outcome while Advanced keeps detect details")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+
+    juce::AudioBuffer<float> source(2, 16384);
+    source.clear();
+    source.setSample(0, 1000, 1.0f);
+    source.setSample(1, 1010, 1.0f);
+    source.setSample(0, 12000, 1.0f);
+    source.setSample(1, 12030, 1.0f);
+
+    const auto input = writeTempWav(source);
+
+    juce::AudioProcessor::setTypeOfNextNewPlugin(juce::AudioProcessor::wrapperType_Standalone);
+    BeatEqualizerAudioProcessor processor;
+    juce::AudioProcessor::setTypeOfNextNewPlugin(juce::AudioProcessor::wrapperType_Undefined);
+    processor.enableAllBuses();
+    processor.prepareToPlay(kSampleRate, 128);
+    REQUIRE(processor.getFilePlayer().load({ input }, kSampleRate).isEmpty());
+
+    std::unique_ptr<juce::AudioProcessorEditor> editor(processor.createEditor());
+    auto* scoped = dynamic_cast<BeatEqualizerAudioProcessorEditor*>(editor.get());
+    REQUIRE(scoped != nullptr);
+
+    CHECK(scoped->getUiMode() == BeatEqualizerAudioProcessorEditor::UiMode::basic);
+    CHECK(scoped->getPrimaryStatusText() == "Ready to Detect");
+    CHECK_FALSE(scoped->isDetectStatusVisible());
+
+    processor.applyDetection(
+        twoHitDetection(processor.getFilePlayer().getGeneration(), source.getNumSamples()));
+    scoped->refreshStatus();
+
+    CHECK(scoped->getPrimaryStatusText() == "Export ready: 2 hits found");
+    CHECK_FALSE(scoped->getPrimaryStatusText().contains("obs"));
+    CHECK_FALSE(scoped->getPrimaryStatusText().contains("delays"));
+    CHECK_FALSE(scoped->isDetectStatusVisible());
+    CHECK(scoped->getDetectStatusText().contains("2 hits"));
+    CHECK(scoped->getDetectStatusText().contains("obs"));
+    CHECK_FALSE(scoped->getBenchStatusText().contains("Glide preview"));
+
+    auto* mode = processor.getParameters().getParameter("global.uiMode");
+    REQUIRE(mode != nullptr);
+    mode->setValueNotifyingHost(mode->convertTo0to1(1.0f));
+    scoped->refreshUiMode();
+
+    CHECK(scoped->getUiMode() == BeatEqualizerAudioProcessorEditor::UiMode::advanced);
+    CHECK(scoped->isDetectStatusVisible());
+    CHECK(scoped->getDetectStatusText().contains("obs"));
+    CHECK(scoped->getBenchStatusText().contains("Glide preview"));
+
+    input.deleteFile();
 }
 
 TEST_CASE("the transport shows the whole take with the playhead on it")
