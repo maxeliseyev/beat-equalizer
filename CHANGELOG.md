@@ -3,6 +3,14 @@
 Формат: [Keep a Changelog](https://keepachangelog.com/). Версия — semver
 `major.minor.patch`. Источник правды: файл `VERSION`. Как бампать: `docs/versioning.md`.
 
+## 0.28.1 — 2026-09-04
+
+### Changed
+
+- Onboarding теперь явно перечисляет macOS dev prerequisites: Xcode Command
+  Line Tools, Homebrew-пакеты, проверку toolchain, Reaper для host-smoke и
+  отдельные требования для подписанного DMG/release.
+
 ## 0.28.0 — 2026-09-04
 
 ### Added

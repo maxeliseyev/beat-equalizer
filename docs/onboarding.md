@@ -3,6 +3,45 @@
 Короткий вход для разработчика, который берёт проект без этого чата.
 Источник правды — git и документы ниже, не устные договорённости.
 
+## macOS dev setup
+
+Минимальный набор для разработки и локальной сборки:
+
+```bash
+xcode-select --install
+brew install cmake ninja git gh clang-format
+```
+
+Нужны именно **Xcode Command Line Tools**: Apple Clang, macOS SDK и базовые
+утилиты разработки. Полный Xcode для обычного `make test` / `make standalone`
+не обязателен, но полезен для GUI-отладки, Icon Composer, подписи и
+нотаризации.
+
+После установки проверить окружение:
+
+```bash
+git --version
+cmake --version
+ninja --version
+clang++ --version
+gh auth status
+```
+
+`gh auth login` нужен, если разработчик будет смотреть PR, создавать PR и
+работать по `docs/git-workflow.md`.
+
+Reaper нужен только для host-smoke и задач, где явно затронут VST3/AU workflow.
+Обычные unit/integration tests и Standalone собираются без Reaper.
+
+Для первого configure нужен интернет: JUCE 8.0.15 и Catch2 подтягиваются через
+CMake `FetchContent`. Их не надо ставить вручную, коммитить или вендорить.
+Projucer, FFTW, ARA/Celemony SDK, Node/npm и Docker для текущей разработки не
+нужны.
+
+Release-сборка наружу — отдельный режим. Для `make app` / `make release-dmg`
+нужны Developer ID Application certificate с private key в Keychain и
+notarytool credentials; детали в `docs/packaging-macos.md`.
+
 ## За первые 30 минут
 
 1. Прочитать `AGENTS.md`. Это контракт проекта: инварианты важнее удобной
