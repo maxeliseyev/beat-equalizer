@@ -4,7 +4,7 @@ Updated: 2026-09-03
 Stage: 2 (редактор в standalone)
 Plan step: этап 2, шаг 6 — Basic/Advanced foundation перед source-centric gate UI
 Branch: `feat/basic-advanced-ui`
-PR: #40 — https://github.com/maxeliseyev/beat-equalizer/pull/40
+PR: #40 ready — https://github.com/maxeliseyev/beat-equalizer/pull/40
 Blockers: none
 
 ## Done
@@ -34,10 +34,11 @@ Blockers: none
 - DSP, glide, source matching и export не менялись.
 - Версия поднята до `0.22.0`; changelog обновлён.
 - Проверено: `make test`, `make test-gui`, `git diff --check`.
+- PR #40 переведён из draft в ready for review.
 
 ## Next
 
-После merge PR #40 продолжить PR 41 — mode-aware таблица каналов.
+Смёржить PR #40; после merge продолжить PR 41 — mode-aware таблица каналов.
 
 ## Resume
 
@@ -45,7 +46,7 @@ Blockers: none
 2. Читать `docs/sessions/2026-09-03-basic-advanced-ui.md`
 3. `make test`
 4. `make test-gui`
-5. Проверить PR #40 и после merge начать PR 41 от актуального `main`.
+5. Смёржить PR #40 и после merge начать PR 41 от актуального `main`.
 
 ## Open
 
