@@ -44,12 +44,13 @@ rollout из `docs/drum-editor-plan.md` — Advanced diagnostics v2.
 ## Status
 
 status.md обновлён: да. Ветка: `feat/advanced-diagnostics-v2`.
-PR: none.
+PR: #43 draft — https://github.com/maxeliseyev/beat-equalizer/pull/43.
 Проверено: `make test`, `make test-gui`, `git diff --check`.
 
 ## Next
 
-Открыть draft PR #43 в `main`.
+После merge PR #43 прогнать Advanced diagnostics на YAN9 и решить gate к
+шагу 7: нужны ли точки реза/кроссфейды/WSOLA или glide достаточно.
 
 ## Open
 

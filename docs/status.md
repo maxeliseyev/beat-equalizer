@@ -4,7 +4,7 @@ Updated: 2026-09-04
 Stage: 2 (редактор в standalone)
 Plan step: этап 2, шаг 6 — PR 43 Advanced diagnostics v2
 Branch: `feat/advanced-diagnostics-v2`
-PR: none
+PR: #43 draft — https://github.com/maxeliseyev/beat-equalizer/pull/43
 Blockers: none
 
 ## Done
@@ -48,7 +48,8 @@ Blockers: none
 
 ## Next
 
-Открыть draft PR #43 в `main`.
+После merge PR #43 прогнать Advanced diagnostics на YAN9 и решить gate к
+шагу 7: нужны ли точки реза/кроссфейды/WSOLA или glide достаточно.
 
 ## Resume
 
@@ -56,7 +57,8 @@ Blockers: none
 2. Читать `docs/sessions/2026-09-04-advanced-diagnostics-v2.md`
 3. `make test`
 4. `make test-gui`
-5. Открыть или проверить draft PR #43 в `main`.
+5. Проверить PR #43 и после merge начать gate-прогон на YAN9 от актуального
+   `main`.
 
 ## Open
 
