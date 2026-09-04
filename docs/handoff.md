@@ -69,8 +69,8 @@
 # Status
 
 Updated: YYYY-MM-DD
-Stage: 1 (static alignment)
-Plan step: PR N — <имя из plan.md>
+Stage: N (<имя этапа>)
+Plan step: <этап/шаг/PR из канонического плана>
 Branch: feat/… | (none — work is on main working tree, not allowed)
 PR: url | none | draft
 Blockers: none | …
