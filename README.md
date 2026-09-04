@@ -1,7 +1,10 @@
 # Beat Equalizer
 
-Multi-mic drum alignment plugin (C++ / JUCE). MVP is **static** alignment: one delay and polarity per channel, no ARA, no slicing.
+Multi-mic drum alignment plugin (C++ / JUCE). Static N-in/N-out alignment is
+working; current development is the standalone editor for events, per-hit
+alignment, crossfades and later WSOLA.
 
+- Onboarding: `docs/onboarding.md`
 - Product plan: `docs/drum-editor-plan.md`
 - MVP implementation plan: `docs/plan.md`
 - Hit detection (no neural net until the ladder is exhausted): `docs/detector-design-recommendations.md`
@@ -27,6 +30,9 @@ make where        # artefact paths
 
 On macOS a plugin build copies VST3/AU into `~/Library/Audio/Plug-Ins/`.
 Rescan in Reaper after `make`. Routing: `docs/reaper-testing.md`.
+
+Real-kit tests use `BEAT_REAL_KIT_DIR` and skip when it is unset. Never commit
+audio; record only numbers in `docs/real-kit-protocol.md`.
 
 ## License
 

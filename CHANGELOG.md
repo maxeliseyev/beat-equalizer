@@ -3,6 +3,17 @@
 Формат: [Keep a Changelog](https://keepachangelog.com/). Версия — semver
 `major.minor.patch`. Источник правды: файл `VERSION`. Как бампать: `docs/versioning.md`.
 
+## 0.27.1 — 2026-09-04
+
+### Changed
+
+- Добавлен `docs/onboarding.md` для второго разработчика: read order, setup,
+  DoD, границы слоёв и правила handoff.
+- Актуализирован Reaper smoke-документ и детализирована очередь этапа 2, шаг 7
+  после `CrossfadeRenderer`.
+- ADR standalone/editor delivery расширен: Reaper RPP и ARA описаны как
+  адаптеры поверх `beat_doc`/sidecar, а не отдельные модели состояния.
+
 ## 0.27.0 — 2026-09-04
 
 ### Added
