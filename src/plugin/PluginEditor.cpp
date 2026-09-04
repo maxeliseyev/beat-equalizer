@@ -46,6 +46,17 @@ BeatEqualizerAudioProcessorEditor::BeatEqualizerAudioProcessorEditor(BeatEqualiz
     latencyLabel.setJustificationType(juce::Justification::centredRight);
     addAndMakeVisible(latencyLabel);
 
+    for (auto* button : { &basicModeButton, &advancedModeButton })
+    {
+        button->setClickingTogglesState(false);
+        button->setColour(juce::TextButton::buttonColourId, juce::Colour(0xff20242c));
+        button->setColour(juce::TextButton::buttonOnColourId, juce::Colour(0xff5ec8ff));
+        button->setColour(juce::TextButton::textColourOnId, juce::Colour(0xff101318));
+        addAndMakeVisible(*button);
+    }
+    basicModeButton.onClick = [this] { setUiMode(UiMode::basic); };
+    advancedModeButton.onClick = [this] { setUiMode(UiMode::advanced); };
+
     hint.setText("Route every mic into this insert (track channels = N). Play a few bars, "
                  "then Analyze: delays and polarity are estimated against the Reference channel.",
                  juce::dontSendNotification);
@@ -384,8 +395,10 @@ BeatEqualizerAudioProcessorEditor::BeatEqualizerAudioProcessorEditor(BeatEqualiz
             "global.glideStrength",
             glideStrengthSlider);
     scopeTimeParam = state.getRawParameterValue("global.scopeTimeMs");
+    uiModeParam = state.getRawParameterValue("global.uiMode");
 
     audioProcessor.addChangeListener(this);
+    updateUiModeVisibility();
     updateLayoutInfo();
     updateRowVisibility();
     updateAnalysisStatus();
@@ -417,6 +430,8 @@ void BeatEqualizerAudioProcessorEditor::paint(juce::Graphics& g)
     layoutLabel.setColour(juce::Label::textColourId, juce::Colour(0xffc5cad3));
     latencyLabel.setColour(juce::Label::textColourId, juce::Colour(0xffe8c547));
     hint.setColour(juce::Label::textColourId, juce::Colour(0xff8b919c));
+    basicModeButton.setColour(juce::TextButton::textColourOffId, juce::Colour(0xffc5cad3));
+    advancedModeButton.setColour(juce::TextButton::textColourOffId, juce::Colour(0xffc5cad3));
     monoSumButton.setColour(juce::ToggleButton::textColourId, juce::Colours::white);
     analysisStatus.setColour(juce::Label::textColourId, juce::Colour(0xffc5cad3));
     benchLabel.setColour(juce::Label::textColourId, juce::Colour(0xff8b919c));
@@ -437,21 +452,36 @@ void BeatEqualizerAudioProcessorEditor::paint(juce::Graphics& g)
 
 int BeatEqualizerAudioProcessorEditor::chromeHeight() const
 {
-    return 2 * kMargin + kTitleHeight + kGapS + kHintHeight + kGapM + kControlsHeight + kGapS
-           + kAnalysisHeight
-           + (standalone ? kGapS + kSourceHeight + kGapS + kBenchHeight + kGapS
-                               + kBenchTransportHeight
-                         : 0)
-           + kGapL
-           + Correlometer::kHeight + kGapL + kScopeControlsHeight + kGapS + kTableHeaderHeight;
+    const bool advanced = isAdvancedMode();
+    int height = 2 * kMargin + kTitleHeight + kGapS + kHintHeight + kGapM + kControlsHeight
+                 + kGapS + kAnalysisHeight;
+
+    if (standalone)
+    {
+        if (advanced)
+            height += kGapS + kSourceHeight;
+
+        height += kGapS + kBenchHeight + kGapS + kBenchTransportHeight;
+    }
+
+    height += kGapL;
+    if (advanced)
+        height += Correlometer::kHeight + kGapL + kScopeControlsHeight + kGapS;
+
+    return height + kTableHeaderHeight;
 }
 
 void BeatEqualizerAudioProcessorEditor::resized()
 {
+    const bool advanced = isAdvancedMode();
     auto area = getLocalBounds().reduced(kMargin);
 
     auto titleRow = area.removeFromTop(kTitleHeight);
     title.setBounds(titleRow.removeFromLeft(320));
+    auto mode = titleRow.removeFromRight(164);
+    basicModeButton.setBounds(mode.removeFromLeft(78));
+    mode.removeFromLeft(8);
+    advancedModeButton.setBounds(mode);
     latencyLabel.setBounds(titleRow.removeFromRight(220));
     layoutLabel.setBounds(titleRow);
 
@@ -466,30 +496,40 @@ void BeatEqualizerAudioProcessorEditor::resized()
     referenceLabel.setBounds(controls.removeFromLeft(76));
     referenceBox.setBounds(controls.removeFromLeft(90));
     controls.removeFromLeft(12);
-    distanceLabel.setBounds(controls.removeFromLeft(120));
-    distanceSlider.setBounds(controls);
+    if (advanced)
+    {
+        distanceLabel.setBounds(controls.removeFromLeft(120));
+        distanceSlider.setBounds(controls);
+    }
 
     area.removeFromTop(kGapS);
     auto analysisRow = area.removeFromTop(kAnalysisHeight);
     analyzeButton.setBounds(analysisRow.removeFromLeft(120));
     analysisRow.removeFromLeft(12);
-    freezeButton.setBounds(analysisRow.removeFromLeft(90));
-    analysisRow.removeFromLeft(12);
-    if (standalone)
+    if (advanced)
     {
-        glideStrengthLabel.setBounds(analysisRow.removeFromLeft(42));
-        glideStrengthSlider.setBounds(analysisRow.removeFromLeft(150));
+        freezeButton.setBounds(analysisRow.removeFromLeft(90));
         analysisRow.removeFromLeft(12);
+        if (standalone)
+        {
+            glideStrengthLabel.setBounds(analysisRow.removeFromLeft(42));
+            glideStrengthSlider.setBounds(analysisRow.removeFromLeft(150));
+            analysisRow.removeFromLeft(12);
+        }
     }
-    coherenceLabel.setBounds(analysisRow.removeFromRight(240));
+    if (advanced)
+        coherenceLabel.setBounds(analysisRow.removeFromRight(240));
     if (standalone)
         detectStatus.setBounds(analysisRow.removeFromRight(300));
     analysisStatus.setBounds(analysisRow);
 
     if (standalone)
     {
-        area.removeFromTop(kGapS);
-        sourceStatus.setBounds(area.removeFromTop(kSourceHeight));
+        if (advanced)
+        {
+            area.removeFromTop(kGapS);
+            sourceStatus.setBounds(area.removeFromTop(kSourceHeight));
+        }
 
         area.removeFromTop(kGapS);
         auto bench = area.removeFromTop(kBenchHeight);
@@ -518,22 +558,25 @@ void BeatEqualizerAudioProcessorEditor::resized()
     }
 
     area.removeFromTop(kGapL);
-    correlometer.setBounds(area.removeFromTop(Correlometer::kHeight));
-    area.removeFromTop(kGapL);
+    if (advanced)
+    {
+        correlometer.setBounds(area.removeFromTop(Correlometer::kHeight));
+        area.removeFromTop(kGapL);
 
-    auto scopeControls = area.removeFromTop(kScopeControlsHeight);
-    scopeHeader.setBounds(scopeControls.removeFromLeft(300));
-    tempoLabel.setBounds(scopeControls.removeFromLeft(52));
-    tempoBox.setBounds(scopeControls.removeFromLeft(84));
-    scopeControls.removeFromLeft(6);
-    tempoSlider.setBounds(scopeControls.removeFromLeft(180));
-    scopeControls.removeFromLeft(10);
-    gridLabel.setBounds(scopeControls.removeFromLeft(36));
-    gridBox.setBounds(scopeControls.removeFromLeft(84));
-    scopeControls.removeFromLeft(10);
-    timeLabel.setBounds(scopeControls.removeFromLeft(40));
-    timeSlider.setBounds(scopeControls);
-    area.removeFromTop(kGapS);
+        auto scopeControls = area.removeFromTop(kScopeControlsHeight);
+        scopeHeader.setBounds(scopeControls.removeFromLeft(300));
+        tempoLabel.setBounds(scopeControls.removeFromLeft(52));
+        tempoBox.setBounds(scopeControls.removeFromLeft(84));
+        scopeControls.removeFromLeft(6);
+        tempoSlider.setBounds(scopeControls.removeFromLeft(180));
+        scopeControls.removeFromLeft(10);
+        gridLabel.setBounds(scopeControls.removeFromLeft(36));
+        gridBox.setBounds(scopeControls.removeFromLeft(84));
+        scopeControls.removeFromLeft(10);
+        timeLabel.setBounds(scopeControls.removeFromLeft(40));
+        timeSlider.setBounds(scopeControls);
+        area.removeFromTop(kGapS);
+    }
 
     const int active = juce::jmax(1, activeChannelCount());
     const auto headerColumns =
@@ -570,6 +613,7 @@ void BeatEqualizerAudioProcessorEditor::resized()
 
 void BeatEqualizerAudioProcessorEditor::changeListenerCallback(juce::ChangeBroadcaster*)
 {
+    updateUiModeVisibility();
     updateLayoutInfo();
     updateRowVisibility();
     updateAnalysisStatus();
@@ -579,6 +623,7 @@ void BeatEqualizerAudioProcessorEditor::changeListenerCallback(juce::ChangeBroad
 
 void BeatEqualizerAudioProcessorEditor::timerCallback()
 {
+    updateUiModeControls();
     updateLayoutInfo();
     updateAnalysisStatus();
     updateBench();
@@ -845,6 +890,77 @@ int BeatEqualizerAudioProcessorEditor::activeChannelCount() const
     const int channels = juce::jmax(audioProcessor.getTotalNumInputChannels(),
                                     audioProcessor.getFilePlayer().numChannels());
     return juce::jlimit(1, beat::kMaxChannels, channels);
+}
+
+BeatEqualizerAudioProcessorEditor::UiMode BeatEqualizerAudioProcessorEditor::getUiMode() const
+{
+    return isAdvancedMode() ? UiMode::advanced : UiMode::basic;
+}
+
+void BeatEqualizerAudioProcessorEditor::refreshUiMode()
+{
+    updateUiModeVisibility();
+    updateEditorSizeForMode();
+    resized();
+}
+
+void BeatEqualizerAudioProcessorEditor::setUiMode(UiMode mode)
+{
+    if (auto* param = audioProcessor.getParameters().getParameter("global.uiMode"))
+        param->setValueNotifyingHost(param->convertTo0to1(static_cast<float>(mode)));
+
+    updateUiModeVisibility();
+    updateEditorSizeForMode();
+    resized();
+}
+
+bool BeatEqualizerAudioProcessorEditor::isAdvancedMode() const
+{
+    return uiModeParam != nullptr && uiModeParam->load() >= 0.5f;
+}
+
+void BeatEqualizerAudioProcessorEditor::updateUiModeControls()
+{
+    const bool advanced = isAdvancedMode();
+    basicModeButton.setToggleState(!advanced, juce::dontSendNotification);
+    advancedModeButton.setToggleState(advanced, juce::dontSendNotification);
+}
+
+void BeatEqualizerAudioProcessorEditor::updateUiModeVisibility()
+{
+    const bool advanced = isAdvancedMode();
+
+    updateUiModeControls();
+    distanceLabel.setVisible(advanced);
+    distanceSlider.setVisible(advanced);
+    freezeButton.setVisible(advanced);
+    coherenceLabel.setVisible(advanced);
+    correlometer.setVisible(advanced);
+    scopeHeader.setVisible(advanced);
+    tempoLabel.setVisible(advanced);
+    tempoBox.setVisible(advanced);
+    tempoSlider.setVisible(advanced);
+    gridLabel.setVisible(advanced);
+    gridBox.setVisible(advanced);
+    timeLabel.setVisible(advanced);
+    timeSlider.setVisible(advanced);
+    scopeTimeLeft.setVisible(advanced);
+    scopeTimeRight.setVisible(advanced);
+
+    sourceStatus.setVisible(standalone && advanced);
+    glideStrengthLabel.setVisible(standalone && advanced);
+    glideStrengthSlider.setVisible(standalone && advanced);
+}
+
+void BeatEqualizerAudioProcessorEditor::updateEditorSizeForMode()
+{
+    const int minWidth = 2 * kMargin + ChannelRow::kControlsWidth + ChannelRow::kMinScopeWidth;
+    const int active = juce::jmax(1, activeChannelCount());
+    setResizeLimits(minWidth,
+                    chromeHeight() + ChannelRow::kHeight,
+                    2400,
+                    chromeHeight() + beat::kMaxChannels * ChannelRow::kHeight);
+    setSize(getWidth(), chromeHeight() + active * ChannelRow::kHeight);
 }
 
 bool BeatEqualizerAudioProcessorEditor::isAudible(int channel) const

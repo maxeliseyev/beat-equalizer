@@ -3,6 +3,16 @@
 Формат: [Keep a Changelog](https://keepachangelog.com/). Версия — semver
 `major.minor.patch`. Источник правды: файл `VERSION`. Как бампать: `docs/versioning.md`.
 
+## 0.22.0 — 2026-09-03
+
+### Added
+
+- **Basic/Advanced UI foundation.** Добавлен персистентный параметр
+  `global.uiMode` и переключатель в header. Basic теперь выбран по умолчанию и
+  скрывает верхнеуровневые advanced-блоки: max distance/freeze, glide strength,
+  source status, correlometer и grid/time/tempo controls. Advanced возвращает
+  текущий инженерный экран.
+
 ## 0.21.0 — 2026-09-03
 
 ### Added

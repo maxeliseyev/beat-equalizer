@@ -19,6 +19,12 @@ class BeatEqualizerAudioProcessorEditor final : public juce::AudioProcessorEdito
                                                 private juce::Timer
 {
 public:
+    enum class UiMode
+    {
+        basic = 0,
+        advanced = 1
+    };
+
     explicit BeatEqualizerAudioProcessorEditor(BeatEqualizerAudioProcessor&);
     ~BeatEqualizerAudioProcessorEditor() override;
 
@@ -35,6 +41,13 @@ public:
     int activeChannelCount() const;
     ChannelRow& getRow(int index) { return *rows[static_cast<size_t>(index)]; }
     juce::String getSourceStatusText() const { return sourceStatus.getText(); }
+    UiMode getUiMode() const;
+    void refreshUiMode();
+    bool isAdvancedChromeVisible() const { return correlometer.isVisible(); }
+    bool isSourceStatusVisible() const { return sourceStatus.isVisible(); }
+    bool isGlideStrengthVisible() const { return glideStrengthSlider.isVisible(); }
+    bool isScopeGridVisible() const { return gridBox.isVisible(); }
+    bool isDistanceControlVisible() const { return distanceSlider.isVisible(); }
     int chromeHeight() const;
     // Тестам нужно попасть в полосу обзора и обновить её без таймера.
     juce::Rectangle<int> getOverviewBounds() const { return overview.getBounds(); }
@@ -53,6 +66,11 @@ private:
     void updateDetection();
     void updateTransportRow();
     void syncChannelCount();
+    void setUiMode(UiMode mode);
+    void updateUiModeControls();
+    void updateUiModeVisibility();
+    void updateEditorSizeForMode();
+    bool isAdvancedMode() const;
     // Колонки монитора появляются вместе с материалом стенда и исчезают с ним.
     void setMonitorColumns(bool visible);
     void updateChannelNames();
@@ -67,6 +85,8 @@ private:
     juce::Label layoutLabel;
     juce::Label latencyLabel;
     juce::Label hint;
+    juce::TextButton basicModeButton { "Basic" };
+    juce::TextButton advancedModeButton { "Advanced" };
 
     juce::TextButton loadButton { "Load files..." };
     juce::TextButton rewindButton { "|<" };
@@ -160,6 +180,7 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>
         glideStrengthAttachment;
     std::atomic<float>* scopeTimeParam = nullptr;
+    std::atomic<float>* uiModeParam = nullptr;
     juce::String lastGlideStatus;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(BeatEqualizerAudioProcessorEditor)

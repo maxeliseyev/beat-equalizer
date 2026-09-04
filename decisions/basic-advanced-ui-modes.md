@@ -49,10 +49,14 @@ matrices or per-hit debug numbers part of the future Basic first screen.
 
 ## Implementation sketch
 
-1. Add a `UiMode` enum in the plugin UI layer, defaulting to Basic.
-2. Add a compact segmented toggle in the header.
-3. Group controls into named UI blocks: essential, transport, monitor, static
-   alignment, source diagnostics, waveform/grid, export.
-4. In Basic, keep essential/transport/export visible and collapse advanced
-   blocks behind the mode switch.
-5. Keep tests at the block level: mode changes visibility, not measured values.
+Roll the decision out as separate PRs:
+
+1. Foundation: add `global.uiMode`, a `UiMode` enum in the plugin UI layer, a
+   compact header toggle, named visible blocks, and block-level tests. Basic is
+   the default; Advanced restores the current bench.
+2. Channel table: make `ChannelColumns` and `ChannelRow` mode-aware. Basic gets
+   fewer columns and more waveform width; Advanced keeps every current column.
+3. Basic outcome/status: replace engineering strings in Basic with a short
+   user-facing result and next action, while keeping detailed text in Advanced.
+4. Advanced diagnostics v2: add the full source-centric table, role-aware
+   room/OH return, and manual diagnostic controls.
