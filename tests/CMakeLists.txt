@@ -15,6 +15,7 @@ add_executable(beat_tests
     test_scope_ring.cpp
     test_document.cpp
     test_delay_field.cpp
+    test_edit_region_plan.cpp
     test_protected_zone.cpp
     test_synthetic_kit.cpp
     test_onset_analysis.cpp

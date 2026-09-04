@@ -3,6 +3,15 @@
 Формат: [Keep a Changelog](https://keepachangelog.com/). Версия — semver
 `major.minor.patch`. Источник правды: файл `VERSION`. Как бампать: `docs/versioning.md`.
 
+## 0.26.0 — 2026-09-04
+
+### Added
+
+- **Edit region plan в `beat_doc`.** Документ теперь строит shared regions
+  между соседними событиями: protected zones берутся как union атак по всем
+  микрофонам, body остаётся будущему WSOLA на decay, join резервируется под
+  равноамплитудный crossfade, а нехватка бюджета явно отмечается статусом.
+
 ## 0.25.0 — 2026-09-04
 
 ### Added

@@ -3,6 +3,7 @@ add_library(beat_doc STATIC
     DelayField.cpp
     Document.cpp
     EditLog.cpp
+    EditRegionPlan.cpp
     Event.cpp
     FeatureCache.cpp
     ProtectedZone.cpp
