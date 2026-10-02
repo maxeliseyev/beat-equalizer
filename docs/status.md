@@ -1,41 +1,39 @@
 # Status
 
-Updated: 2026-09-04
+Updated: 2026-09-05
 Stage: 2 (редактор в standalone)
-Plan step: macOS onboarding prerequisites для второго разработчика
-Branch: `docs/macos-onboarding-prereqs`
-PR: #49 draft — https://github.com/maxeliseyev/beat-equalizer/pull/49
+Plan step: продуктовая дорожная карта этапов 2+
+Branch: `docs/product-roadmap`
+PR: #50 draft — https://github.com/maxeliseyev/beat-equalizer/pull/50
 Blockers: none
 
 ## Done
 
-- PR #48 смёржен в `main` squash-коммитом `8a58f18` 2026-09-04:
-  `CrossfadeEditAdapter` добавлен в `beat_doc`.
-- Ветка `docs/macos-onboarding-prereqs` начата от актуального `main`.
-- `docs/onboarding.md` дополнен явным macOS dev setup: Command Line Tools,
-  Homebrew-пакеты, проверка окружения, `gh auth`, Reaper host-smoke и
-  release-only требования.
-- `README.md` ссылается на onboarding как источник macOS setup.
-- `VERSION` поднят до `0.28.1`, `CHANGELOG.md` обновлён.
+- PR #49 смёржен в `main` squash-коммитом `f4ce518` 2026-09-04:
+  macOS onboarding prerequisites зафиксированы в документации.
+- Ветка `docs/product-roadmap` начата от актуального `main`.
+- `docs/drum-editor-plan.md` расширен: этапы 2–5 получили продуктовые срезы,
+  gates, релизную линию и post-v1 discovery-очередь.
+- Reaper `.RPP` export убран из этапа 2 и оставлен delivery-адаптером этапа 4.
+- `VERSION` поднят до `0.28.2`, `CHANGELOG.md` и handoff обновлены.
+- `rtk git diff --check` и `rtk make test` зелёные.
 
 ## Now
 
-- Документационная правка готовится к draft PR.
-- `rtk git diff --check` и `rtk make test` зелёные.
-- PR #49 открыт draft.
-- Код DSP/doc/plugin не менялся.
+- Документационная правка готова; draft PR #50 открыт.
+- Код DSP/doc/plugin и поведение приложения не менялись.
 
 ## Next
 
-После merge PR #49 вернуться к этапу 2, шагу 7.2 — Standalone
-`Export crossfade...` поверх adapter + `CrossfadeRenderer`.
+- После merge продолжить этап 2, шаг 7.2: Standalone
+  `Export crossfade...` поверх adapter + `CrossfadeRenderer`.
 
 ## Resume
 
-1. `git fetch && git checkout docs/macos-onboarding-prereqs && git pull`
-2. Читать `docs/onboarding.md`
-3. `rtk git diff --check`
-4. Проверить PR #49; после merge начать Standalone `Export crossfade...`.
+1. `git fetch && git checkout docs/product-roadmap && git pull`
+2. Читать секцию 9 в `docs/drum-editor-plan.md`
+3. `rtk git diff --check && rtk make test`
+4. Проверить PR #50; после merge начать Standalone `Export crossfade...`.
 
 ## Open
 
